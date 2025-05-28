@@ -6,8 +6,13 @@ import {
   InsertQuiz, 
   UpdateQuiz,
   Analytics,
-  DashboardStats 
+  DashboardStats,
+  lessons,
+  quizzes,
+  analytics
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Lessons
@@ -35,7 +40,7 @@ export interface IStorage {
   importQuizzes(quizzes: InsertQuiz[]): Promise<Quiz[]>;
 }
 
-export class MemStorage implements IStorage {
+export class DatabaseStorage implements IStorage {
   private lessons: Map<number, Lesson>;
   private quizzes: Map<number, Quiz>;
   private analytics: Map<number, Analytics>;
