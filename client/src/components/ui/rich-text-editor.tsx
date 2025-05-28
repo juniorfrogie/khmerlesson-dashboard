@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bold, Italic, Underline, List, ListOrdered, Type, BookOpen, MessageCircle } from "lucide-react";
+import { Bold, Italic, Underline, List, ListOrdered, Type, BookOpen } from "lucide-react";
 import VocabularyEditor from "./vocabulary-editor";
-import DialogueEditor from "./dialogue-editor";
 
 interface RichTextEditorProps {
   value: string;
@@ -22,15 +21,13 @@ export default function RichTextEditor({
   sectionTitle = ""
 }: RichTextEditorProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const [editorMode, setEditorMode] = useState<'freetext' | 'vocabulary' | 'dialogue'>('freetext');
+  const [editorMode, setEditorMode] = useState<'vocabulary' | 'freetext'>('vocabulary');
 
   // Auto-detect content type based on section title
   useEffect(() => {
     const title = sectionTitle.toLowerCase();
-    if (title.includes('vocabulary') || title.includes('word')) {
+    if (title.includes('vocabulary') || title.includes('word') || title.includes('key')) {
       setEditorMode('vocabulary');
-    } else if (title.includes('dialogue') || title.includes('conversation')) {
-      setEditorMode('dialogue');
     } else {
       setEditorMode('freetext');
     }
@@ -81,18 +78,14 @@ export default function RichTextEditor({
         {/* Toolbar with Mode Tabs */}
         <div className="border-b border-gray-200 p-2">
           <div className="flex items-center justify-between">
-            <TabsList className="grid w-fit grid-cols-3">
-              <TabsTrigger value="freetext" className="text-xs">
-                <Type className="h-3 w-3 mr-1" />
-                Free Text
-              </TabsTrigger>
+            <TabsList className="grid w-fit grid-cols-2">
               <TabsTrigger value="vocabulary" className="text-xs">
                 <BookOpen className="h-3 w-3 mr-1" />
                 Vocabulary
               </TabsTrigger>
-              <TabsTrigger value="dialogue" className="text-xs">
-                <MessageCircle className="h-3 w-3 mr-1" />
-                Dialogue
+              <TabsTrigger value="freetext" className="text-xs">
+                <Type className="h-3 w-3 mr-1" />
+                Free Text
               </TabsTrigger>
             </TabsList>
             
@@ -104,6 +97,14 @@ export default function RichTextEditor({
         </div>
         
         {/* Content Areas */}
+        <TabsContent value="vocabulary" className="mt-0 p-4">
+          <VocabularyEditor
+            value={value}
+            onChange={onChange}
+            placeholder="Add vocabulary entries..."
+          />
+        </TabsContent>
+        
         <TabsContent value="freetext" className="mt-0">
           <div className="p-2 border-b border-gray-200">
             <div className="flex items-center space-x-1">
@@ -163,22 +164,6 @@ export default function RichTextEditor({
             onBlur={() => setIsFocused(false)}
             placeholder={placeholder}
             className="min-h-[120px] border-0 focus-visible:ring-0 resize-none khmer-text"
-          />
-        </TabsContent>
-        
-        <TabsContent value="vocabulary" className="mt-0 p-4">
-          <VocabularyEditor
-            value={value}
-            onChange={onChange}
-            placeholder="Add vocabulary entries..."
-          />
-        </TabsContent>
-        
-        <TabsContent value="dialogue" className="mt-0 p-4">
-          <DialogueEditor
-            value={value}
-            onChange={onChange}
-            placeholder="Add dialogue entries..."
           />
         </TabsContent>
       </Tabs>
