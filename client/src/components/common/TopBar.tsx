@@ -32,6 +32,11 @@ const pageConfig = {
     subtitle: "Manage content data",
     action: { text: "Import Data", icon: Plus },
   },
+  "api-settings": {
+    title: "API Settings",
+    subtitle: "Manage API keys and documentation",
+    action: { text: "Generate Key", icon: Plus },
+  },
 };
 
 export default function TopBar({ activeView }: TopBarProps) {
