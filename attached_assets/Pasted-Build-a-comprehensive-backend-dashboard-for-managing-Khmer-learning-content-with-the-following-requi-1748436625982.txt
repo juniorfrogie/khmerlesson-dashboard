@@ -1,0 +1,46 @@
+Build a comprehensive backend dashboard for managing Khmer learning content with the following requirements:
+Core Functionality
+
+Lesson Management: Full CRUD operations (Create, Read, Update, Delete) for lessons with form validation
+Quiz Management: Create and edit quiz questions with multiple-choice answers and correct answer validation
+Content Preview: Real-time preview of how lessons and quizzes will appear to students
+Bulk Operations: Import/export lessons and quizzes via CSV or JSON
+
+Data Structure Integration
+
+Use the exact data structures from the provided documentation
+Support all lesson types: alphabet, activity, numbers, food, travel, conversation, question
+Handle both free and paid lesson configurations
+Manage lesson sections with title and content fields
+
+User Interface Requirements
+
+Dashboard Overview: Statistics showing total lessons, quizzes, and content distribution
+Lesson Editor: Rich text editor for lesson content with Khmer script support
+Quiz Builder: Drag-and-drop interface for creating quiz questions with answer validation
+Content Organization: Sortable tables with filtering by level (Beginner/Intermediate/Advanced) and type
+Responsive Design: Works well on desktop and tablet devices
+
+Technical Specifications
+
+Build as a React application using modern hooks (useState, useEffect)
+Include form validation with error handling
+Implement search and filtering capabilities
+Add confirmation dialogs for delete operations
+Support undo/redo functionality for content editing
+Include auto-save functionality to prevent data loss
+
+Data Management
+
+Local storage for development (as per artifact requirements)
+Export functionality to save content as JSON
+Import validation to ensure data integrity
+Support for lesson content with multiple sections
+Quiz answer tracking and scoring logic
+
+Administrative Features
+
+Content publishing workflow (draft/published states)
+Lesson pricing management for paid content
+Analytics dashboard showing lesson completion rates
+User-friendly error messages and success notifications
