@@ -8,7 +8,7 @@ import LessonsView from "@/components/lessons/LessonsView";
 import QuizzesView from "@/components/quizzes/QuizzesView";
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal";
 
-export type ActiveView = "dashboard" | "lessons" | "quizzes" | "analytics" | "import-export";
+export type ActiveView = "dashboard" | "lessons" | "quizzes" | "analytics" | "import-export" | "api-settings";
 
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
