@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Filter, Plus, Edit, Eye, Trash2 } from "lucide-react";
+import { Search, Filter, Plus, Edit, Eye, Trash2, BookOpen } from "lucide-react";
 import { Lesson } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -20,9 +20,9 @@ interface LessonsViewProps {
 
 export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [levelFilter, setLevelFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [levelFilter, setLevelFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLessons, setSelectedLessons] = useState<number[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
@@ -31,7 +31,12 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   const { toast } = useToast();
 
   const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
-    queryKey: ["/api/lessons", { search: searchTerm, level: levelFilter, type: typeFilter, status: statusFilter }],
+    queryKey: ["/api/lessons", { 
+      search: searchTerm, 
+      level: levelFilter === "all" ? "" : levelFilter, 
+      type: typeFilter === "all" ? "" : typeFilter, 
+      status: statusFilter === "all" ? "" : statusFilter 
+    }],
   });
 
   const deleteMutation = useMutation({
@@ -142,7 +147,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                   <SelectValue placeholder="All Levels" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Levels</SelectItem>
+                  <SelectItem value="all">All Levels</SelectItem>
                   <SelectItem value="Beginner">Beginner</SelectItem>
                   <SelectItem value="Intermediate">Intermediate</SelectItem>
                   <SelectItem value="Advanced">Advanced</SelectItem>
@@ -154,7 +159,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   {Object.keys(IMAGE_MAP).map(type => (
                     <SelectItem key={type} value={type}>
                       {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -168,7 +173,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="published">Published</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
                 </SelectContent>
@@ -231,7 +236,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                         <td className="p-4">
                           <div className="flex items-center">
                             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                              <span className="text-lg">{IMAGE_MAP[lesson.image] || "📚"}</span>
+                              <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span>
                             </div>
                             <div>
                               <p className="font-medium neutral-dark">{lesson.title}</p>

@@ -17,14 +17,14 @@ interface QuizzesViewProps {
 
 export default function QuizzesView({ onDelete }: QuizzesViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
 
   const { toast } = useToast();
 
   const { data: quizzes = [], isLoading } = useQuery<Quiz[]>({
-    queryKey: ["/api/quizzes", { search: searchTerm, status: statusFilter }],
+    queryKey: ["/api/quizzes", { search: searchTerm, status: statusFilter === "all" ? "" : statusFilter }],
   });
 
   const deleteMutation = useMutation({
@@ -108,7 +108,7 @@ export default function QuizzesView({ onDelete }: QuizzesViewProps) {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
                 </SelectContent>
