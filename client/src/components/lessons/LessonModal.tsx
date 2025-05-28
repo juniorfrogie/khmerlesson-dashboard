@@ -95,14 +95,9 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
       <Dialog open={isOpen && !showPreview} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <DialogTitle>
-                {lesson ? "Edit Lesson" : "Create New Lesson"}
-              </DialogTitle>
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <DialogTitle>
+              {lesson ? "Edit Lesson" : "Create New Lesson"}
+            </DialogTitle>
           </DialogHeader>
           
           <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">

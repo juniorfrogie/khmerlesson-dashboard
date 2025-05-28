@@ -27,15 +27,10 @@ export default function LessonPreview({ lesson, isOpen, onClose, isFormPreview =
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center">
-              <BookOpen className="mr-2 h-5 w-5" />
-              Lesson Preview
-            </DialogTitle>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className="flex items-center">
+            <BookOpen className="mr-2 h-5 w-5" />
+            Lesson Preview
+          </DialogTitle>
         </DialogHeader>
         
         <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">
