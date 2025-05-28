@@ -7,6 +7,7 @@ import ContentDistribution from "@/components/dashboard/ContentDistribution";
 import LessonsView from "@/components/lessons/LessonsView";
 import QuizzesView from "@/components/quizzes/QuizzesView";
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal";
+import APISettings from "./api-settings";
 
 export type ActiveView = "dashboard" | "lessons" | "quizzes" | "analytics" | "import-export" | "api-settings";
 
@@ -72,6 +73,8 @@ export default function Dashboard() {
             <p className="neutral-medium">Import/Export feature coming soon...</p>
           </div>
         );
+      case "api-settings":
+        return <APISettings />;
       default:
         return null;
     }

@@ -3,8 +3,11 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLessonSchema, updateLessonSchema, insertQuizSchema, updateQuizSchema } from "@shared/schema";
 import { z } from "zod";
+import apiRoutes from "./api";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Mount public API routes
+  app.use("/api/v1", apiRoutes);
   // Dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
