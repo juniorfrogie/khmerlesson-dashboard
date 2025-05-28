@@ -282,6 +282,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
                             value={field.value}
                             onChange={field.onChange}
                             placeholder="Section content (supports Khmer script)"
+                            sectionTitle={form.watch(`sections.${index}.title`) || ""}
                           />
                         </FormControl>
                         <FormMessage />
