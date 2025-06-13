@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp } from "drizzle-orm/pg-core";
+import exp from "constants";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -27,6 +28,18 @@ export const quizzes = pgTable("quizzes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  password: varchar("password", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  role: varchar("role", { length: 50 }).notNull().default("student"), // "admin" | "teacher" | "student"
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const analytics = pgTable("analytics", {
   id: serial("id").primaryKey(),
   lessonId: integer("lesson_id"),
@@ -34,6 +47,35 @@ export const analytics = pgTable("analytics", {
   completions: integer("completions").default(0),
   averageScore: integer("average_score"), // for quizzes
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const purchase_history = pgTable("purchase_history", {
+  id: serial("id").primaryKey(),
+  purchaseId: varchar("purchase_id").notNull(),
+  userId: integer("user_id").references(() => users.id, {onDelete: 'cascade'}).notNull(),
+  userEmail: varchar("user_email").references(() => users.email, {onDelete: 'cascade'}).notNull(),
+  lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: 'cascade'}).notNull(),
+  purchaseDate: varchar("purchase_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+export const blacklist = pgTable("blacklist", {
+  token: varchar("token").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiredAt: timestamp("expired_at").notNull()
+});
+
+// Blacklist schema
+export const insertBlacklistSchema = createInsertSchema(blacklist).omit({
+  createdAt: true
+});
+
+// Purchase History schema
+export const insertPurchaseHistorySchema = createInsertSchema(purchase_history).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
 });
 
 // Lesson schema
@@ -54,7 +96,33 @@ export const insertQuizSchema = createInsertSchema(quizzes).omit({
 
 export const updateQuizSchema = insertQuizSchema.partial();
 
+// User schema
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const updateUserSchema = insertUserSchema.partial().omit({
+  password: true,
+});
+
 // Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpdateUser = z.infer<typeof updateUserSchema>;
+export type LoginUser = z.infer<typeof loginSchema>;
+
 export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type UpdateLesson = z.infer<typeof updateLessonSchema>;
@@ -64,6 +132,12 @@ export type InsertQuiz = z.infer<typeof insertQuizSchema>;
 export type UpdateQuiz = z.infer<typeof updateQuizSchema>;
 
 export type Analytics = typeof analytics.$inferSelect;
+
+export type PurchaseHistory = typeof purchase_history.$inferSelect;
+export type InsertPurchaseHistory = z.infer<typeof insertPurchaseHistorySchema>;
+
+export type Blacklist = typeof blacklist.$inferSelect
+export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
 
 // Lesson section type
 export type LessonSection = {

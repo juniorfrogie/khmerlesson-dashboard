@@ -6,10 +6,11 @@ import RecentContent from "@/components/dashboard/RecentContent";
 import ContentDistribution from "@/components/dashboard/ContentDistribution";
 import LessonsView from "@/components/lessons/LessonsView";
 import QuizzesView from "@/components/quizzes/QuizzesView";
+import UsersView from "@/components/users/UsersView"
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal";
 import APISettings from "./api-settings";
 
-export type ActiveView = "dashboard" | "lessons" | "quizzes" | "analytics" | "import-export" | "api-settings";
+export type ActiveView = "dashboard" | "lessons" | "quizzes"  | "users" | "analytics" | "import-export" | "api-settings";
 
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
@@ -59,6 +60,8 @@ export default function Dashboard() {
         return <LessonsView onDelete={openDeleteModal} />;
       case "quizzes":
         return <QuizzesView onDelete={openDeleteModal} />;
+      case "users":
+        return <UsersView onDelete={openDeleteModal} />;
       case "analytics":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
