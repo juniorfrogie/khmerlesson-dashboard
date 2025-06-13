@@ -7,14 +7,35 @@ import {
   UpdateQuiz,
   Analytics,
   DashboardStats,
+  User,
+  InsertUser,
+  UpdateUser,
   lessons,
   quizzes,
-  analytics
+  analytics,
+  users,
+  purchase_history,
+  PurchaseHistory,
+  InsertPurchaseHistory,
+  InsertBlacklist,
+  blacklist,
+  insertBlacklistSchema,
+  Blacklist
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
+  // Users
+  getAllUsers(): Promise<User[]>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserById(id: number): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: UpdateUser): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
+  verifyPassword(email: string, password: string): Promise<User | null>;
+  
   // Lessons
   getLessons(): Promise<Lesson[]>;
   getLesson(id: number): Promise<Lesson | undefined>;
@@ -38,12 +59,89 @@ export interface IStorage {
   exportQuizzes(): Promise<Quiz[]>;
   importLessons(lessons: InsertLesson[]): Promise<Lesson[]>;
   importQuizzes(quizzes: InsertQuiz[]): Promise<Quiz[]>;
+
+  // Purchase History
+  createPurchaseHistory(insertPurchaseHistory: InsertPurchaseHistory): Promise<PurchaseHistory>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // User operations
+  async getAllUsers(): Promise<User[]> {
+    const result = await db.select().from(users).orderBy(users.createdAt);
+    return result;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    // Hash the password before storing
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(insertUser.password, saltRounds);
+    
+    const userToInsert = {
+      ...insertUser,
+      password: hashedPassword,
+    };
+
+    const [user] = await db.insert(users).values(userToInsert).returning();
+    return user;
+  }
+
+  async updateUser(id: number, updateUser: UpdateUser): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ ...updateUser, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async verifyPassword(email: string, password: string): Promise<User | null> {
+    const user = await this.getUserByEmail(email);
+    if (!user) return null;
+
+    const isValid = await bcrypt.compare(password, user.password);
+    return isValid ? user : null;
+  }
+
+  // Lesson operations
   async getLessons(): Promise<Lesson[]> {
     const result = await db.select().from(lessons).orderBy(lessons.createdAt);
     return result;
+  }
+
+    // Lesson operations
+  async getLessonsJoin(user: User): Promise<any> {
+    const result = await db.select().from(users)
+    .innerJoin(purchase_history, eq(users.id, purchase_history.userId))
+    .fullJoin(lessons, eq(lessons.id, purchase_history.lessonId))
+    .orderBy(lessons.createdAt);
+    const publishedLessons = result.filter(e => e.lessons?.status == "published").map(e => ({
+      id: e.lessons?.id,
+      title: e.lessons?.title,
+      description: e.lessons?.description,
+      level: e.lessons?.level,
+      image: e.lessons?.image,
+      free: e.lessons?.free,
+      price: e.lessons?.price,
+      hasPurchased: e.purchase_history?.lessonId === e.lessons?.id && e.purchase_history?.userId === user.id,
+      createdAt: e.lessons?.createdAt,
+      updatedAt: e.lessons?.updatedAt
+    }))
+    return publishedLessons;
   }
 
   async getLesson(id: number): Promise<Lesson | undefined> {
@@ -179,6 +277,38 @@ export class DatabaseStorage implements IStorage {
       imported.push(await this.createQuiz(quiz));
     }
     return imported;
+  }
+
+  async createPurchaseHistory(insertPurchaseHistory: InsertPurchaseHistory): Promise<PurchaseHistory> {
+    const [purchaseHistory] = await db
+      .insert(purchase_history)
+      .values({
+        ...insertPurchaseHistory,
+        purchaseId: insertPurchaseHistory.purchaseId,
+        userId: insertPurchaseHistory.userId,
+        userEmail: insertPurchaseHistory.userEmail,
+        lessonId: insertPurchaseHistory.lessonId,
+        purchaseDate: insertPurchaseHistory.purchaseDate
+      })
+      .returning();
+    return purchaseHistory;
+  }
+
+  async createBlacklist(insertBlacklist: InsertBlacklist): Promise<Blacklist> {
+    const [blacklists] = await db
+      .insert(blacklist)
+      .values({
+        ...insertBlacklistSchema,
+        token: insertBlacklist.token,
+        expiredAt: insertBlacklist.expiredAt
+      })
+      .returning();
+    return blacklists;
+  }
+
+  async getBlacklist(token: string): Promise<Blacklist | undefined> {
+    const [blacklistResult] = await db.select().from(blacklist).where(eq(blacklist.token, token));
+    return blacklistResult || undefined;
   }
 }
 

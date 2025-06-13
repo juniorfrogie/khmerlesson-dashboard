@@ -22,6 +22,11 @@ const pageConfig = {
     subtitle: "Create and manage quiz questions",
     action: { text: "New Quiz", icon: Plus },
   },
+  users: {
+    title: "Users Management",
+    subtitle: "Create and manage users",
+    action: { text: "New Users", icon: Plus },
+  },
   analytics: {
     title: "Analytics",
     subtitle: "View performance metrics",
