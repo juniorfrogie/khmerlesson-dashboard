@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { storage } from "./storage";
-import { insertLessonSchema, insertQuizSchema } from "@shared/schema";
-import { fromError } from "zod-validation-error";
+import { insertPurchaseHistorySchema } from "@shared/schema";
+// import { insertLessonSchema, insertQuizSchema } from "@shared/schema";
+// import { fromError } from "zod-validation-error";
+import jwt from "jsonwebtoken"
 
 const router = Router();
 
@@ -27,34 +29,64 @@ const authenticateAPI = (req: any, res: any, next: any) => {
   next();
 };
 
+const authenticateToken = async (req: any, res: any, next: any) => {
+  const authHeader = req.headers['authorization']
+  const token = authHeader && authHeader.split(' ')[1]
+
+  if (token == null) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+
+  const isBlacklisted = await storage.getBlacklist(token)
+  if (isBlacklisted) {
+    return res.status(401).json({
+      message: "Token is no longer valid. Please log in again.",
+    });
+  }
+
+  jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
+    if (err) return res.status(403).json({message: "Forbidden"})
+
+    req.user = user
+
+    next()
+  })
+}
+
 // Apply authentication to all API routes
 router.use(authenticateAPI);
+router.use(authenticateToken);
 
 // ===== LESSONS API =====
 
 // GET /api/v1/lessons - List all published lessons
-router.get("/lessons", async (req, res) => {
+router.get("/lessons", async (req: any, res: any) => {
   try {
-    const lessons = await storage.getLessons();
-    // Only return published lessons for public API
-    const publishedLessons = lessons
-      .filter(lesson => lesson.status === 'published')
-      .map(lesson => ({
-        id: lesson.id,
-        title: lesson.title,
-        description: lesson.description,
-        level: lesson.level,
-        image: lesson.image,
-        free: lesson.free,
-        price: lesson.price,
-        createdAt: lesson.createdAt,
-        updatedAt: lesson.updatedAt
-      }));
+    // const lessons = await storage.getLessons();
+    // // Only return published lessons for public API
+    // const publishedLessons = lessons
+    //   .filter(lesson => lesson.status === 'published')
+    //   .map(lesson => ({
+    //     id: lesson.id,
+    //     title: lesson.title,
+    //     description: lesson.description,
+    //     level: lesson.level,
+    //     image: lesson.image,
+    //     free: lesson.free,
+    //     price: lesson.price,
+    //     createdAt: lesson.createdAt,
+    //     updatedAt: lesson.updatedAt
+    //   }));
+
+    // res.json({
+    //   success: true,
+    //   data: publishedLessons,
+    //   total: publishedLessons.length
+    // });
     
+    const lessons = await storage.getLessonsJoin(req.user);
     res.json({
       success: true,
-      data: publishedLessons,
-      total: publishedLessons.length
+      data: lessons,
+      total: lessons.length
     });
   } catch (error) {
     res.status(500).json({ 
@@ -400,5 +432,18 @@ router.get("/search", async (req, res) => {
     });
   }
 });
+
+
+// POST /api/v1/lessons/purchase
+router.post("/lessons/purchase", async (req, res) => {
+  try {
+    const validatedData = insertPurchaseHistorySchema.parse(req.body);
+    const purchaseHistory = await storage.createPurchaseHistory(validatedData);
+    res.status(201).json(purchaseHistory);
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ message: "Failed to create purchase!", errors: error });
+  }
+})
 
 export default router;
