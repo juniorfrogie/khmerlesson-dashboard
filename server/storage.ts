@@ -23,7 +23,7 @@ import {
   Blacklist
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { and, eq, not } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -31,10 +31,14 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
+  getUserByResetToken(resetToken: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: UpdateUser): Promise<User | undefined>;
+  updateUserResetToken(email: string, resetToken: string): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
   verifyPassword(email: string, password: string): Promise<User | null>;
+  updatePassword(id: number, password: string): Promise<User | null>
+  loginByAdmin(email: string, password: string): Promise<User | null>;
   
   // Lessons
   getLessons(): Promise<Lesson[]>;
@@ -72,12 +76,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await db.select().from(users).where(and(eq(users.email, email), not(eq(users.role, "admin"))));
     return user;
   }
 
   async getUserById(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByResetToken(resetToken: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.resetToken, resetToken));
     return user;
   }
 
@@ -104,6 +113,15 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUserResetToken(email: string, resetToken: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ resetToken: resetToken, updatedAt: new Date() })
+      .where(eq(users.email, email))
+      .returning();
+    return user;
+  }
+
   async deleteUser(id: number): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
     return (result.rowCount ?? 0) > 0;
@@ -115,6 +133,27 @@ export class DatabaseStorage implements IStorage {
 
     const isValid = await bcrypt.compare(password, user.password);
     return isValid ? user : null;
+  }
+
+  async loginByAdmin(email: string, password: string): Promise<User | null> {
+    const [user] = await db.select().from(users).where(and(eq(users.email, email), eq(users.role, "admin")));
+    if (!user) return null;
+
+    const isValid = await bcrypt.compare(password, user.password);
+    return isValid ? user : null;
+  }
+
+  async updatePassword(id: number, password: string): Promise<User | null> {
+    // Hash the password before storing
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    const [user] = await db
+      .update(users)
+      .set({ password: hashedPassword, resetToken: null, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   // Lesson operations

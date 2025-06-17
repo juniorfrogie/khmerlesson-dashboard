@@ -5,11 +5,33 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
+import ResetPassword from "./pages/reset-password";
+import Login from "./pages/login";
+import { useAuth } from "./hooks/use-auth";
 
 function Router() {
+
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
+    // <Switch>
+    //   <Route path="/" component={Dashboard} />
+    //   <Route path="/reset-password/:token" component={ResetPassword} />
+    //   <Route component={NotFound} />
+    // </Switch>
+
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={isAuthenticated ? Dashboard : Login} />
+      <Route path="/dashboard" component={isAuthenticated ? Dashboard : Login} />
+      <Route path="/reset-password/:token" component={ResetPassword} />
       <Route component={NotFound} />
     </Switch>
   );

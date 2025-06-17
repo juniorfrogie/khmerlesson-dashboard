@@ -1,6 +1,9 @@
 import { ActiveView } from "@/pages/dashboard";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings } from "lucide-react";
+import { LogOut, Plus, Settings } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface TopBarProps {
   activeView: ActiveView;
@@ -27,6 +30,11 @@ const pageConfig = {
     subtitle: "Create and manage users",
     action: { text: "New Users", icon: Plus },
   },
+  purchase_history: {
+    title: "Purchase History Management",
+    subtitle: "Manage purchase history",
+    // action: { text: "New Users", icon: Plus },
+  },
   analytics: {
     title: "Analytics",
     subtitle: "View performance metrics",
@@ -47,6 +55,29 @@ const pageConfig = {
 export default function TopBar({ activeView }: TopBarProps) {
   const config = pageConfig[activeView];
 
+  const [ , setLocation ] = useLocation()
+  const { toast } = useToast()
+  const { logout, isLogoutLoading } = useAuth()
+
+
+  const handleLogout = async () => {
+    try{
+      await logout()
+      toast({
+        title: "Success",
+        description: "Logged out successfully",
+      });
+      setLocation("/");
+      window.location.reload();
+    }catch(error: any){
+      toast({
+        title: "Error",
+        description: error.message || "Failed to log out",
+        variant: "destructive",
+      });
+    }
+  }
+
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -55,12 +86,15 @@ export default function TopBar({ activeView }: TopBarProps) {
           <p className="neutral-medium text-sm">{config.subtitle}</p>
         </div>
         <div className="flex items-center space-x-3">
-          <Button className="bg-fluent-blue hover:bg-blue-600 text-white">
+          {/* <Button className="bg-fluent-blue hover:bg-blue-600 text-white">
             <config.action.icon className="mr-2" size={16} />
             {config.action.text}
-          </Button>
+          </Button> */}
           <Button variant="outline" size="icon">
             <Settings size={16} />
+          </Button>
+          <Button variant="outline" size="icon" onClick={handleLogout} disabled={isLogoutLoading}>
+            <LogOut size={16} />
           </Button>
         </div>
       </div>

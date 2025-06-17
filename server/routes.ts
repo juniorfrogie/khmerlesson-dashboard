@@ -1,11 +1,23 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLessonSchema, updateLessonSchema, insertQuizSchema, updateQuizSchema } from "@shared/schema";
+import { forgotPasswordSchema, loginSchema, insertUserSchema,
+   insertLessonSchema, updateLessonSchema, 
+   insertQuizSchema, updateQuizSchema, 
+   insertBlacklistSchema } from "@shared/schema";
 import { z } from "zod";
 import apiRoutes from "./api";
+import nodemailer from "nodemailer";
+import crypto from "crypto";
+import jwt, { JwtPayload } from "jsonwebtoken";
+import { mailTemplate } from "./mail/mail_template";
+
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  const { TOKEN_SECRET } = process.env
+  const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
+
   // Mount public API routes
   app.use("/api/v1", apiRoutes);
   // Dashboard stats
@@ -250,6 +262,421 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to import quizzes" });
+    }
+  });
+
+  // Register user authentication routes directly to avoid Vite interference
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(409).json({ message: "User already exists with this email" });
+      }
+  
+      const user = await storage.createUser(userData);
+      
+      const { password, ...userResponse } = user;
+      
+      const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+        expiresIn: expiresIn
+      })
+  
+      // const days = 90;
+      // const expirationDate = new Date();
+      // expirationDate.setDate(expirationDate.getDate() + days);
+      // res.cookie("token", token, {
+      //   expires: expirationDate,
+      //   httpOnly: true
+      // })
+  
+      res.status(201).json({
+        message: "User registered successfully",
+        user: userResponse,
+        token: token
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation error",
+          errors: error.errors
+        });
+      }
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+  
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const loginData = loginSchema.parse(req.body);
+      
+      const user = await storage.verifyPassword(loginData.email, loginData.password);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+  
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account is disabled" });
+      }
+  
+      const { password, ...userResponse } = user;
+      const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+        expiresIn: expiresIn
+      })
+  
+      const days = 90;
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + days);
+      res.cookie("token", token, {
+        expires: expirationDate,
+        httpOnly: true
+      })
+      //
+      res.json({
+        message: "Login successful",
+        user: userResponse,
+        token: token
+      });
+    } catch (error) { 
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation error",
+          errors: error.errors
+        });
+      }
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  // Admin Login
+  app.post("/api/auth/admin", async (req, res) => {
+    try {
+      const loginData = loginSchema.parse(req.body);
+      
+      const user = await storage.loginByAdmin(loginData.email, loginData.password);
+      if (!user) {
+        return res.status(401).send("Invalid email or password");
+      }
+  
+      if (!user.isActive) {
+        return res.status(401).send("Account is disabled");
+      }
+  
+      const { password, ...userResponse } = user;
+      const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+        expiresIn: expiresIn
+      })
+  
+      const days = 90;
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + days);
+      res.cookie("token", token, {
+        expires: expirationDate,
+        httpOnly: true
+      })
+      //
+      res.json({
+        user: userResponse,
+        token: token
+      });
+    } catch (error) { 
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation error",
+          errors: error.errors
+        });
+      }
+      console.error("Login error:", error);
+      res.status(500).send("Failed to login");
+    }
+  });
+
+  // Authenication
+  const blacklistToken = async (token: string) => {
+    const decoded = jwt.decode(token) as JwtPayload
+    if(decoded){
+      if(decoded.exp){
+        const expTimestamp = decoded.exp * 1000; // Convert to milliseconds
+
+        const blacklistData = insertBlacklistSchema.parse({
+          token: token,
+          expiredAt: new Date(expTimestamp)
+        })
+        await storage.createBlacklist(blacklistData)
+      }
+    }
+  };
+
+  app.get("/api/auth/logout", async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization']
+    let token = authHeader && authHeader.split(' ')[1]
+
+    if (!token && req.body.token) {
+      token = req.body.token;
+    }
+
+    if (token) {
+      await blacklistToken(token);
+    }
+
+    res.cookie("token", "none", {
+      expires: new Date(Date.now() + 10 * 1000),
+      httpOnly: true
+    })
+
+    res.status(200).json({
+      success: true,
+      message: "Logout successful"
+    })
+  } catch (error) { 
+    console.error("Logout error:", error);
+    res.status(500).json({ message: "Failed to logout" });
+  }
+});
+
+  // Forgot Password
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try{
+      const { email } = forgotPasswordSchema.parse(req.body);
+      const user = await storage.getUserByEmail(email)
+  
+      // Check if the email exists in your user database
+      if (user) {
+        if (!user.isActive) {
+          return res.status(401).json({ message: "Account is disabled" })
+        }
+        // Generate a reset token
+        const token = crypto.randomBytes(20).toString('hex');
+        // Store the token with the user's email in a database or in-memory store
+        //user.resetToken = token;
+        await storage.updateUserResetToken(email, token)
+        // Send the reset token to the user's email
+        const transporter = nodemailer.createTransport({
+          host: process.env.MAIL_HOST,
+          port: 2525,
+          auth: {
+            user: process.env.MAIL_USERNAME,
+            pass: process.env.MAIL_PASSWORD,
+          },
+        });
+  
+        const resetPasswordLink = req.protocol + '://' + req.get('host') + `/reset-password/${token}`
+  
+        const mailOptions = {
+          from: process.env.MAIL_USERNAME,
+          to: email,
+          subject: 'Password Reset',
+          //text: `Click the following link to reset your password: ${resetPasswordLink}`,
+          html: mailTemplate(user.firstName ?? "", resetPasswordLink)
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.log(error);
+            res.status(500).json({message: 'Error sending email'});
+          } else {
+            console.log(`Email sent: ${info.response}`);
+            res.status(200).json({message: 'Check your email for instructions on resetting your password'});
+          }
+        });
+      } else {
+        res.status(404).json({message: "Email not found!"});
+      }
+    }catch(error){
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation error",
+          errors: error.errors
+        });
+      }
+      console.error("Forgot pasword error:", error);
+      res.status(500).json({ message: "Failed to forgot password" });
+    }
+  });
+
+  app.get('/reset-password/:token', async (req, res) => {
+    const { token } = req.params;
+    // Check if the token exists and is still valid
+    const user = await storage.getUserByResetToken(token)
+    if (!user) {
+      res.status(404).send('Invalid or expired token');
+    } else {
+      
+    }
+  });
+
+  // Reset Password
+  app.post('/api/auth/reset-password', async (req: any, res: any) => {
+    try{
+      const { token, password, confirmPassword } = req.body
+  
+      if(password !== confirmPassword){
+        res.status(403).send('Password does not match!')
+        return
+      }
+  
+      // Find the user with the given token and update their password
+      const user = await storage.getUserByResetToken(token)
+      if (user) {
+        await storage.updatePassword(user.id, password)
+        //user.password = password;
+        //delete user.resetToken; // Remove the reset token after the password is updated
+        //user.resetToken = null // Remove the reset token after the password is updated
+        res.status(200).send('Password updated successfully');
+      } else {
+        res.status(404).send('Invalid or expired token')
+      }
+    }catch(error){
+      console.error("Reset pasword error:", error);
+      res.status(500).send('Failed to reset password')
+    }
+  });
+
+  // Users API routes
+  app.get("/api/users", async (req, res) => {
+    try {
+      const { role, isActive, search } = req.query;
+      let users = await storage.getAllUsers();
+      
+      // Apply filters
+      if (role) {
+        users = users.filter(user => user.role === role);
+      }
+      
+      if (isActive !== undefined) {
+        const activeFilter = isActive === 'true';
+        users = users.filter(user => user.isActive === activeFilter);
+      }
+      
+      if (search) {
+        const searchTerm = (search as string).toLowerCase();
+        users = users.filter(user => 
+          user.email.toLowerCase().includes(searchTerm) ||
+          (user.firstName && user.firstName.toLowerCase().includes(searchTerm)) ||
+          (user.lastName && user.lastName.toLowerCase().includes(searchTerm))
+        );
+      }
+      
+      // Remove passwords from response
+      const usersResponse = users.map(({ password, ...user }) => user);
+      res.json(usersResponse);
+    } catch (error) {
+      console.error("Get users error:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+  
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+  
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      const { password, ...userResponse } = user;
+      res.json(userResponse);
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  
+  app.put("/api/users/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+  
+      // Check if user exists
+      const existingUser = await storage.getUserById(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      // If email is being updated, check for uniqueness
+      if (req.body.email && req.body.email !== existingUser.email) {
+        const emailExists = await storage.getUserByEmail(req.body.email);
+        if (emailExists) {
+          return res.status(409).json({ message: "Email already exists" });
+        }
+      }
+  
+      const updatedUser = await storage.updateUser(userId, req.body);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      const { password, ...userResponse } = updatedUser;
+      res.json({
+        message: "User updated successfully",
+        user: userResponse
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation error",
+          errors: error.errors
+        });
+      }
+      console.error("Update user error:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+  
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+  
+      const success = await storage.deleteUser(userId);
+      if (!success) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Delete user error:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+  
+  app.patch("/api/users/:id/status", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+  
+      const { isActive } = req.body;
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ message: "isActive must be a boolean" });
+      }
+  
+      const updatedUser = await storage.updateUser(userId, { isActive });
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      const { password, ...userResponse } = updatedUser;
+      res.json({
+        message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
+        user: userResponse
+      });
+    } catch (error) {
+      console.error("Update user status error:", error);
+      res.status(500).json({ message: "Failed to update user status" });
     }
   });
 

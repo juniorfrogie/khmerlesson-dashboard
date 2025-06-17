@@ -1,4 +1,4 @@
-import exp from "constants";
+// import exp from "constants";
 import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -36,6 +36,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name", { length: 100 }),
   role: varchar("role", { length: 50 }).notNull().default("student"), // "admin" | "teacher" | "student"
   isActive: boolean("is_active").notNull().default(true),
+  resetToken: varchar("reset_token"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -113,6 +114,16 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string().min(8, "Confirm password must be at least 8 characters")
+});
+
 export const updateUserSchema = insertUserSchema.partial().omit({
   password: true,
 });
@@ -122,6 +133,7 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type LoginUser = z.infer<typeof loginSchema>;
+export type ResetPasswordUser = z.infer<typeof resetPasswordSchema>;
 
 export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;

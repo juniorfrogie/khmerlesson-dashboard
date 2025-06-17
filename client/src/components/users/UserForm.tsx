@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -16,15 +15,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 // import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Eye, Save } from "lucide-react";
+import { Lock, Save } from "lucide-react";
 import { User } from "@shared/schema";
 // import RichTextEditor from "@/components/ui/rich-text-editor";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 
 const userSchema = z.object({
   firstName: z.string().min(1, "Firstname is required"),
   lastName: z.string().min(1, "Lastname is required"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   isActive: z.boolean(),
   role: z.string().min(1, "Role is required")
 });
@@ -34,22 +33,26 @@ type UserFormData = z.infer<typeof userSchema>;
 interface UserFormProps {
   user: User | null;
   onSubmit: (data: UserFormData, isDraft?: boolean) => void;
+  onStatusSubmit: (data: any) => void;
   onPreview: (data: UserFormData) => void;
   onClose: () => void;
   isLoading: boolean;
+  isDisablingUser: boolean;
 }
 
-export default function UserForm({ user, onSubmit, onPreview, onClose, isLoading }: UserFormProps) {
+export default function UserForm({ user, onSubmit, onStatusSubmit, isLoading, isDisablingUser }: UserFormProps) {
   const [autoSaveTime, setAutoSaveTime] = useState<Date | null>(null);
-  const { toast } = useToast();
+  // const [roleFilter, setRoleFilter] = useState("admin");
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
-      isActive: user?.isActive ?? false,
-      role: user?.role || "student"
+      // email: user?.email || "",
+      // password: user?.password || "",
+      isActive: user?.isActive || true,
+      role: user?.role || "admin"
     }
   });
 
@@ -88,39 +91,25 @@ export default function UserForm({ user, onSubmit, onPreview, onClose, isLoading
   //   }
   // };
 
-
-  const updateStatusMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("PATCH", `/api/users/${user?.id}/status`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      toast({
-        title: "Success",
-        description: "User disabled successfully"
-      });
-      onClose();
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to disable user", 
-        variant: "destructive"
-      });
-    }
-  });
-
   const handleSubmit = (data: UserFormData, isDraft = false) => {
     onSubmit({
       ...data,
     }, isDraft);
   };
 
-  const handleDisableUserSubmit = (data: any) => {
-    const payload = {
+  const handleDisableUserSubmit = async (data: any) => {
+    onStatusSubmit({
       ...data
-    }
-    updateStatusMutation.mutate(payload)
+    })
   };
+
+  const disableUserText = () => {
+    if(isDisablingUser){
+      return user?.isActive ? "Disabling" : "Enabling"
+    }else{
+      return user?.isActive ? "Disable User" : "Enable User"
+    }
+  }
 
   return (
     <Form {...form}>
@@ -130,6 +119,7 @@ export default function UserForm({ user, onSubmit, onPreview, onClose, isLoading
           <FormField
             control={form.control}
             name="firstName"
+            disabled={!!user}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>First Name *</FormLabel>
@@ -144,6 +134,7 @@ export default function UserForm({ user, onSubmit, onPreview, onClose, isLoading
           <FormField
             control={form.control}
             name="lastName"
+            disabled={!!user}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Last Name *</FormLabel>
@@ -154,31 +145,38 @@ export default function UserForm({ user, onSubmit, onPreview, onClose, isLoading
               </FormItem>
             )}
           />
-          
-          {/* <FormField
-            control={form.control}
-            name="image"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Lesson Type *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+
+          { !user && (
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email address *</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
+                    <Input placeholder="Enter email address" {...field} />
                   </FormControl>
-                  <SelectContent>
-                    {Object.entries(IMAGE_MAP).map(([key, emoji]) => (
-                      <SelectItem key={key} value={key}>
-                        {emoji} {key.charAt(0).toUpperCase() + key.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          /> */}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          { !user && (
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter password" {...field} type="password"/>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -226,6 +224,29 @@ export default function UserForm({ user, onSubmit, onPreview, onClose, isLoading
               </FormItem>
             )}
           />
+
+          { !user && (
+          <FormField
+            control={form.control}
+            name="role"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Role</FormLabel>
+                <Select onValueChange={(value) => field.onChange(value === "admin")} value={field.value.toString()}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          )}
           
           {/* {!watchedFree && (
             <FormField
@@ -282,36 +303,54 @@ export default function UserForm({ user, onSubmit, onPreview, onClose, isLoading
         {/* Form Actions */}
         <div className="flex items-center justify-between border-t border-gray-200 pt-6">
           <div className="flex items-center space-x-3">
-            <Button 
+            { !user && (
+              <Button 
               type="button" 
               variant="outline" 
               onClick={() => handleSubmit(form.getValues(), true)}
               disabled={isLoading}
-            >
+              >
               <Save className="mr-2 h-4 w-4" />
               Save as Draft
             </Button>
+            )}
             {autoSaveTime && (
               <div className="text-xs neutral-medium auto-save-indicator">
                 <Save className="inline mr-1 h-3 w-3" />
                 Auto-saved {autoSaveTime.toLocaleTimeString()}
               </div>
             )}
-            <Button 
+            { user && (
+              <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {}}
+              disabled={isLoading}
+              >
+              <Lock className="mr-2 h-4 w-4" />
+              Change password
+            </Button>
+            )}
+            { user && (
+              <Button 
               type="button" 
               variant="ghost"
               className={user?.isActive ? "text-red-600" : "text-green-600"} 
               onClick={() => handleDisableUserSubmit({isActive: !user?.isActive})}
-              disabled={isLoading}
-            >{user?.isActive ? "Disable User" : "Enable User"}
+              disabled={isDisablingUser}>
+                {/* { isDisablingUser ? user?.isActive ? "Disabling" : "Enabling" : user?.isActive ? "Disable User" : "Enable User" } */}
+                { disableUserText() }
             </Button>
+            )}
           </div>
           
-          <div className="flex items-center space-x-3">
+          { !user &&  (
+            <div className="flex items-center space-x-3">
             <Button type="submit" disabled={isLoading} className="bg-fluent-blue hover:bg-blue-600">
               {isLoading ? "Publishing..." : "Publish user"}
             </Button>
           </div>
+          )}
         </div>
       </form>
     </Form>

@@ -71,10 +71,10 @@ export default function UsersView({ }: UsersViewProps) {
   //   setPreviewLesson(lesson);
   // };
 
-  // const handleNewLesson = () => {
-  //   setEditingLesson(null);
-  //   setIsModalOpen(true);
-  // };
+  const handleNewUser = () => {
+    setEditingUser(null);
+    setIsModalOpen(true);
+  };
 
   const toggleUserSelection = (userId: number) => {
     setSelectedUsers(prev => 
@@ -181,10 +181,10 @@ export default function UsersView({ }: UsersViewProps) {
                 <Filter className="mr-2 h-4 w-4" />
                 More Filters
               </Button>
-              {/* <Button onClick={handleNewLesson} className="bg-fluent-blue hover:bg-blue-600">
+              <Button onClick={handleNewUser} className="bg-fluent-blue hover:bg-blue-600">
                 <Plus className="mr-2 h-4 w-4" />
-                New Lesson
-              </Button> */}
+                New User
+              </Button>
             </div>
           </div>
 

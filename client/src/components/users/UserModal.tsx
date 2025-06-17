@@ -6,8 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+// import { Button } from "@/components/ui/button";
+// import { X } from "lucide-react";
 import { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +25,7 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
   const { toast } = useToast();
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/users", data),
+    mutationFn: (data: any) => apiRequest("POST", "/api/auth/register", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
@@ -65,20 +65,20 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("PATCH", `/api/users/${user?.id}/status`, data),
+    mutationFn: async (data: any) => await apiRequest("PATCH", `/api/users/${user?.id}/status`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
-        description: "User updated successfully"
+        description: user?.isActive ? "User disabled successfully" : "User enabled successfully",
       });
       onClose();
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to update user", 
+        description: "Failed to enable/disable user", 
         variant: "destructive"
       });
     }
@@ -86,7 +86,7 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
 
   const handleSubmit = (data: any) => {
     const payload = {
-      ...data,
+      ...data
     };
 
     if (user) {
@@ -94,6 +94,14 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
     } else {
       createMutation.mutate(payload);
     }
+  };
+
+
+  const handleStatusUserSubmit = async (data: any) => {
+    const payload = {
+      ...data
+    }
+    await updateStatusMutation.mutateAsync(payload)
   };
 
   const handlePreview = (data: any) => {
@@ -122,8 +130,10 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
             <UseForm
               user={user}
               onSubmit={handleSubmit}
+              onStatusSubmit={handleStatusUserSubmit}
               onPreview={handlePreview}
               onClose={onClose}
+              isDisablingUser={updateStatusMutation.isPending}
               isLoading={createMutation.isPending || updateMutation.isPending}
             />
           </div>

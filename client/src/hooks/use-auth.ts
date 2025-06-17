@@ -1,0 +1,80 @@
+// import { useState, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { InsertUser, LoginUser, ResetPasswordUser, User } from "@shared/schema";
+import { useState, useEffect } from "react";
+
+
+export function useAuth(){
+  const [ user, setUser ] = useState<User | null>(null)
+  const [ isLoading, setIsLoading ] = useState(false)
+
+  useEffect(() => {
+    // Check localStorage for stored user data
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        localStorage.removeItem("user");
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  const loginMutation = useMutation({
+    mutationFn: async (credentials: LoginUser) => {
+      return await apiRequest("POST", "/api/auth/admin", credentials);
+    },
+    onSuccess: async (userData) => {
+      const data = await userData.json()
+      setUser(data);
+      localStorage.setItem("user", JSON.stringify(data));
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (userData: InsertUser) => {
+      return await apiRequest("POST", "/api/auth/register", userData);
+    },
+    onSuccess: async (userData) => {
+      const data = await userData.json()
+      setUser(data);
+      localStorage.setItem("user", JSON.stringify(data));
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (data: ResetPasswordUser) => {
+      return await apiRequest("POST", "/api/auth/reset-password", data);
+    },
+    onSuccess: (data) => {
+      
+    },
+    onError: (error) => {
+        
+    }
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("GET", "/api/auth/logout");
+    },
+    onSuccess: () => {
+      setUser(null);
+      localStorage.removeItem("user");
+    },
+  });
+
+  return { 
+    user,
+    isLoading,
+    login: loginMutation.mutateAsync,
+    logout: logoutMutation.mutateAsync,
+    register: registerMutation.mutateAsync,
+    isAuthenticated: !!user,
+    isLoginLoading: loginMutation.isPending,
+    isLogoutLoading: logoutMutation.isPending,
+    resetPassword: resetPasswordMutation.mutateAsync
+   }
+}

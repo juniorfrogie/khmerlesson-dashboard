@@ -10,7 +10,7 @@ import UsersView from "@/components/users/UsersView"
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal";
 import APISettings from "./api-settings";
 
-export type ActiveView = "dashboard" | "lessons" | "quizzes"  | "users" | "analytics" | "import-export" | "api-settings";
+export type ActiveView = "dashboard" | "lessons" | "quizzes"  | "users" | "purchase_history" | "analytics" | "import-export" | "api-settings";
 
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
@@ -62,6 +62,13 @@ export default function Dashboard() {
         return <QuizzesView onDelete={openDeleteModal} />;
       case "users":
         return <UsersView onDelete={openDeleteModal} />;
+      case "purchase_history":
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold neutral-dark mb-4">Purchase History</h3>
+            <p className="neutral-medium">Purchase History feature coming soon...</p>
+          </div>
+        );
       case "analytics":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
