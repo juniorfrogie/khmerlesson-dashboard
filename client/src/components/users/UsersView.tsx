@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Filter, Plus, Edit, Eye, Trash2, BookOpen } from "lucide-react";
+import { Search, Plus, Edit, User2, RefreshCcw } from "lucide-react";
 import { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -18,30 +18,60 @@ interface UsersViewProps {
 
 export default function UsersView({ }: UsersViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  // const [levelFilter, setLevelFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  // const [previewLesson, setPreviewLesson] = useState<Lesson | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const { toast } = useToast();
 
-  const { data: users = [], isLoading } = useQuery<User[]>({
-    queryKey: ["/api/users", { 
-      search: searchTerm, 
-      // level: levelFilter === "all" ? "" : levelFilter, 
-      role: roleFilter === "all" ? "" : roleFilter, 
-      status: statusFilter === "all" ? "" : statusFilter 
-    }],
-  });
+  const userTableHeaders = [
+    "First Name",
+    "Last Name",
+    "Email",
+    "Role",
+    "Status",
+    "Update",
+    "Actions"
+  ] 
+
+  // const { data: users = [], isLoading } = useQuery<User[]>({
+  //   queryKey: ["/api/users", { 
+  //     search: searchTerm, 
+  //     role: roleFilter === "all" ? "" : roleFilter, 
+  //     isActive: statusFilter === "all" ? "" : statusFilter
+  //   }],
+  // });
+
+  // const { data: users = [], isLoading } = useQuery<User[]>({
+  //   queryKey: [
+  //     `/api/users?role=${roleFilter}&isActive=${statusFilter}&search=${searchTerm}`
+  //   ]
+  // });
+
+  const getUsers = async ({ queryKey }: any) => {
+    const [_key, params] = queryKey
+    const response = await apiRequest("GET", `/api/users?role=${params.role}&isActive=${params.isActive}&search=${params.search}`)
+    return await response.json()
+  }
+
+  const { data: users = [], isLoading } = useQuery<User[]>(
+    {
+      queryKey: ['users', {
+        role: roleFilter,
+        isActive: statusFilter,
+        search: searchTerm
+      }],
+      queryFn: getUsers
+    })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/users/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: "User deleted successfully",
@@ -91,6 +121,17 @@ export default function UsersView({ }: UsersViewProps) {
       setSelectedUsers(users.map(l => l.id));
     }
   };
+
+  const refreshData = async () => {
+    try{
+      setIsRefreshing(true)
+      await queryClient.invalidateQueries({queryKey: ["users"]})
+      setIsRefreshing(false)
+    }catch(error){
+      setIsRefreshing(false)
+      console.log(error)
+    }
+  }
 
   // const getBadgeVariant = (status: string) => {
   //   switch (status) {
@@ -153,11 +194,6 @@ export default function UsersView({ }: UsersViewProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  {/* {Object.keys(IMAGE_MAP).map(role => (
-                    <SelectItem key={role} value={role}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
-                    </SelectItem>
-                  ))} */}
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="teacher">Teacher</SelectItem>
                   <SelectItem value="student">Student</SelectItem>
@@ -170,16 +206,20 @@ export default function UsersView({ }: UsersViewProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="true">Active</SelectItem>
+                  <SelectItem value="false">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
             <div className="flex items-center space-x-3">
-              <Button variant="outline">
+              {/* <Button variant="outline">
                 <Filter className="mr-2 h-4 w-4" />
                 More Filters
+              </Button> */}
+              <Button variant="outline" onClick={refreshData} disabled={isRefreshing}>
+                <RefreshCcw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                { isRefreshing ? "Refreshing..." : "Refresh"}
               </Button>
               <Button onClick={handleNewUser} className="bg-fluent-blue hover:bg-blue-600">
                 <Plus className="mr-2 h-4 w-4" />
@@ -200,13 +240,13 @@ export default function UsersView({ }: UsersViewProps) {
                         onCheckedChange={toggleSelectAll}
                       />
                     </th>
-                    <th className="text-left p-4 font-medium neutral-dark">First Name</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Last Name</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Email</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Role</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Status</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Updated</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Actions</th>
+                    {
+                      userTableHeaders.map((e) => (
+                        <th key={e} className="text-left p-4 font-medium neutral-dark">
+                          { e }
+                        </th>
+                      ))
+                    }
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -214,7 +254,7 @@ export default function UsersView({ }: UsersViewProps) {
                     <tr>
                       <td colSpan={8} className="p-8 text-center">
                         <div className="text-gray-500">
-                          <BookOpen className="mx-auto h-12 w-12 mb-2 opacity-50" />
+                          <User2 className="mx-auto h-12 w-12 mb-2 opacity-50" />
                           <p>No users found</p>
                           {/* <p className="text-sm">Create your first user to get started</p> */}
                         </div>

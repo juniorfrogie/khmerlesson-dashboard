@@ -1,7 +1,7 @@
 // import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { InsertUser, LoginUser, ResetPasswordUser, User } from "@shared/schema";
+import { ChangePasswordUser, InsertUser, LoginUser, ResetPasswordUser, User } from "@shared/schema";
 import { useState, useEffect } from "react";
 
 
@@ -48,13 +48,30 @@ export function useAuth(){
     mutationFn: async (data: ResetPasswordUser) => {
       return await apiRequest("POST", "/api/auth/reset-password", data);
     },
-    onSuccess: (data) => {
-      
-    },
-    onError: (error) => {
-        
-    }
+    onSuccess: () => {},
+    onError: () => {}
   });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: ChangePasswordUser) => {
+        await apiRequest("PUT", `api/auth/change-password`, data)
+    },
+    onSuccess: () => {
+        // queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+        // queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+        // toast({
+        //     title: "Success",
+        //     description: "Password updated successfully"
+        // });
+    },
+    onError: () => {
+        // toast({
+        //     title: "Error",
+        //     description: "Failed to change password", 
+        //     variant: "destructive"
+        // });
+    }
+  })
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -75,6 +92,8 @@ export function useAuth(){
     isAuthenticated: !!user,
     isLoginLoading: loginMutation.isPending,
     isLogoutLoading: logoutMutation.isPending,
-    resetPassword: resetPasswordMutation.mutateAsync
+    isChangePasswordLoading: changePasswordMutation.isPending,
+    resetPassword: resetPasswordMutation.mutateAsync,
+    changePassword: changePasswordMutation.mutateAsync
    }
 }

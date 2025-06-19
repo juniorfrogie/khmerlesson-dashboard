@@ -28,29 +28,38 @@ const userSchema = z.object({
   role: z.string().min(1, "Role is required")
 });
 
+const updateUserSchema = z.object({
+  firstName: z.string().min(1, "Firstname is required"),
+  lastName: z.string().min(1, "Lastname is required"),
+  isActive: z.boolean(),
+  role: z.string().min(1, "Role is required")
+});
+
 type UserFormData = z.infer<typeof userSchema>;
+type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
 interface UserFormProps {
   user: User | null;
   onSubmit: (data: UserFormData, isDraft?: boolean) => void;
   onStatusSubmit: (data: any) => void;
-  onPreview: (data: UserFormData) => void;
+  onChangePasswordView: (data: UserFormData) => void;
+  onUpdateSubmit: (data: UpdateUserFormData) => void;
   onClose: () => void;
   isLoading: boolean;
-  isDisablingUser: boolean;
+  isDeactivatingUser: boolean;
 }
 
-export default function UserForm({ user, onSubmit, onStatusSubmit, isLoading, isDisablingUser }: UserFormProps) {
+export default function UserForm({ user, onSubmit, onStatusSubmit, 
+    onChangePasswordView,
+    onUpdateSubmit,
+    isLoading, isDeactivatingUser }: UserFormProps) {
   const [autoSaveTime, setAutoSaveTime] = useState<Date | null>(null);
-  // const [roleFilter, setRoleFilter] = useState("admin");
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
-      // email: user?.email || "",
-      // password: user?.password || "",
       isActive: user?.isActive || true,
       role: user?.role || "admin"
     }
@@ -91,24 +100,44 @@ export default function UserForm({ user, onSubmit, onStatusSubmit, isLoading, is
   //   }
   // };
 
+  const handleChangePasswordView = () => {
+    const data = form.getValues();
+    onChangePasswordView({
+      ...data
+    })
+  }
+
   const handleSubmit = (data: UserFormData, isDraft = false) => {
     onSubmit({
       ...data,
     }, isDraft);
   };
 
-  const handleDisableUserSubmit = async (data: any) => {
+  const handleUpdateSubmit = (data: UpdateUserFormData) => {
+    onUpdateSubmit({
+      ...data,
+    });
+  };
+
+  const handleStatusUserSubmit = async (data: any) => {
     onStatusSubmit({
       ...data
     })
   };
 
-  const disableUserText = () => {
-    if(isDisablingUser){
-      return user?.isActive ? "Disabling" : "Enabling"
+  const deactivateUserText = () => {
+    if(isDeactivatingUser){
+      return user?.isActive ? "Deactivating" : "Activiating"
     }else{
-      return user?.isActive ? "Disable User" : "Enable User"
+      return user?.isActive ? "Deactivate User" : "Activiate User"
     }
+  }
+
+  const enablePublishButton = () => {
+    if(user){
+      return user?.role !== "admin"
+    }
+    return false
   }
 
   return (
@@ -119,7 +148,7 @@ export default function UserForm({ user, onSubmit, onStatusSubmit, isLoading, is
           <FormField
             control={form.control}
             name="firstName"
-            disabled={!!user}
+            disabled={user ? user?.role !== "admin" : false}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>First Name *</FormLabel>
@@ -134,7 +163,7 @@ export default function UserForm({ user, onSubmit, onStatusSubmit, isLoading, is
           <FormField
             control={form.control}
             name="lastName"
-            disabled={!!user}
+            disabled={user ? user?.role !== "admin" : false}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Last Name *</FormLabel>
@@ -225,14 +254,13 @@ export default function UserForm({ user, onSubmit, onStatusSubmit, isLoading, is
             )}
           />
 
-          { !user && (
           <FormField
             control={form.control}
             name="role"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Role</FormLabel>
-                <Select onValueChange={(value) => field.onChange(value === "admin")} value={field.value.toString()}>
+                <Select onValueChange={(value) => field.onChange(value === "admin")} value={field.value.toString()} disabled>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
@@ -240,13 +268,14 @@ export default function UserForm({ user, onSubmit, onStatusSubmit, isLoading, is
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="teacher">Student</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
-          )}
           
           {/* {!watchedFree && (
             <FormField
@@ -320,35 +349,39 @@ export default function UserForm({ user, onSubmit, onStatusSubmit, isLoading, is
                 Auto-saved {autoSaveTime.toLocaleTimeString()}
               </div>
             )}
-            { user && (
+
+            { user?.role === "admin" && (
               <Button 
               type="button" 
               variant="outline" 
-              onClick={() => {}}
-              disabled={isLoading}
+              onClick={handleChangePasswordView}
+              disabled={isLoading || isDeactivatingUser}
               >
               <Lock className="mr-2 h-4 w-4" />
               Change password
             </Button>
             )}
+
             { user && (
               <Button 
               type="button" 
               variant="ghost"
               className={user?.isActive ? "text-red-600" : "text-green-600"} 
-              onClick={() => handleDisableUserSubmit({isActive: !user?.isActive})}
-              disabled={isDisablingUser}>
-                {/* { isDisablingUser ? user?.isActive ? "Disabling" : "Enabling" : user?.isActive ? "Disable User" : "Enable User" } */}
-                { disableUserText() }
+              onClick={() => handleStatusUserSubmit({isActive: !user?.isActive})}
+              disabled={isDeactivatingUser || isLoading}>
+                { deactivateUserText() }
             </Button>
             )}
           </div>
           
-          { !user &&  (
+          { !enablePublishButton() && (
             <div className="flex items-center space-x-3">
-            <Button type="submit" disabled={isLoading} className="bg-fluent-blue hover:bg-blue-600">
+            { !user ? <Button type="submit" disabled={isLoading} className="bg-fluent-blue hover:bg-blue-600">
               {isLoading ? "Publishing..." : "Publish user"}
+            </Button> : <Button disabled={isLoading || isDeactivatingUser} className="bg-fluent-blue hover:bg-blue-600" onClick={() => handleUpdateSubmit(form.getValues())}>
+              {isLoading ? "Updating..." : "Update user"}
             </Button>
+            }
           </div>
           )}
         </div>

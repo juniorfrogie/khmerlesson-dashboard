@@ -24,7 +24,7 @@ export default function QuizModal({ isOpen, onClose, quiz }: QuizModalProps) {
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/quizzes", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/quizzes"] });
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
@@ -44,7 +44,7 @@ export default function QuizModal({ isOpen, onClose, quiz }: QuizModalProps) {
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PATCH", `/api/quizzes/${quiz?.id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/quizzes"] });
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",

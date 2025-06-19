@@ -124,6 +124,13 @@ export const resetPasswordSchema = z.object({
   confirmPassword: z.string().min(8, "Confirm password must be at least 8 characters")
 });
 
+export const changePasswordSchema = z.object({
+  id: z.number(),
+  currentPassword: z.string().min(8, "Password must be at least 8 characters"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string().min(8, "Confirm password must be at least 8 characters")
+});
+
 export const updateUserSchema = insertUserSchema.partial().omit({
   password: true,
 });
@@ -134,6 +141,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type LoginUser = z.infer<typeof loginSchema>;
 export type ResetPasswordUser = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordUser = z.infer<typeof changePasswordSchema>;
 
 export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;

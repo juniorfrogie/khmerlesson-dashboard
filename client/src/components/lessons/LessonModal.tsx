@@ -27,9 +27,9 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/lessons", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["lessons"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: "Lesson created successfully",
@@ -47,9 +47,9 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PATCH", `/api/lessons/${lesson?.id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["lessons"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: "Lesson updated successfully",

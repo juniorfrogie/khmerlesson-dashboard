@@ -45,15 +45,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
       
-      if (level) {
+      if (level && level !== "all") {
         lessons = lessons.filter(lesson => lesson.level === level);
       }
       
-      if (type) {
+      if (type && type !== "all") {
         lessons = lessons.filter(lesson => lesson.image === type);
       }
       
-      if (status) {
+      if (status && status !== "all") {
         lessons = lessons.filter(lesson => lesson.status === status);
       }
       
@@ -144,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quizzes = quizzes.filter(quiz => quiz.lessonId === parseInt(lessonId as string));
       }
       
-      if (status) {
+      if (status && status !== "all") {
         quizzes = quizzes.filter(quiz => quiz.status === status);
       }
       
@@ -498,16 +498,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/reset-password/:token', async (req, res) => {
-    const { token } = req.params;
-    // Check if the token exists and is still valid
-    const user = await storage.getUserByResetToken(token)
-    if (!user) {
-      res.status(404).send('Invalid or expired token');
-    } else {
-      
+  // Change Password
+  app.put('/api/auth/change-password', async (req: any, res: any) => {
+    try{
+      const { id, currentPassword, newPassword, confirmPassword } = req.body
+  
+      if(newPassword !== confirmPassword){
+        return res.status(403).send('Password does not match!')
+      }
+  
+      // Find the user with the given id and update their password
+      // const user = await storage.getUserByResetToken(token)
+      // if (user) {
+      //   await storage.changePassword()
+      //   res.status(200).send('Password updated successfully');
+      // } else {
+      //   res.status(404).send('User not found')
+      // }
+
+      const user = await storage.changePassword(id, currentPassword, newPassword)
+      if (user) {
+        res.status(200).send('Password updated successfully');
+      } else {
+        res.status(404).send('User not found')
+      }
+    }catch(error){
+      console.error("Change pasword error:", error);
+      res.status(500).send('Failed to change password')
     }
   });
+
+  // app.get('/reset-password/:token', async (req, res) => {
+  //   const { token } = req.params;
+  //   // Check if the token exists and is still valid
+  //   const user = await storage.getUserByResetToken(token)
+  //   if (!user) {
+  //     res.status(404).send('Invalid or expired token');
+  //   } else {
+      
+  //   }
+  // });
 
   // Reset Password
   app.post('/api/auth/reset-password', async (req: any, res: any) => {
@@ -543,11 +573,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let users = await storage.getAllUsers();
       
       // Apply filters
-      if (role) {
+      if (role && role !== "all") {
         users = users.filter(user => user.role === role);
       }
       
-      if (isActive !== undefined) {
+      if (isActive !== undefined && isActive !== "all") {
         const activeFilter = isActive === 'true';
         users = users.filter(user => user.isActive === activeFilter);
       }

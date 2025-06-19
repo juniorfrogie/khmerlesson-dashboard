@@ -1,9 +1,11 @@
 import { ActiveView } from "@/pages/dashboard";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Settings } from "lucide-react";
+import { LogOut, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+// import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@radix-ui/react-popover";
+// import { Card, CardHeader, CardTitle } from "../ui/card";
 
 interface TopBarProps {
   activeView: ActiveView;
@@ -90,11 +92,29 @@ export default function TopBar({ activeView }: TopBarProps) {
             <config.action.icon className="mr-2" size={16} />
             {config.action.text}
           </Button> */}
-          <Button variant="outline" size="icon">
+          {/* <Button variant="outline" size="icon">
             <Settings size={16} />
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleLogout} disabled={isLogoutLoading}>
+          </Button> */}
+          {/* <Popover>
+            <PopoverTrigger>
+              <Button variant="outline" size="icon">
+                <Settings size={16} />
+              </Button>
+            </PopoverTrigger>
+            <PopoverPortal>
+              <PopoverContent className="PopoverContent" sideOffset={5}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+              </PopoverContent>
+            </PopoverPortal>
+          </Popover> */}
+          <Button variant="secondary" onClick={handleLogout} disabled={isLogoutLoading} title="Logout">
             <LogOut size={16} />
+            Logout
           </Button>
         </div>
       </div>

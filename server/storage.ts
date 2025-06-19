@@ -39,6 +39,7 @@ export interface IStorage {
   verifyPassword(email: string, password: string): Promise<User | null>;
   updatePassword(id: number, password: string): Promise<User | null>
   loginByAdmin(email: string, password: string): Promise<User | null>;
+  changePassword(id: number, currentPassword: string, newPassword: string): Promise<User | null>
   
   // Lessons
   getLessons(): Promise<Lesson[]>;
@@ -151,6 +152,26 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set({ password: hashedPassword, resetToken: null, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async changePassword(id: number, currentPassword: string, newPassword: string): Promise<User | null> {
+
+    const currentUser = await this.getUserById(id)
+    if(!currentUser) return null
+
+    const isValid = await bcrypt.compare(currentPassword, currentUser.password);
+    if(!isValid) return null
+
+    // Hash the password before storing
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    const [user] = await db
+      .update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     return user;

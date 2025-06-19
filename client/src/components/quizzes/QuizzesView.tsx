@@ -23,14 +23,33 @@ export default function QuizzesView({ onDelete }: QuizzesViewProps) {
 
   const { toast } = useToast();
 
-  const { data: quizzes = [], isLoading } = useQuery<Quiz[]>({
-    queryKey: ["/api/quizzes", { search: searchTerm, status: statusFilter === "all" ? "" : statusFilter }],
-  });
+  // const { data: quizzes = [], isLoading } = useQuery<Quiz[]>({
+  //   queryKey: ["/api/quizzes", { search: searchTerm, status: statusFilter === "all" ? "" : statusFilter }],
+  // });
+
+  // const { data: quizzes = [], isLoading } = useQuery<Quiz[]>({
+  //   queryKey: [`/api/quizzes?status=${statusFilter}&search=${searchTerm}`],
+  // });
+
+   const getQuizzes = async ({ queryKey }: any) => {
+      const [_key, params] = queryKey
+      const response = await apiRequest("GET", `/api/quizzes?status=${params.status}&search=${params.search}`)
+      return await response.json()
+    }
+  
+    const { data: quizzes = [], isLoading } = useQuery<Quiz[]>(
+      {
+        queryKey: ['quizzes', {
+          status: statusFilter,
+          search: searchTerm
+        }],
+        queryFn: getQuizzes
+      })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/quizzes/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/quizzes"] });
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",

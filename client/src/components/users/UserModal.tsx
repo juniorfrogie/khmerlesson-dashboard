@@ -11,7 +11,8 @@ import {
 import { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import UseForm from "./UserForm";
+import UserForm from "./UserForm";
+import { ChangePasswordView } from "./ChangePasswordView";
 
 interface UserModalProps {
   isOpen: boolean;
@@ -20,15 +21,16 @@ interface UserModalProps {
 }
 
 export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
-  const [showPreview, setShowPreview] = useState(false);
+  // const [showPreview, setShowPreview] = useState(false);
+  const [showChangePassowrdView, setShowChangePassowrdView] = useState(false);
   const [formData, setFormData] = useState<any>(null);
   const { toast } = useToast();
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/auth/register", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: "User created successfully"
@@ -46,9 +48,9 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PUT", `/api/users/${user?.id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: "User updated successfully"
@@ -66,36 +68,37 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
 
   const updateStatusMutation = useMutation({
     mutationFn: async (data: any) => await apiRequest("PATCH", `/api/users/${user?.id}/status`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    onSuccess: async () => {
+      // queryClient.removeQueries()
+      // await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
-        description: user?.isActive ? "User disabled successfully" : "User enabled successfully",
+        description: `User ${!user?.isActive ? 'activated' : 'deactivated'} successfully`
       });
       onClose();
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to enable/disable user", 
+        description: "Failed to activate/deactivate user", 
         variant: "destructive"
       });
     }
   });
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = async (data: any) => {
     const payload = {
       ...data
     };
 
     if (user) {
-      updateMutation.mutate(payload);
+      await updateMutation.mutateAsync(payload);
     } else {
-      createMutation.mutate(payload);
+      await createMutation.mutateAsync(payload);
     }
   };
-
 
   const handleStatusUserSubmit = async (data: any) => {
     const payload = {
@@ -104,21 +107,21 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
     await updateStatusMutation.mutateAsync(payload)
   };
 
-  const handlePreview = (data: any) => {
+  const handleChangePasswordView = (data: any) => {
     setFormData(data);
-    setShowPreview(true);
+    setShowChangePassowrdView(true);
   };
 
   useEffect(() => {
     if (!isOpen) {
-      setShowPreview(false);
+      setShowChangePassowrdView(false);
       setFormData(null);
     }
   }, [isOpen]);
 
   return (
     <>
-      <Dialog open={isOpen && !showPreview} onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={isOpen && !showChangePassowrdView} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader className="pb-4">
             <DialogTitle>
@@ -127,18 +130,25 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
           </DialogHeader>
           
           <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">
-            <UseForm
+            <UserForm
               user={user}
               onSubmit={handleSubmit}
               onStatusSubmit={handleStatusUserSubmit}
-              onPreview={handlePreview}
+              onChangePasswordView={handleChangePasswordView}
+              onUpdateSubmit={handleSubmit}
               onClose={onClose}
-              isDisablingUser={updateStatusMutation.isPending}
+              isDeactivatingUser={updateStatusMutation.isPending}
               isLoading={createMutation.isPending || updateMutation.isPending}
             />
           </div>
         </DialogContent>
       </Dialog>
+
+      <ChangePasswordView 
+        user={user}
+        isOpen={showChangePassowrdView}
+        onClose={() => setShowChangePassowrdView(false)}
+      />
     </>
   );
 }

@@ -30,20 +30,46 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
 
   const { toast } = useToast();
 
-  const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
-    queryKey: ["/api/lessons", { 
-      search: searchTerm, 
-      level: levelFilter === "all" ? "" : levelFilter, 
-      type: typeFilter === "all" ? "" : typeFilter, 
-      status: statusFilter === "all" ? "" : statusFilter 
-    }],
-  });
+  // const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
+  //   queryKey: ["/api/lessons", { 
+  //     search: searchTerm, 
+  //     level: levelFilter === "all" ? "" : levelFilter, 
+  //     type: typeFilter === "all" ? "" : typeFilter, 
+  //     status: statusFilter === "all" ? "" : statusFilter 
+  //   }],
+  // });
+
+  // const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
+  //   queryKey: [
+  //     `api/lessons?level=${levelFilter}&type=${typeFilter}&status=${statusFilter}&search=${searchTerm}`
+  //   ],
+  // });
+
+   const getLessons = async ({ queryKey }: any) => {
+      const [_key, params] = queryKey
+      const response = await apiRequest(
+        "GET", 
+        `/api/lessons?level=${params.level}&type=${params.type}&search=${params.search}&status=${params.status}`
+      )
+      return await response.json()
+    }
+  
+    const { data: lessons = [], isLoading } = useQuery<Lesson[]>(
+      {
+        queryKey: ['lessons', {
+          level: levelFilter,
+          type: typeFilter,
+          search: searchTerm,
+          status: statusFilter
+        }],
+        queryFn: getLessons
+      })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/lessons/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["lessons"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: "Lesson deleted successfully",
@@ -181,10 +207,10 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
             </div>
             
             <div className="flex items-center space-x-3">
-              <Button variant="outline">
+              {/* <Button variant="outline">
                 <Filter className="mr-2 h-4 w-4" />
                 More Filters
-              </Button>
+              </Button> */}
               <Button onClick={handleNewLesson} className="bg-fluent-blue hover:bg-blue-600">
                 <Plus className="mr-2 h-4 w-4" />
                 New Lesson
