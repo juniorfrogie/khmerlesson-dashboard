@@ -28,8 +28,8 @@ export function useAuth(){
     },
     onSuccess: async (userData) => {
       const data = await userData.json()
-      setUser(data);
-      localStorage.setItem("user", JSON.stringify(data));
+      setUser(data["user"]);
+      localStorage.setItem("user", JSON.stringify(data["user"]));
     },
   });
 
@@ -39,8 +39,8 @@ export function useAuth(){
     },
     onSuccess: async (userData) => {
       const data = await userData.json()
-      setUser(data);
-      localStorage.setItem("user", JSON.stringify(data));
+      setUser(data["user"]);
+      localStorage.setItem("user", JSON.stringify(data["user"]));
     },
   });
 

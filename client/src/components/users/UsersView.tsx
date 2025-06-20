@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Edit, User2, RefreshCcw } from "lucide-react";
+import { Search, Plus, Edit, User2, RefreshCcw, ArrowLeft, ArrowRight } from "lucide-react";
 import { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,9 @@ export default function UsersView({ }: UsersViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [limit, _] = useState(15)
+  var [offset, setOffset] = useState(0)
+  // const [totalUser, setTotalUser] = useState(0)
 
   const { toast } = useToast();
 
@@ -35,7 +38,7 @@ export default function UsersView({ }: UsersViewProps) {
     "Status",
     "Update",
     "Actions"
-  ] 
+  ]
 
   // const { data: users = [], isLoading } = useQuery<User[]>({
   //   queryKey: ["/api/users", { 
@@ -53,19 +56,35 @@ export default function UsersView({ }: UsersViewProps) {
 
   const getUsers = async ({ queryKey }: any) => {
     const [_key, params] = queryKey
-    const response = await apiRequest("GET", `/api/users?role=${params.role}&isActive=${params.isActive}&search=${params.search}`)
-    return await response.json()
+    const response = await apiRequest("GET", 
+      `/api/users?role=${params.role}&isActive=${params.isActive}&search=${params.search}&limit=${params.limit}&offset=${params.offset}`)
+    const result = await response.json()
+    return result
   }
 
-  const { data: users = [], isLoading } = useQuery<User[]>(
+  const { data: data = { users: [], total: 0}, isLoading, refetch } = useQuery<{users: User[], total: number}>(
     {
       queryKey: ['users', {
         role: roleFilter,
         isActive: statusFilter,
-        search: searchTerm
+        search: searchTerm,
+        limit: limit,
+        offset: offset
       }],
       queryFn: getUsers
     })
+
+  // const { data: users = [], isLoading, refetch } = useQuery<User[]>(
+  //   {
+  //     queryKey: ['users', {
+  //       role: roleFilter,
+  //       isActive: statusFilter,
+  //       search: searchTerm,
+  //       limit: limit,
+  //       offset: offset
+  //     }],
+  //     queryFn: getUsers
+  //   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/users/${id}`),
@@ -115,22 +134,33 @@ export default function UsersView({ }: UsersViewProps) {
   };
 
   const toggleSelectAll = () => {
-    if (selectedUsers.length === users.length) {
+    if (selectedUsers.length === data.users.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(users.map(l => l.id));
+      setSelectedUsers(data.users.map(l => l.id));
     }
   };
 
   const refreshData = async () => {
     try{
       setIsRefreshing(true)
-      await queryClient.invalidateQueries({queryKey: ["users"]})
+      //await queryClient.invalidateQueries({queryKey: ["users"]})
+      await refetch()
       setIsRefreshing(false)
     }catch(error){
       setIsRefreshing(false)
       console.log(error)
     }
+  }
+
+  const next = () => {
+    let min = offset + 1
+    setOffset(Math.min(min, data.total))
+  }
+
+  const previous = () => {
+    let max = offset - 1
+    setOffset(Math.max(0, max))
   }
 
   // const getBadgeVariant = (status: string) => {
@@ -236,7 +266,7 @@ export default function UsersView({ }: UsersViewProps) {
                   <tr>
                     <th className="text-left p-4 font-medium neutral-dark">
                       <Checkbox 
-                        checked={users.length > 0 && selectedUsers.length === users.length}
+                        checked={data.users.length > 0 && selectedUsers.length === data.users.length}
                         onCheckedChange={toggleSelectAll}
                       />
                     </th>
@@ -250,7 +280,7 @@ export default function UsersView({ }: UsersViewProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {users.length === 0 ? (
+                  {data.users.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-8 text-center">
                         <div className="text-gray-500">
@@ -261,7 +291,7 @@ export default function UsersView({ }: UsersViewProps) {
                       </td>
                     </tr>
                   ) : (
-                    users.map((user) => (
+                    data.users.map((user) => (
                       <tr key={user.id} className="hover:bg-gray-50">
                         <td className="p-4">
                           <Checkbox 
@@ -371,20 +401,23 @@ export default function UsersView({ }: UsersViewProps) {
             </div>
 
             {/* Pagination */}
-            {users.length > 0 && (
+            {data.users.length > 0 && (
               <div className="p-6 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-sm neutral-medium">
-                  Showing 1 to {users.length} of {users.length} users
+                  {/* Showing 1 to {users.length} of {users.length} users */}
+                  Showing 1 to {data.users.length} of {data.total} users
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm" disabled>
+                  <Button variant="outline" size="sm" onClick={previous} disabled={offset < 1}>
+                    <ArrowLeft />
                     Previous
                   </Button>
                   <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
-                    1
+                    { offset + 1}
                   </Button>
-                  <Button variant="outline" size="sm" disabled>
+                  <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.users.length === data.total}>
                     Next
+                    <ArrowRight />
                   </Button>
                 </div>
               </div>

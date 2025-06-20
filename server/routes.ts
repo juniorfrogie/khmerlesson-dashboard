@@ -535,7 +535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //   if (!user) {
   //     res.status(404).send('Invalid or expired token');
   //   } else {
-      
+  //     res.sendStatus(200)
   //   }
   // });
 
@@ -570,7 +570,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users", async (req, res) => {
     try {
       const { role, isActive, search } = req.query;
-      let users = await storage.getAllUsers();
+      //let users = await storage.getAllUsers();
+      let limit = parseInt(req.query.limit?.toString() ?? "10") || 10
+      let offset = parseInt(req.query.offset?.toString() ?? "0") || 0
+      let users = await storage.getUsers(limit, offset);
+      let usercount = await storage.getUserCount()
       
       // Apply filters
       if (role && role !== "all") {
@@ -593,7 +597,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Remove passwords from response
       const usersResponse = users.map(({ password, ...user }) => user);
-      res.json(usersResponse);
+      //res.json(usersResponse);
+      res.json({
+        users: usersResponse,
+        total: role !== "all" || isActive !== "all" ? users.length : usercount
+      });
     } catch (error) {
       console.error("Get users error:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -662,6 +670,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update user" });
     }
   });
+
+  // app.get("/api/usercount", async (req, res) => {
+  //   try{
+  //     const usercount = await storage.getUserCount()
+  //     res.status(200).json({total: usercount})
+  //   }catch(error){
+  //     console.error("Get user count error:", error);
+  //     res.status(500).json({ message: "Failed to get user count" });
+  //   }
+  // })
   
   app.delete("/api/users/:id", async (req, res) => {
     try {

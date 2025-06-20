@@ -20,15 +20,16 @@ import {
   InsertBlacklist,
   blacklist,
   insertBlacklistSchema,
-  Blacklist
+  Blacklist,
 } from "@shared/schema";
 import { db } from "./db";
-import { and, eq, not } from "drizzle-orm";
+import { and, count, eq, not } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
   // Users
   getAllUsers(): Promise<User[]>;
+  getUsers(limit: number, offset: number): Promise<User[]>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
   getUserByResetToken(resetToken: string): Promise<User | undefined>;
@@ -40,6 +41,7 @@ export interface IStorage {
   updatePassword(id: number, password: string): Promise<User | null>
   loginByAdmin(email: string, password: string): Promise<User | null>;
   changePassword(id: number, currentPassword: string, newPassword: string): Promise<User | null>
+  getUserCount(): Promise<number>
   
   // Lessons
   getLessons(): Promise<Lesson[]>;
@@ -74,6 +76,16 @@ export class DatabaseStorage implements IStorage {
   async getAllUsers(): Promise<User[]> {
     const result = await db.select().from(users).orderBy(users.createdAt);
     return result;
+  }
+
+  async getUsers(limit: number, offset: number): Promise<User[]> {
+    const result = await db.select().from(users).limit(limit).offset(offset).orderBy(users.createdAt);
+    return result;
+  }
+
+  async getUserCount(): Promise<number> {
+    const result = await db.select({count: count()}).from(users)
+    return result[0]["count"] ?? 0
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {

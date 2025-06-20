@@ -56,6 +56,8 @@ export const purchase_history = pgTable("purchase_history", {
   userId: integer("user_id").references(() => users.id, {onDelete: 'cascade'}).notNull(),
   userEmail: varchar("user_email").references(() => users.email, {onDelete: 'cascade'}).notNull(),
   lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: 'cascade'}).notNull(),
+  paymentType: varchar("payment_type"),
+  platformType: varchar("platform_type"),
   purchaseDate: varchar("purchase_date").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -131,6 +133,10 @@ export const changePasswordSchema = z.object({
   confirmPassword: z.string().min(8, "Confirm password must be at least 8 characters")
 });
 
+// export const userCount = z.object({
+//   count: z.number()
+// })
+
 export const updateUserSchema = insertUserSchema.partial().omit({
   password: true,
 });
@@ -142,6 +148,7 @@ export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type LoginUser = z.infer<typeof loginSchema>;
 export type ResetPasswordUser = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordUser = z.infer<typeof changePasswordSchema>;
+// export type UserCount = z.infer<typeof userCount>
 
 export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;

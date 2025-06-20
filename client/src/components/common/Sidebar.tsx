@@ -18,6 +18,7 @@ const navigation = [
 ];
 
 export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
+
   return (
     <aside className="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col">
       <div className="p-6 border-b border-gray-200">

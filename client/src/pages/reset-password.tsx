@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { GraduationCap } from "lucide-react";
 
 export default function ResetPassword() {
   //const [, setLocation] = useLocation();
@@ -61,7 +62,17 @@ export default function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">Reset Password</CardTitle>
+          <CardTitle className="text-2xl text-center">
+            <div className="p-6 border-b border-gray-200">
+            <h1 className="text-xl font-semibold neutral-dark flex items-center">
+              <GraduationCap className="fluent-blue mr-3" size={24} />
+              Khmer Learning
+            </h1>
+          </div>
+          <div className="py-4">
+            Reset Password
+          </div>
+          </CardTitle>
           <CardDescription className="text-center">
             Enter a new password below to change your password
           </CardDescription>
