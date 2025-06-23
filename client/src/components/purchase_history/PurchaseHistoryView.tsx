@@ -1,0 +1,252 @@
+import { ArrowLeft, ArrowRight, RefreshCcw, Search } from "lucide-react";
+import { Card, CardContent } from "../ui/card";
+import { Input } from "../ui/input";
+import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { PurchaseHistoryData } from "@shared/schema";
+import { Checkbox } from "../ui/checkbox";
+import { useState } from "react";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+
+export type PurchaseHistoryQuery = {
+  data: PurchaseHistoryData[],
+  total: number
+}
+
+export function PurchaseHistoryview(){
+    const [paymentStatusFilter, setPaymentStatusFilter] = useState("all")
+    const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+    const [isRefreshing, setIsRefreshing] = useState(false)
+    const [limit, _] = useState(15)
+    var [offset, setOffset] = useState(0)
+
+
+    const getPurchaseHistory = async ({ queryKey }: any) => {
+        const [_key, params] = queryKey
+        const response = await apiRequest("GET", 
+          `/api/purchase_history?payment_status=${params.paymentStatus}&limit=${params.limit}&offset=${params.offset}`)
+        const result = await response.json()
+        return result
+    }
+    
+    const { data: data = { data: [], total: 0 }, isLoading, refetch } = useQuery<PurchaseHistoryQuery>(
+    {
+        queryKey: ['purchase_history', {
+            paymentStatus: paymentStatusFilter,
+            limit: limit,
+            offset: offset
+        }],
+        queryFn: getPurchaseHistory
+    })
+
+    const purchaseHistoryTableHeader = [
+        "Email",
+        "Purchase Date",
+        "Payment Type",
+        "Platform Type",
+        "Status"
+    ]
+
+    const refreshData = async () => {
+        try{
+            setIsRefreshing(true)
+            await refetch()
+            setIsRefreshing(false)
+        }catch(error){
+            setIsRefreshing(false)
+            console.log(error)
+        }
+    }
+
+    const toggleUserSelection = (id: number) => {
+        setSelectedUsers(prev => 
+        prev.includes(id) 
+            ? prev.filter(id => id !== id)
+            : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedUsers.length === data.data.length) {
+            setSelectedUsers([]);
+        } else {
+            setSelectedUsers(data.data.map(l => l.id));
+        }
+    };
+
+    const getPaymentStatusBadgeColor = (paymentStatus: string) => {
+       switch (paymentStatus.toLowerCase()) {
+            case "complete": return "bg-green-100 text-green-700";
+            case "pending": return "bg-yellow-100 text-yellow-700";
+            case "refund": return "bg-gray-100 text-gray-700";
+            default: return "bg-gray-100 text-gray-700";
+        }
+    };
+
+    const next = () => {
+        let min = offset + 1
+        setOffset(Math.min(min, data.total))
+    }
+
+    const previous = () => {
+        let max = offset - 1
+        setOffset(Math.max(0, max))
+    }
+
+    if (isLoading) {
+        return (
+        <Card>
+            <CardContent className="p-6">
+            <div className="animate-pulse space-y-4">
+                {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                ))}
+            </div>
+            </CardContent>
+        </Card>
+        );
+    }
+
+    return (
+        <>
+        <Card className="border border-gray-200">
+            <CardContent className="p-6 space-y-6">
+                 {/* Filters and Search */}
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                            <Input 
+                                placeholder="Search..."
+                                className="pl-10"/>
+                    </div>
+                    <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="All Payment Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Payment Status</SelectItem>
+                            <SelectItem value="Complete">Complete</SelectItem>
+                            <SelectItem value="Pending">Pending</SelectItem>
+                            <SelectItem value="Refund">Refund</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                    <div className="flex items-center space-x-3">
+                        <Button variant="outline" onClick={refreshData} disabled={isRefreshing}>
+                            <RefreshCcw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                            { isRefreshing ? "Refreshing..." : "Refresh"}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Purchase History Table */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="text-left p-4 font-medium neutral-dark">
+                                        <Checkbox 
+                                            checked={data.data?.length > 0 && selectedUsers.length === data.data?.length}
+                                            onCheckedChange={toggleSelectAll}
+                                        />
+                                    </th>
+                                    {
+                                        purchaseHistoryTableHeader.map((e) => (
+                                            <th key={e} className="text-left p-4 font-medium neutral-dark">
+                                                { e }
+                                            </th>
+                                        ))
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {
+                                    data.data?.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={8} className="p-8 text-center">
+                                                <div className="text-gray-500">
+                                                    <p>No purchase history found</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        data.data?.map((e) => (
+                                            <tr key={e.id} className="hover:bg-gray-50">
+                                                 <td className="p-4">
+                                                    <Checkbox 
+                                                        checked={selectedUsers.includes(e.id)}
+                                                        onCheckedChange={() => toggleUserSelection(e.id)}
+                                                    />
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center">
+                                                        <div>
+                                                            <p className="font-medium neutral-dark">{e.email}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center">
+                                                        <div>
+                                                            <p className="font-medium neutral-dark">{e.purchaseDate}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center">
+                                                        <div>
+                                                            <p className="font-medium neutral-dark">{e.paymentType}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex -items-center">
+                                                        <div>
+                                                            <p className="font-medium neutra-dark">{e.platformType}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <Badge className={getPaymentStatusBadgeColor(e.paymentStatus)}>
+                                                        { e.paymentStatus }
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                {/* Pagination */}
+                {data.data?.length > 0 && (
+                    <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+                        <div className="text-sm neutral-medium">
+                        Showing 1 to {data.data?.length} of {data.total} purchase history
+                        </div>
+                        <div className="flex items-center space-x-2">
+                        <Button variant="outline" size="sm" onClick={previous} disabled={offset < 1}>
+                            <ArrowLeft />
+                            Previous
+                        </Button>
+                        <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
+                            { offset + 1}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.data.length === data.total}>
+                            Next
+                            <ArrowRight />
+                        </Button>
+                        </div>
+                    </div>
+                )}
+                </div>
+            </CardContent>
+        </Card>
+        </>
+    )
+}

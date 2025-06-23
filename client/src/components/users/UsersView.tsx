@@ -26,7 +26,6 @@ export default function UsersView({ }: UsersViewProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [limit, _] = useState(15)
   var [offset, setOffset] = useState(0)
-  // const [totalUser, setTotalUser] = useState(0)
 
   const { toast } = useToast();
 
@@ -258,7 +257,7 @@ export default function UsersView({ }: UsersViewProps) {
             </div>
           </div>
 
-          {/* Lessons Table */}
+          {/* Users Table */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">

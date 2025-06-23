@@ -21,6 +21,7 @@ import {
   blacklist,
   insertBlacklistSchema,
   Blacklist,
+  PurchaseHistoryData,
 } from "@shared/schema";
 import { db } from "./db";
 import { and, count, eq, not } from "drizzle-orm";
@@ -69,6 +70,8 @@ export interface IStorage {
 
   // Purchase History
   createPurchaseHistory(insertPurchaseHistory: InsertPurchaseHistory): Promise<PurchaseHistory>;
+  getPurchaseHistory(limit: number, offset: number): Promise<PurchaseHistoryData[]>;
+  getPurchaseHistoryCount(): Promise<number>
 }
 
 export class DatabaseStorage implements IStorage {
@@ -351,6 +354,8 @@ export class DatabaseStorage implements IStorage {
     return imported;
   }
 
+
+  // Purchase History Operations
   async createPurchaseHistory(insertPurchaseHistory: InsertPurchaseHistory): Promise<PurchaseHistory> {
     const [purchaseHistory] = await db
       .insert(purchase_history)
@@ -364,6 +369,30 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return purchaseHistory;
+  }
+
+  async getPurchaseHistory(limit: number, offset: number): Promise<PurchaseHistoryData[]> {
+    const result = await db.select().from(purchase_history)
+      .innerJoin(users, eq(users.id, purchase_history.userId))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(purchase_history.createdAt)
+    
+    const publishedPurchaseHistory = result.map(e => ({
+      id: e.purchase_history.id,
+      purchaseId: e.purchase_history.purchaseId,
+      email: e.users.email,
+      purchaseDate: e.purchase_history.purchaseDate,
+      platformType: e.purchase_history.platformType,
+      paymentType: e.purchase_history.paymentType,
+      paymentStatus: e.purchase_history.paymentStatus
+    }))
+    return publishedPurchaseHistory
+  }
+
+  async getPurchaseHistoryCount(): Promise<number> {
+    const result = await db.select({count: count()}).from(purchase_history)
+    return result[0]["count"] ?? 0
   }
 
   async createBlacklist(insertBlacklist: InsertBlacklist): Promise<Blacklist> {

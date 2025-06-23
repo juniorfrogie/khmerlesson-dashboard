@@ -728,6 +728,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Purchase History Route
+  app.get("/api/purchase_history", async (req, res) => {
+    try{
+      const { payment_status } = req.query
+      let limit = parseInt(req.query.limit?.toString() ?? "10") || 10
+      let offset = parseInt(req.query.offset?.toString() ?? "0") || 0
+      let purchaseHistoryResponse = await storage.getPurchaseHistory(limit, offset)
+      let purchaseHistoryCount = await storage.getPurchaseHistoryCount()
+
+      // Apply filters
+      if (payment_status && payment_status !== "all") {
+        purchaseHistoryResponse = purchaseHistoryResponse.filter(e => e.paymentStatus.toLowerCase() === payment_status.toString().toLowerCase());
+      }
+
+      const sendReponse = {
+        data: purchaseHistoryResponse,
+        total: purchaseHistoryCount
+      }
+      return res.status(200).json(sendReponse)
+    }catch(error){
+      res.status(500).send("Failed to get purchase history")
+    }
+  })
+
   const httpServer = createServer(app);
   return httpServer;
 }

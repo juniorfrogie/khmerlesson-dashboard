@@ -58,6 +58,7 @@ export const purchase_history = pgTable("purchase_history", {
   lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: 'cascade'}).notNull(),
   paymentType: varchar("payment_type"),
   platformType: varchar("platform_type"),
+  paymentStatus: varchar("payment_status"), // Complete, Refund, Pending
   purchaseDate: varchar("purchase_date").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -190,3 +191,14 @@ export type DashboardStats = {
   quizzesGrowth: number;
   avgPrice: number;
 };
+
+// Purchase History type
+export type PurchaseHistoryData = {
+  id: number;
+  purchaseId: string,
+  email: string,
+  purchaseDate: string,
+  platformType: string,
+  paymentType: string,
+  paymentStatus: string
+}
