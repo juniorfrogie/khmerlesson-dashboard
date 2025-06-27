@@ -8,6 +8,8 @@ import NotFound from "@/pages/not-found";
 import ResetPassword from "./pages/reset-password";
 import Login from "./pages/login";
 import { useAuth } from "./hooks/use-auth";
+import PaymentComplete from "./pages/payment-complete";
+import PaymentCancel from "./pages/payment-cancel";
 
 function Router() {
 
@@ -32,6 +34,8 @@ function Router() {
       <Route path="/" component={isAuthenticated ? Dashboard : Login} />
       <Route path="/dashboard" component={isAuthenticated ? Dashboard : Login} />
       <Route path="/reset-password/:token" component={ResetPassword} />
+      <Route path="/complete" component={PaymentComplete} />
+      <Route path="/cancel" component={PaymentCancel} />
       <Route component={NotFound} />
     </Switch>
   );

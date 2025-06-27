@@ -22,10 +22,12 @@ import {
   insertBlacklistSchema,
   Blacklist,
   PurchaseHistoryData,
+  UpdatePurchaseHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { and, count, eq, not } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { union } from 'drizzle-orm/pg-core'
 
 export interface IStorage {
   // Users
@@ -72,6 +74,8 @@ export interface IStorage {
   createPurchaseHistory(insertPurchaseHistory: InsertPurchaseHistory): Promise<PurchaseHistory>;
   getPurchaseHistory(limit: number, offset: number): Promise<PurchaseHistoryData[]>;
   getPurchaseHistoryCount(): Promise<number>
+  updatePurchaseHistory(purchaseId: string, purchaseHistory: UpdatePurchaseHistory): Promise<PurchaseHistory>;
+  deletePurchaseHistoryByPurchaseId(purchaseId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -198,12 +202,31 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-    // Lesson operations
+  // Lesson operations
   async getLessonsJoin(user: User): Promise<any> {
-    const result = await db.select().from(users)
-    .innerJoin(purchase_history, eq(users.id, purchase_history.userId))
-    .fullJoin(lessons, eq(lessons.id, purchase_history.lessonId))
-    .orderBy(lessons.createdAt);
+    // const result = await db.select().from(users)
+    // .innerJoin(purchase_history, eq(users.id, purchase_history.userId))
+    // .fullJoin(lessons, eq(lessons.id, purchase_history.lessonId))
+    // .orderBy(lessons.id);
+    // const publishedLessons = result.filter(e => e.lessons?.status == "published").map(e => ({
+    //   id: e.lessons?.id,
+    //   title: e.lessons?.title,
+    //   description: e.lessons?.description,
+    //   level: e.lessons?.level,
+    //   image: e.lessons?.image,
+    //   free: e.lessons?.free,
+    //   price: e.lessons?.price,
+    //   hasPurchased: e.purchase_history?.lessonId === e.lessons?.id && e.purchase_history?.userId === user.id
+    //     && e.purchase_history?.paymentStatus?.toLowerCase() === "completed",
+    //   createdAt: e.lessons?.createdAt,
+    //   updatedAt: e.lessons?.updatedAt
+    // }))
+    // return publishedLessons;
+
+    const result = await db.select().from(lessons)
+    .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
+    .fullJoin(users, eq(users.id, purchase_history.userId))
+    .orderBy(lessons.id);
     const publishedLessons = result.filter(e => e.lessons?.status == "published").map(e => ({
       id: e.lessons?.id,
       title: e.lessons?.title,
@@ -212,11 +235,57 @@ export class DatabaseStorage implements IStorage {
       image: e.lessons?.image,
       free: e.lessons?.free,
       price: e.lessons?.price,
-      hasPurchased: e.purchase_history?.lessonId === e.lessons?.id && e.purchase_history?.userId === user.id,
+      hasPurchased: e.purchase_history?.lessonId === e.lessons?.id && e.purchase_history?.userId === user.id
+        && e.purchase_history?.paymentStatus?.toLowerCase() === "completed",
       createdAt: e.lessons?.createdAt,
       updatedAt: e.lessons?.updatedAt
     }))
+
+    // const uniqueArray = publishedLessons.filter((obj, index, self) =>
+    //   index === self.findIndex((o) => o.id === obj.id)
+    // );
+
+    for(let i = 0; i < publishedLessons.length - 1; i++){
+      if(publishedLessons[i].id === publishedLessons[i + 1].id){
+          if(!publishedLessons[i].hasPurchased){
+            publishedLessons.splice(i, 1)
+          }else if(!publishedLessons[i + 1].hasPurchased){
+            publishedLessons.splice(i + 1, 1)
+          }
+      }
+    }
+    
     return publishedLessons;
+
+    // const result = await db.select().from(lessons).orderBy(lessons.createdAt);
+    // const result2 = await db.select().from(lessons)
+    //   .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
+    //   .innerJoin(users, eq(users.id, purchase_history.userId))
+    //   .where(eq(users.id, user.id))
+    //   .orderBy(lessons.id, lessons.createdAt);
+    // const publishedLessons = result.filter(e => e.status == "published").map(e => ({
+    //   id: e.id,
+    //   title: e.title,
+    //   description: e.description,
+    //   level: e.level,
+    //   image: e.image,
+    //   free: e.free,
+    //   price: e.price,
+    //   hasPurchased: false,
+    //   createdAt: e.createdAt,
+    //   updatedAt: e.updatedAt
+    // }))
+
+    // for(let e1 of publishedLessons){
+    //   for(let e2 of result2){
+    //     let hasPurchased = e1.id === e2.purchase_history?.lessonId && e2.purchase_history?.userId === user.id 
+    //         && e2.purchase_history?.paymentStatus?.toLowerCase() === "completed"
+    //     if(hasPurchased){
+    //       e1.hasPurchased = hasPurchased
+    //     }
+    //   }
+    // }
+    // return publishedLessons;
   }
 
   async getLesson(id: number): Promise<Lesson | undefined> {
@@ -365,15 +434,36 @@ export class DatabaseStorage implements IStorage {
         userId: insertPurchaseHistory.userId,
         userEmail: insertPurchaseHistory.userEmail,
         lessonId: insertPurchaseHistory.lessonId,
-        purchaseDate: insertPurchaseHistory.purchaseDate
+        purchaseDate: insertPurchaseHistory.purchaseDate,
+        paymentMethod: insertPurchaseHistory.paymentMethod,
+        paymentStatus: insertPurchaseHistory.paymentStatus,
+        platformType: insertPurchaseHistory.platformType
       })
       .returning();
     return purchaseHistory;
   }
 
+  async updatePurchaseHistory(purchaseId: string, purchaseHistory: UpdatePurchaseHistory): Promise<PurchaseHistory> {
+    const [data] = await db
+      .update(purchase_history)
+      .set({
+        ...purchaseHistory,
+        updatedAt: new Date()
+      })
+      .where(eq(purchase_history.purchaseId, purchaseId))
+      .returning();
+    return data || undefined;
+  }
+
+  async deletePurchaseHistoryByPurchaseId(purchaseId: string): Promise<boolean> {
+    const result = await db.delete(purchase_history).where(eq(purchase_history.purchaseId, purchaseId));
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async getPurchaseHistory(limit: number, offset: number): Promise<PurchaseHistoryData[]> {
     const result = await db.select().from(purchase_history)
       .innerJoin(users, eq(users.id, purchase_history.userId))
+      .innerJoin(lessons, eq(lessons.id, purchase_history.lessonId))
       .limit(limit)
       .offset(offset)
       .orderBy(purchase_history.createdAt)
@@ -382,9 +472,10 @@ export class DatabaseStorage implements IStorage {
       id: e.purchase_history.id,
       purchaseId: e.purchase_history.purchaseId,
       email: e.users.email,
+      lessonId: e.purchase_history.lessonId,
       purchaseDate: e.purchase_history.purchaseDate,
       platformType: e.purchase_history.platformType,
-      paymentType: e.purchase_history.paymentType,
+      paymentMethod: e.purchase_history.paymentMethod,
       paymentStatus: e.purchase_history.paymentStatus
     }))
     return publishedPurchaseHistory

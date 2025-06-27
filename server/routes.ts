@@ -4,12 +4,15 @@ import { storage } from "./storage";
 import { forgotPasswordSchema, loginSchema, insertUserSchema,
    insertLessonSchema, updateLessonSchema, 
    insertQuizSchema, updateQuizSchema, 
-   insertBlacklistSchema } from "@shared/schema";
+   insertBlacklistSchema, 
+   insertPurchaseHistorySchema} from "@shared/schema";
 import { z } from "zod";
 import apiRoutes from "./api";
+import paypalRoutes from "./paypal/orders"
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import jwt, { JwtPayload } from "jsonwebtoken";
+import cors from "cors";
 import { mailTemplate } from "./mail/mail_template";
 
 
@@ -18,8 +21,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { TOKEN_SECRET } = process.env
   const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
 
+  // Middleware to set CORS headers for all routes
+  // app.use('*', (req, res, next) => {
+  //     res.setHeader('Access-Control-Allow-Origin', '*'); // Allow specific origin
+  //     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  //     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  //     next();
+  // });
+  app.use(cors({
+    origin: "*"
+  }))
+
   // Mount public API routes
   app.use("/api/v1", apiRoutes);
+  app.use("/api", paypalRoutes);
+
   // Dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
@@ -731,7 +747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Purchase History Route
   app.get("/api/purchase_history", async (req, res) => {
     try{
-      const { payment_status } = req.query
+      const { payment_status, search } = req.query
       let limit = parseInt(req.query.limit?.toString() ?? "10") || 10
       let offset = parseInt(req.query.offset?.toString() ?? "0") || 0
       let purchaseHistoryResponse = await storage.getPurchaseHistory(limit, offset)
@@ -739,7 +755,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Apply filters
       if (payment_status && payment_status !== "all") {
-        purchaseHistoryResponse = purchaseHistoryResponse.filter(e => e.paymentStatus.toLowerCase() === payment_status.toString().toLowerCase());
+        purchaseHistoryResponse = purchaseHistoryResponse.filter(e => e.paymentStatus?.toLowerCase() === payment_status.toString().toLowerCase());
+      }
+
+      if (search) {
+        const searchTerm = (search as string).toLowerCase();
+        purchaseHistoryResponse = purchaseHistoryResponse.filter(e => 
+          e.email.toLowerCase().includes(searchTerm)
+        )
       }
 
       const sendReponse = {
@@ -751,6 +774,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).send("Failed to get purchase history")
     }
   })
+
+  // POST /api/lessons/purchase
+  app.post("/api/lessons/purchase", async (req, res) => {
+    try {
+      const validatedData = insertPurchaseHistorySchema.parse(req.body);
+      const purchaseHistory = await storage.createPurchaseHistory(validatedData);
+      res.status(201).json(purchaseHistory);
+    } catch (error) {
+      console.log(error)
+      res.status(500).json({ message: "Failed to create purchase!", errors: error });
+    }
+  })
+
+  app.patch("/api/lessons/purchase/:purchaseId/payment-status", async (req, res) => {
+    try {
+      const { purchaseId } = req.params
+      const { paymentStatus } = req.body
+      const updatedPurchaseHistory = await storage.updatePurchaseHistory(purchaseId, { paymentStatus })
+      if (!updatedPurchaseHistory) {
+        return res.status(404).json({ message: "Purchase history not found" });
+      }
+      res.json({
+        message: "Purchase history updated successfully",
+        data: updatedPurchaseHistory
+      });
+    } catch (error) {
+      console.log(error)
+      res.status(500).json({ message: "Failed to update purchase history!", errors: error });
+    }
+  })
+
+  app.delete("/api/lessons/purchase/:purchaseId", async (req, res) => {
+    try {
+      const { purchaseId } = req.params
+      const deleted = await storage.deletePurchaseHistoryByPurchaseId(purchaseId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Purchase history not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to purchase history" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

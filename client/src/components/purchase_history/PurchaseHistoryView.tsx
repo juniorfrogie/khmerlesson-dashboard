@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, RefreshCcw, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Edit, RefreshCcw, Search } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { apiRequest } from "@/lib/queryClient";
@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { PurchaseHistoryModal } from "./PurchaseHistoryModal";
 
 export type PurchaseHistoryQuery = {
   data: PurchaseHistoryData[],
@@ -16,8 +17,11 @@ export type PurchaseHistoryQuery = {
 }
 
 export function PurchaseHistoryview(){
+    const [searchTerm, setSearchTerm] = useState("");
     const [paymentStatusFilter, setPaymentStatusFilter] = useState("all")
     const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingPurchaseHistory, setEditingPurchaseHistory] = useState<PurchaseHistoryData | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [limit, _] = useState(15)
     var [offset, setOffset] = useState(0)
@@ -26,7 +30,7 @@ export function PurchaseHistoryview(){
     const getPurchaseHistory = async ({ queryKey }: any) => {
         const [_key, params] = queryKey
         const response = await apiRequest("GET", 
-          `/api/purchase_history?payment_status=${params.paymentStatus}&limit=${params.limit}&offset=${params.offset}`)
+          `/api/purchase_history?payment_status=${params.paymentStatus}&search=${params.search}&limit=${params.limit}&offset=${params.offset}`)
         const result = await response.json()
         return result
     }
@@ -35,6 +39,7 @@ export function PurchaseHistoryview(){
     {
         queryKey: ['purchase_history', {
             paymentStatus: paymentStatusFilter,
+            search: searchTerm,
             limit: limit,
             offset: offset
         }],
@@ -44,9 +49,10 @@ export function PurchaseHistoryview(){
     const purchaseHistoryTableHeader = [
         "Email",
         "Purchase Date",
-        "Payment Type",
+        "Payment Method",
         "Platform Type",
-        "Status"
+        "Payment Status",
+        "Actions"
     ]
 
     const refreshData = async () => {
@@ -76,14 +82,37 @@ export function PurchaseHistoryview(){
         }
     };
 
-    const getPaymentStatusBadgeColor = (paymentStatus: string) => {
-       switch (paymentStatus.toLowerCase()) {
-            case "complete": return "bg-green-100 text-green-700";
+    const getPaymentStatusBadgeColor = (paymentStatus: string | null) => {
+       switch (paymentStatus?.toLowerCase()) {
+            case "complete":
+            case "completed":     
+                return "bg-green-100 text-green-700";
             case "pending": return "bg-yellow-100 text-yellow-700";
-            case "refund": return "bg-gray-100 text-gray-700";
+            case "refund": 
+            case "refunded":
+                return "bg-gray-100 text-gray-700";
+            case "cancel":
+            case "cancelled":     
+                return "bg-gray-100 text-gray-700";
             default: return "bg-gray-100 text-gray-700";
         }
     };
+
+    // const getPaymentStatusLabel = (paymentStatus: string) => {
+    //    switch (paymentStatus.toLowerCase()) {
+    //         case "complete":
+    //         case "completed":  
+    //             return "COMPLETED";
+    //         case "pending": return "Pending";
+    //         case "refund": 
+    //         case "refunded":
+    //             return "Refund";
+    //         case "cancel":
+    //         case "cancelled":     
+    //             return "Cancelled";
+    //         default: return "Unknown";
+    //     }
+    // };
 
     const next = () => {
         let min = offset + 1
@@ -94,6 +123,11 @@ export function PurchaseHistoryview(){
         let max = offset - 1
         setOffset(Math.max(0, max))
     }
+
+    const handleEdit = (data: PurchaseHistoryData) => {
+        setEditingPurchaseHistory(data);
+        setIsModalOpen(true);
+    };
 
     if (isLoading) {
         return (
@@ -118,9 +152,12 @@ export function PurchaseHistoryview(){
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                            <Input 
-                                placeholder="Search..."
-                                className="pl-10"/>
+                            <Input
+                                value={searchTerm} 
+                                placeholder="Search email..."
+                                className="pl-10"
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
                     </div>
                     <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
                         <SelectTrigger className="w-[180px]">
@@ -128,7 +165,7 @@ export function PurchaseHistoryview(){
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Payment Status</SelectItem>
-                            <SelectItem value="Complete">Complete</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
                             <SelectItem value="Pending">Pending</SelectItem>
                             <SelectItem value="Refund">Refund</SelectItem>
                         </SelectContent>
@@ -199,7 +236,7 @@ export function PurchaseHistoryview(){
                                                 <td className="p-4">
                                                     <div className="flex items-center">
                                                         <div>
-                                                            <p className="font-medium neutral-dark">{e.paymentType}</p>
+                                                            <p className="font-medium neutral-dark">{e.paymentMethod}</p>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -214,6 +251,33 @@ export function PurchaseHistoryview(){
                                                     <Badge className={getPaymentStatusBadgeColor(e.paymentStatus)}>
                                                         { e.paymentStatus }
                                                     </Badge>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center space-x-2">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon"
+                                                        onClick={() => handleEdit(e)}
+                                                        className="fluent-blue hover:bg-blue-50">
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    {/* <Button 
+                                                        variant="ghost" 
+                                                        size="icon"
+                                                        onClick={() => handlePreview(lesson)}
+                                                        className="neutral-medium hover:bg-gray-50"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon"
+                                                        onClick={() => handleDelete(user)}
+                                                        className="fluent-red hover:bg-red-50"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button> */}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -247,6 +311,11 @@ export function PurchaseHistoryview(){
                 </div>
             </CardContent>
         </Card>
+        <PurchaseHistoryModal 
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            data={editingPurchaseHistory}
+        />
         </>
     )
 }

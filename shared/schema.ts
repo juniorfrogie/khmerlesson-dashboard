@@ -56,9 +56,9 @@ export const purchase_history = pgTable("purchase_history", {
   userId: integer("user_id").references(() => users.id, {onDelete: 'cascade'}).notNull(),
   userEmail: varchar("user_email").references(() => users.email, {onDelete: 'cascade'}).notNull(),
   lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: 'cascade'}).notNull(),
-  paymentType: varchar("payment_type"),
+  paymentMethod: varchar("payment_method"),
   platformType: varchar("platform_type"),
-  paymentStatus: varchar("payment_status"), // Complete, Refund, Pending
+  paymentStatus: varchar("payment_status"), // Complete, Refund, Pending, Cancel
   purchaseDate: varchar("purchase_date").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -81,6 +81,8 @@ export const insertPurchaseHistorySchema = createInsertSchema(purchase_history).
   createdAt: true,
   updatedAt: true
 });
+
+export const updatePurchaseHistorySchema = insertPurchaseHistorySchema.partial()
 
 // Lesson schema
 export const insertLessonSchema = createInsertSchema(lessons).omit({
@@ -163,6 +165,7 @@ export type Analytics = typeof analytics.$inferSelect;
 
 export type PurchaseHistory = typeof purchase_history.$inferSelect;
 export type InsertPurchaseHistory = z.infer<typeof insertPurchaseHistorySchema>;
+export type UpdatePurchaseHistory = z.infer<typeof updatePurchaseHistorySchema>;
 
 export type Blacklist = typeof blacklist.$inferSelect
 export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
@@ -197,8 +200,9 @@ export type PurchaseHistoryData = {
   id: number;
   purchaseId: string,
   email: string,
+  lessonId: number,
   purchaseDate: string,
-  platformType: string,
-  paymentType: string,
-  paymentStatus: string
+  platformType: string | null,
+  paymentMethod: string | null,
+  paymentStatus: string | null
 }

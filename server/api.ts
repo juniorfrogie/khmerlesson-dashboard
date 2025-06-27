@@ -30,10 +30,11 @@ const authenticateAPI = (req: any, res: any, next: any) => {
 };
 
 const authenticateToken = async (req: any, res: any, next: any) => {
+  
   const authHeader = req.headers['authorization']
   const token = authHeader && authHeader.split(' ')[1]
 
-  if (token == null) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+  if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
 
   const isBlacklisted = await storage.getBlacklist(token)
   if (isBlacklisted) {
