@@ -27,7 +27,8 @@ import {
 import { db } from "./db";
 import { and, count, eq, not } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { union } from 'drizzle-orm/pg-core'
+import { Rss } from "lucide-react";
+// import { union } from 'drizzle-orm/pg-core'
 
 export interface IStorage {
   // Users
@@ -223,61 +224,62 @@ export class DatabaseStorage implements IStorage {
     // }))
     // return publishedLessons;
 
-    const result = await db.select().from(lessons)
-    .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
-    .fullJoin(users, eq(users.id, purchase_history.userId))
-    .orderBy(lessons.id);
-    const publishedLessons = result.filter(e => e.lessons?.status == "published").map(e => ({
-      id: e.lessons?.id,
-      title: e.lessons?.title,
-      description: e.lessons?.description,
-      level: e.lessons?.level,
-      image: e.lessons?.image,
-      free: e.lessons?.free,
-      price: e.lessons?.price,
-      hasPurchased: e.purchase_history?.lessonId === e.lessons?.id && e.purchase_history?.userId === user.id
-        && e.purchase_history?.paymentStatus?.toLowerCase() === "completed",
-      createdAt: e.lessons?.createdAt,
-      updatedAt: e.lessons?.updatedAt
-    }))
+    // const result = await db.select().from(lessons)
+    // .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
+    // .fullJoin(users, eq(users.id, purchase_history.userId))
+    // .orderBy(lessons.id);
+    // const publishedLessons = result.filter(e => e.lessons?.status === "published").map(e => ({
+    //   id: e.lessons?.id,
+    //   title: e.lessons?.title,
+    //   description: e.lessons?.description,
+    //   level: e.lessons?.level,
+    //   image: e.lessons?.image,
+    //   free: e.lessons?.free,
+    //   price: e.lessons?.price,
+    //   hasPurchased: e.purchase_history?.lessonId === e.lessons?.id && e.purchase_history?.userId === user.id
+    //     && e.purchase_history?.paymentStatus?.toLowerCase() === "completed",
+    //   createdAt: e.lessons?.createdAt,
+    //   updatedAt: e.lessons?.updatedAt
+    // }))
+
+    // for(let i = 0; i < publishedLessons.length - 1; i++){
+    //   if(publishedLessons[i].id === publishedLessons[i + 1].id){
+    //       if(!publishedLessons[i].hasPurchased){
+    //         publishedLessons.splice(i, 1)
+    //       }else if(!publishedLessons[i + 1].hasPurchased){
+    //         publishedLessons.splice(i + 1, 1)
+    //       }
+    //   }
+    // }
 
     // const uniqueArray = publishedLessons.filter((obj, index, self) =>
     //   index === self.findIndex((o) => o.id === obj.id)
     // );
-
-    for(let i = 0; i < publishedLessons.length - 1; i++){
-      if(publishedLessons[i].id === publishedLessons[i + 1].id){
-          if(!publishedLessons[i].hasPurchased){
-            publishedLessons.splice(i, 1)
-          }else if(!publishedLessons[i + 1].hasPurchased){
-            publishedLessons.splice(i + 1, 1)
-          }
-      }
-    }
     
-    return publishedLessons;
+    // return publishedLessons;
 
-    // const result = await db.select().from(lessons).orderBy(lessons.createdAt);
-    // const result2 = await db.select().from(lessons)
-    //   .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
-    //   .innerJoin(users, eq(users.id, purchase_history.userId))
-    //   .where(eq(users.id, user.id))
-    //   .orderBy(lessons.id, lessons.createdAt);
-    // const publishedLessons = result.filter(e => e.status == "published").map(e => ({
-    //   id: e.id,
-    //   title: e.title,
-    //   description: e.description,
-    //   level: e.level,
-    //   image: e.image,
-    //   free: e.free,
-    //   price: e.price,
-    //   hasPurchased: false,
-    //   createdAt: e.createdAt,
-    //   updatedAt: e.updatedAt
-    // }))
+    const result = await db.select().from(lessons).orderBy(lessons.createdAt);
+    const lessonsUserPurchased = await db.select().from(lessons)
+      .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
+      .innerJoin(users, eq(users.id, purchase_history.userId))
+      .where(eq(users.id, user.id))
+      .orderBy(lessons.createdAt);
+
+    const publishedLessons = result.filter(e => e.status === "published").map(e => ({
+      id: e.id,
+      title: e.title,
+      description: e.description,
+      level: e.level,
+      image: e.image,
+      free: e.free,
+      price: e.price,
+      hasPurchased: false,
+      createdAt: e.createdAt,
+      updatedAt: e.updatedAt
+    }))
 
     // for(let e1 of publishedLessons){
-    //   for(let e2 of result2){
+    //   for(let e2 of lessonUserPurchased){
     //     let hasPurchased = e1.id === e2.purchase_history?.lessonId && e2.purchase_history?.userId === user.id 
     //         && e2.purchase_history?.paymentStatus?.toLowerCase() === "completed"
     //     if(hasPurchased){
@@ -285,7 +287,16 @@ export class DatabaseStorage implements IStorage {
     //     }
     //   }
     // }
-    // return publishedLessons;
+
+    for(let lessonPurchased of lessonsUserPurchased){
+        const indexFound = publishedLessons.findIndex(e => e.id === lessonPurchased.lessons?.id)
+        let hasPurchased = lessonPurchased.lessons?.id === lessonPurchased.purchase_history?.lessonId && lessonPurchased.purchase_history?.userId === user.id 
+            && lessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
+        if(indexFound === -1) break
+        //if(publishedLessons[indexFound].free) continue
+        publishedLessons[indexFound].hasPurchased = hasPurchased
+    }
+    return publishedLessons;
   }
 
   async getLesson(id: number): Promise<Lesson | undefined> {

@@ -6,8 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+// import { Button } from "@/components/ui/button";
+// import { X } from "lucide-react";
 import { Lesson } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +26,7 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
   const { toast } = useToast();
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/lessons", data),
+    mutationFn: async (data: any) => await apiRequest("POST", "/api/lessons", data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["lessons"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
@@ -46,7 +46,7 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("PATCH", `/api/lessons/${lesson?.id}`, data),
+    mutationFn: async (data: any) => await apiRequest("PATCH", `/api/lessons/${lesson?.id}`, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["lessons"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
@@ -65,16 +65,16 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
     },
   });
 
-  const handleSubmit = (data: any, isDraft = false) => {
+  const handleSubmit = async (data: any, isDraft = false) => {
     const payload = {
       ...data,
       status: isDraft ? "draft" : "published",
     };
 
     if (lesson) {
-      updateMutation.mutate(payload);
+      await updateMutation.mutateAsync(payload);
     } else {
-      createMutation.mutate(payload);
+      await createMutation.mutateAsync(payload);
     }
   };
 
@@ -90,10 +90,11 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
     }
   }, [isOpen]);
 
+  //Default Dialog: max-w-4xl max-h-[90vh] overflow-hidden
   return (
     <>
       <Dialog open={isOpen && !showPreview} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-full min-h-full overflow-hidden">
           <DialogHeader className="pb-4">
             <DialogTitle>
               {lesson ? "Edit Lesson" : "Create New Lesson"}
@@ -102,7 +103,7 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
           
           <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">
             <LessonForm
-              lesson={lesson}
+              lesson={formData ?? lesson}
               onSubmit={handleSubmit}
               onPreview={handlePreview}
               isLoading={createMutation.isPending || updateMutation.isPending}
@@ -114,7 +115,11 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
       <LessonPreview
         lesson={formData}
         isOpen={showPreview}
-        onClose={() => setShowPreview(false)}
+        //onClose={() => setShowPreview(false)}
+        onClose={(e) => {
+          setShowPreview(false)
+          setFormData(e)
+        }}
         isFormPreview={true}
       />
     </>

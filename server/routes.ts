@@ -22,12 +22,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
 
   // Middleware to set CORS headers for all routes
-  // app.use('*', (req, res, next) => {
-  //     res.setHeader('Access-Control-Allow-Origin', '*'); // Allow specific origin
-  //     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-  //     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  //     next();
-  // });
   app.use(cors({
     origin: "*"
   }))

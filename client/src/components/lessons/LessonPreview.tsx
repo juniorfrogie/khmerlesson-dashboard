@@ -4,7 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { X, BookOpen } from "lucide-react";
@@ -14,7 +14,7 @@ import { IMAGE_MAP } from "@/lib/constants";
 interface LessonPreviewProps {
   lesson: Lesson | any | null;
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (lesson: Lesson) => void;
   isFormPreview?: boolean;
 }
 
@@ -24,7 +24,7 @@ export default function LessonPreview({ lesson, isOpen, onClose, isFormPreview =
   const sections = Array.isArray(lesson.sections) ? lesson.sections : [];
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose(lesson)}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center">
