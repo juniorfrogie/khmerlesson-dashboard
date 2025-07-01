@@ -23,12 +23,12 @@ import {
   Blacklist,
   PurchaseHistoryData,
   UpdatePurchaseHistory,
+  InsertUserWithAuthService,
 } from "@shared/schema";
 import { db } from "./db";
 import { and, count, eq, not } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { Rss } from "lucide-react";
-// import { union } from 'drizzle-orm/pg-core'
+import generatorPassword from "generate-password"
 
 export interface IStorage {
   // Users
@@ -45,7 +45,8 @@ export interface IStorage {
   updatePassword(id: number, password: string): Promise<User | null>
   loginByAdmin(email: string, password: string): Promise<User | null>;
   changePassword(id: number, currentPassword: string, newPassword: string): Promise<User | null>
-  getUserCount(): Promise<number>
+  getUserCount(): Promise<number>;
+  createUserWithAuthService(user: InsertUserWithAuthService): Promise<User>;
   
   // Lessons
   getLessons(): Promise<Lesson[]>;
@@ -119,6 +120,25 @@ export class DatabaseStorage implements IStorage {
     const userToInsert = {
       ...insertUser,
       password: hashedPassword,
+    };
+
+    const [user] = await db.insert(users).values(userToInsert).returning();
+    return user;
+  }
+
+  async createUserWithAuthService(insertUser: InsertUserWithAuthService): Promise<User> {
+    const password = generatorPassword.generate({
+      length: 12,
+      uppercase: true,
+      lowercase: true,
+      symbols: true
+    })
+
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const userToInsert = {
+      ...insertUser,
+      password: hashedPassword
     };
 
     const [user] = await db.insert(users).values(userToInsert).returning();

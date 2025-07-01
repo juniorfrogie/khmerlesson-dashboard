@@ -5,7 +5,10 @@ export const IMAGE_MAP = {
   food: "🍚",
   travel: "🚌",
   conversation: "💬",
-  question: "❓"
+  question: "⁉️",
+  vocabulary: "📚",
+  sentences: "📖",
+  other: "❓"
 };
 
 export const LESSON_LEVELS = ["Beginner", "Intermediate", "Advanced"] as const;

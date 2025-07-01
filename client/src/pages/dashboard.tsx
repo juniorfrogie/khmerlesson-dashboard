@@ -65,12 +65,6 @@ export default function Dashboard() {
         return <UsersView onDelete={openDeleteModal} />;
       case "purchase_history":
         return <PurchaseHistoryview />
-        // return (
-        //   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        //     <h3 className="text-lg font-semibold neutral-dark mb-4">Purchase History</h3>
-        //     <p className="neutral-medium">Purchase History feature coming soon...</p>
-        //   </div>
-        // );
       case "analytics":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

@@ -1,8 +1,6 @@
 import { Router } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
-// import { insertLessonSchema, insertQuizSchema } from "@shared/schema";
-// import { fromError } from "zod-validation-error";
 import jwt from "jsonwebtoken"
 
 const router = Router();
@@ -109,6 +107,27 @@ router.get("/lessons/:id", async (req, res) => {
         error: 'Lesson not found' 
       });
     }
+
+    const sections = lesson.sections as { title: string, content: string, items: {english: string, phonemic: string, khmer: string}[]}[]
+    for(let section of sections){
+      let content = section.content
+      const lines = content.split('\n').filter(line => line.trim());
+      const parsedEntries = [];
+      for (const line of lines) {
+        // Match patterns like: "word [pronunciation] : translation"
+        const match = line.match(/^(.+?)\s*\[(.+?)\]\s*:\s*(.+)$/);
+        if (match) {
+          parsedEntries.push({
+            english: match[1].trim(),
+            phonemic: `[${match[2].trim()}]`,
+            khmer: match[3].trim()
+          });
+        }
+      }
+      Object.assign(section, {
+        items: parsedEntries
+      })
+    }
     
     res.json({
       success: true,
@@ -120,7 +139,7 @@ router.get("/lessons/:id", async (req, res) => {
         image: lesson.image,
         free: lesson.free,
         price: lesson.price,
-        sections: lesson.sections,
+        sections: sections,
         createdAt: lesson.createdAt,
         updatedAt: lesson.updatedAt
       }

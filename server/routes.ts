@@ -1,11 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { request } from "https";
 import { storage } from "./storage";
 import { forgotPasswordSchema, loginSchema, insertUserSchema,
    insertLessonSchema, updateLessonSchema, 
    insertQuizSchema, updateQuizSchema, 
    insertBlacklistSchema, 
-   insertPurchaseHistorySchema} from "@shared/schema";
+   insertPurchaseHistorySchema,
+   insertUserWithAuthServiceSchema} from "@shared/schema";
 import { z } from "zod";
 import apiRoutes from "./api";
 import paypalRoutes from "./paypal/orders"
@@ -287,19 +289,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
       const user = await storage.createUser(userData);
       
-      const { password, ...userResponse } = user;
+      const { password, resetToken, registrationType, ...userResponse } = user;
       
       const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
         expiresIn: expiresIn
       })
   
-      // const days = 90;
-      // const expirationDate = new Date();
-      // expirationDate.setDate(expirationDate.getDate() + days);
-      // res.cookie("token", token, {
-      //   expires: expirationDate,
-      //   httpOnly: true
-      // })
+      res.status(201).json({
+        message: "User registered successfully",
+        user: userResponse,
+        token: token
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation error",
+          errors: error.errors
+        });
+      }
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+
+  app.post("/api/auth/register-auth-service", async (req, res) => {
+    try {
+      const userData = insertUserWithAuthServiceSchema.parse(req.body);
+      
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        const { password, resetToken, registrationType, ...userResponse } = existingUser;
+        const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+          expiresIn: expiresIn
+        })
+        return res.status(200).json({
+          user: userResponse,
+          token: token
+        });
+      }
+  
+      const user = await storage.createUserWithAuthService(userData);
+      
+      const { password, resetToken, registrationType, ...userResponse } = user;
+      
+      const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+        expiresIn: expiresIn
+      })
   
       res.status(201).json({
         message: "User registered successfully",
@@ -331,7 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Account is disabled" });
       }
   
-      const { password, ...userResponse } = user;
+      const { password, resetToken, registrationType, ...userResponse } = user;
       const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
         expiresIn: expiresIn
       })
@@ -459,10 +494,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!user.isActive) {
           return res.status(401).json({ message: "Account is disabled" })
         }
+        if(user.registrationType !== "authenication"){
+          return res.status(401).json({ message: "Invalid email" });
+        }
         // Generate a reset token
         const token = crypto.randomBytes(20).toString('hex');
         // Store the token with the user's email in a database or in-memory store
-        //user.resetToken = token;
         await storage.updateUserResetToken(email, token)
         // Send the reset token to the user's email
         const transporter = nodemailer.createTransport({
@@ -538,17 +575,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // app.get('/reset-password/:token', async (req, res) => {
-  //   const { token } = req.params;
-  //   // Check if the token exists and is still valid
-  //   const user = await storage.getUserByResetToken(token)
-  //   if (!user) {
-  //     res.status(404).send('Invalid or expired token');
-  //   } else {
-  //     res.sendStatus(200)
-  //   }
-  // });
-
   // Reset Password
   app.post('/api/auth/reset-password', async (req: any, res: any) => {
     try{
@@ -565,7 +591,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updatePassword(user.id, password)
         //user.password = password;
         //delete user.resetToken; // Remove the reset token after the password is updated
-        //user.resetToken = null // Remove the reset token after the password is updated
         res.status(200).send('Password updated successfully');
       } else {
         res.status(404).send('Invalid or expired token')
@@ -813,6 +838,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to purchase history" });
     }
   });
+
+  // Proxy: Google Text to Speech
+  app.get("/api/tts", async (req, res) => {
+    try{
+      const { q } = req.query
+      const options = {
+        protocol: 'https:',
+        method: req.method,
+        hostname: 'translate.google.com',
+        path: `/translate_tts?ie=UTF-8&tl=km-Kh&client=tw-ob&q=${encodeURIComponent(q?.toString() ?? "")}`,
+        //headers: req.headers
+      }
+      const proxyReq = request(options, (proxyRes) => {
+        console.log(`STATUS: ${proxyRes.statusCode}`);
+
+        // Set response headers from the proxy target
+        //res.writeHead(proxyRes.statusCode!, proxyRes.headers)
+        res.set('Content-Type', 'audio/mpeg')
+
+        // Pipe the proxy response back to the original client response
+        proxyRes.pipe(res)
+      })
+
+      proxyReq.on('error', (error) => {
+        console.error(`Problem with proxy request: ${error.message}`);
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Proxy error')
+      })
+
+      // Pipe the incoming request body to the outgoing proxy requ
+      //req.pipe(proxyReq)
+      proxyReq.end()
+    } catch (error) {
+      console.log(error)
+      res.status(500).json({ message: "Proxy error.", errors: error });
+    }
+  })
 
   const httpServer = createServer(app);
   return httpServer;

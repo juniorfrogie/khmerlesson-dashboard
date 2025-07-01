@@ -37,6 +37,7 @@ export const users = pgTable("users", {
   role: varchar("role", { length: 50 }).notNull().default("student"), // "admin" | "teacher" | "student"
   isActive: boolean("is_active").notNull().default(true),
   resetToken: varchar("reset_token"),
+  registrationType: varchar("registration_type").notNull().default("authenication"), // "authenication" | "google_service"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -114,6 +115,17 @@ export const insertUserSchema = createInsertSchema(users).omit({
   lastName: z.string().min(1, "Last name is required"),
 });
 
+export const insertUserWithAuthServiceSchema = createInsertSchema(users).omit({
+  id: true,
+  password: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  email: z.string().email("Invalid email address"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
@@ -152,6 +164,7 @@ export type LoginUser = z.infer<typeof loginSchema>;
 export type ResetPasswordUser = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordUser = z.infer<typeof changePasswordSchema>;
 // export type UserCount = z.infer<typeof userCount>
+export type InsertUserWithAuthService = z.infer<typeof insertUserWithAuthServiceSchema>;
 
 export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;

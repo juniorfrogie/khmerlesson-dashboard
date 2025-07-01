@@ -29,7 +29,7 @@ export default function VocabularyEditor({ value, onChange, placeholder }: Vocab
         const match = line.match(/^(.+?)\s*\[(.+?)\]\s*:\s*(.+)$/);
         if (match) {
           parsedEntries.push({
-            id: Math.random().toString(36).substr(2, 9),
+            id: Math.random().toString(36).substring(2, 9),
             english: match[1].trim(),
             phonemic: match[2].trim(),
             khmer: match[3].trim(),
@@ -38,14 +38,14 @@ export default function VocabularyEditor({ value, onChange, placeholder }: Vocab
       }
       
       return parsedEntries.length > 0 ? parsedEntries : [{
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substring(2, 9),
         english: "",
         phonemic: "",
         khmer: "",
       }];
     } catch {
       return [{
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substring(2, 9),
         english: "",
         phonemic: "",
         khmer: "",
@@ -75,7 +75,7 @@ export default function VocabularyEditor({ value, onChange, placeholder }: Vocab
 
   const addEntry = () => {
     const newEntries = [...entries, {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substring(2, 9),
       english: "",
       phonemic: "",
       khmer: "",
