@@ -26,7 +26,7 @@ import {
   InsertUserWithAuthService,
 } from "@shared/schema";
 import { db } from "./db";
-import { and, count, eq, not } from "drizzle-orm";
+import { and, count, eq, not, lte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import generatorPassword from "generate-password"
 
@@ -54,6 +54,7 @@ export interface IStorage {
   createLesson(lesson: InsertLesson): Promise<Lesson>;
   updateLesson(id: number, lesson: UpdateLesson): Promise<Lesson | undefined>;
   deleteLesson(id: number): Promise<boolean>;
+  getLessonsJoin(user: User): Promise<any>
   
   // Quizzes
   getQuizzes(): Promise<Quiz[]>;
@@ -78,6 +79,11 @@ export interface IStorage {
   getPurchaseHistoryCount(): Promise<number>
   updatePurchaseHistory(purchaseId: string, purchaseHistory: UpdatePurchaseHistory): Promise<PurchaseHistory>;
   deletePurchaseHistoryByPurchaseId(purchaseId: string): Promise<boolean>;
+
+  //BlackList
+  createBlacklist(insertBlacklist: InsertBlacklist): Promise<Blacklist>
+  getBlacklist(token: string): Promise<Blacklist | undefined>
+  deleteBlacklist(): Promise<number>
 }
 
 export class DatabaseStorage implements IStorage {
@@ -532,6 +538,12 @@ export class DatabaseStorage implements IStorage {
   async getBlacklist(token: string): Promise<Blacklist | undefined> {
     const [blacklistResult] = await db.select().from(blacklist).where(eq(blacklist.token, token));
     return blacklistResult || undefined;
+  }
+
+  async deleteBlacklist(): Promise<number> {
+    const now = new Date()
+    const result = await db.delete(blacklist).where(lte(blacklist.expiredAt, now));
+    return result.rowCount ?? 0;
   }
 }
 

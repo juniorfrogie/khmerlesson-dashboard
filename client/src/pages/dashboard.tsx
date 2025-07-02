@@ -89,7 +89,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex bg-gray-50">
       <Sidebar activeView={activeView} onViewChange={setActiveView} />
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col ml-64">
         <TopBar activeView={activeView} />
         <div className="flex-1 p-6">
           {renderView()}

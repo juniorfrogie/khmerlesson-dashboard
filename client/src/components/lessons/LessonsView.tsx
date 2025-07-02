@@ -156,7 +156,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
       <Card className="border border-gray-200">
         <CardContent className="p-6 space-y-6">
           {/* Filters and Search */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 sm:space-x-4">
             <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -220,9 +220,9 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
 
           {/* Lessons Table */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[calc(100vh-350px)]">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                   <tr>
                     <th className="text-left p-4 font-medium neutral-dark">
                       <Checkbox 
@@ -271,9 +271,11 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                           </div>
                         </td>
                         <td className="p-4">
-                          <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
-                            {lesson.image.charAt(0).toUpperCase() + lesson.image.slice(1)}
-                          </Badge>
+                          { lesson.image && lesson.image.length > 0 && (
+                            <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
+                              {lesson.image.charAt(0).toUpperCase() + lesson.image.slice(1)}
+                            </Badge>
+                          )}
                         </td>
                         <td className="p-4">
                           <Badge className={getLevelBadgeColor(lesson.level)}>

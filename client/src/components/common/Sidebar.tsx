@@ -20,7 +20,7 @@ const navigation = [
 export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
 
   return (
-    <aside className="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col">
+    <aside className="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col fixed h-full z-20">
       <div className="p-6 border-b border-gray-200">
         <h1 className="text-xl font-semibold neutral-dark flex items-center">
           <GraduationCap className="fluent-blue mr-3" size={24} />

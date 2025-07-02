@@ -259,9 +259,9 @@ export default function UsersView({ }: UsersViewProps) {
 
           {/* Users Table */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[calc(100vh-350px)]">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                   <tr>
                     <th className="text-left p-4 font-medium neutral-dark">
                       <Checkbox 

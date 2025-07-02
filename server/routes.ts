@@ -16,7 +16,7 @@ import crypto from "crypto";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import cors from "cors";
 import { mailTemplate } from "./mail/mail_template";
-
+import cron from "node-cron"
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -318,6 +318,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const existingUser = await storage.getUserByEmail(userData.email);
       if (existingUser) {
+        if(existingUser.registrationType === "authenication"){
+          return res.status(409).json({ message: "User already exists with this email" });
+        }
+        //
         const { password, resetToken, registrationType, ...userResponse } = existingUser;
         const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
           expiresIn: expiresIn
@@ -455,7 +459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  app.get("/api/auth/logout", async (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
   try {
     const authHeader = req.headers['authorization']
     let token = authHeader && authHeader.split(' ')[1]
@@ -875,6 +879,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Proxy error.", errors: error });
     }
   })
+
+
+  //Clean up expired token From Blacklist in every 10 minutes
+  const cleanExpiredTokens = async () => {
+    const result = await storage.deleteBlacklist();
+    if (result) {
+      console.log(
+        `Expired tokens cleaned from blacklist. Count: ${result}`
+      );
+    }
+  }
+
+  cron.schedule("*/10 * * * *", cleanExpiredTokens);
 
   const httpServer = createServer(app);
   return httpServer;
