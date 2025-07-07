@@ -508,11 +508,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send the reset token to the user's email
         const transporter = nodemailer.createTransport({
           host: process.env.MAIL_HOST,
-          port: 2525,
+          port: parseInt(process.env.MAIL_PORT?.toString() ?? "465"),
           auth: {
             user: process.env.MAIL_USERNAME,
-            pass: process.env.MAIL_PASSWORD,
-          },
+            pass: process.env.MAIL_PASSWORD
+          }
         });
   
         const resetPasswordLink = req.protocol + '://' + req.get('host') + `/reset-password/${token}`
