@@ -9,9 +9,10 @@ import QuizzesView from "@/components/quizzes/QuizzesView";
 import UsersView from "@/components/users/UsersView"
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal";
 import APISettings from "./api-settings";
-import { PurchaseHistoryview } from "@/components/purchase_history/PurchaseHistoryView";
+import PurchaseHistoryView from "@/components/purchase_history/PurchaseHistoryView";
+import LessonTypeView from "@/components/lesson_type/LessonTypeView";
 
-export type ActiveView = "dashboard" | "lessons" | "quizzes"  | "users" | "purchase_history" | "analytics" | "import-export" | "api-settings";
+export type ActiveView = "dashboard" | "lessons" | "lesson_type" | "quizzes"  | "users" | "purchase_history" | "analytics" | "import-export" | "api-settings";
 
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
@@ -59,12 +60,14 @@ export default function Dashboard() {
         );
       case "lessons":
         return <LessonsView onDelete={openDeleteModal} />;
+      case "lesson_type":
+        return <LessonTypeView onDelete={openDeleteModal}/>
       case "quizzes":
         return <QuizzesView onDelete={openDeleteModal} />;
       case "users":
         return <UsersView onDelete={openDeleteModal} />;
       case "purchase_history":
-        return <PurchaseHistoryview />
+        return <PurchaseHistoryView />
       case "analytics":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

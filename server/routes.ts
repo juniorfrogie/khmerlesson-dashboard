@@ -7,7 +7,9 @@ import { forgotPasswordSchema, loginSchema, insertUserSchema,
    insertQuizSchema, updateQuizSchema, 
    insertBlacklistSchema, 
    insertPurchaseHistorySchema,
-   insertUserWithAuthServiceSchema} from "@shared/schema";
+   insertUserWithAuthServiceSchema,
+   insertLessonTypeSchema,
+   updateLessonTypeSchema} from "@shared/schema";
 import { z } from "zod";
 import apiRoutes from "./api";
 import paypalRoutes from "./paypal/orders"
@@ -62,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (type && type !== "all") {
-        lessons = lessons.filter(lesson => lesson.image === type);
+        lessons = lessons.filter(lesson => lesson.lessonType.title === type);
       }
       
       if (status && status !== "all") {
@@ -136,6 +138,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete lesson" });
     }
   });
+
+  // Lesson Type CRUD
+  app.get("/api/lesson-type", async (req, res) => {
+    try{
+      const { search } = req.query;
+      let lessonTypes = await storage.getAllLessonType()
+
+      if(search){
+        const searchTerm = (search as string).toLowerCase();
+        lessonTypes = lessonTypes.filter(lessonType => 
+          lessonType.title.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      res.json(lessonTypes)
+    } catch(error) {
+      res.status(500).json({ message: "Failed to fetch lesson type" });
+    }
+  })
+
+  app.post("/api/lesson-type", async (req, res) => {
+    try {
+      const validatedData = insertLessonTypeSchema.parse(req.body);
+      const lessonTypeList = await storage.createLessonType(validatedData);
+      res.status(201).json(lessonTypeList);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create lesson type" });
+    }
+  })
+
+  app.patch("/api/lesson-type/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id)
+      const validatedData = updateLessonTypeSchema.parse(req.body);
+      const lessonType = await storage.updateLessonType(id, validatedData)
+
+      if(!lessonType){
+        return res.status(404).json({message: "Lesson type not found"})
+      }
+
+      res.json(lessonType)
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update lesson type" });
+    }
+  })
+
+  app.delete("/api/lesson-type/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id)
+      const deleted = await storage.deleteLessonType(id)
+
+      if(!deleted){
+        return res.status(404).json({message: "Lesson type not found"})
+      }
+      res.status(204).send()
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete lesson type" });
+    }
+  })
 
   // Quizzes CRUD
   app.get("/api/quizzes", async (req, res) => {

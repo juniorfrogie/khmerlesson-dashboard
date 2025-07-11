@@ -5,6 +5,8 @@ import { z } from "zod";
 
 export const lessons = pgTable("lessons", {
   id: serial("id").primaryKey(),
+  lessonTypeId: integer("lesson_type_id")
+    .references(() => lesson_type.id, { onDelete: "cascade", onUpdate: "cascade"}),
   title: text("title").notNull(),
   description: text("description").notNull(),
   free: boolean("free").notNull().default(true),
@@ -13,6 +15,15 @@ export const lessons = pgTable("lessons", {
   image: text("image").notNull(), // image type identifier
   sections: jsonb("sections").notNull().default([]), // array of {title: string, content: string}
   status: text("status").notNull().default("draft"), // "draft" | "published"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const lesson_type = pgTable("lesson_type", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  icon: text("icon").notNull(),
+  iconMode: text("icon_mode").notNull().default("raw"), // "Raw" | "File"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -94,6 +105,15 @@ export const insertLessonSchema = createInsertSchema(lessons).omit({
 
 export const updateLessonSchema = insertLessonSchema.partial();
 
+// Lesson Type schema
+export const insertLessonTypeSchema = createInsertSchema(lesson_type).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+})
+
+export const updateLessonTypeSchema = createInsertSchema(lesson_type).partial()
+
 // Quiz schema
 export const insertQuizSchema = createInsertSchema(quizzes).omit({
   id: true,
@@ -170,6 +190,10 @@ export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type UpdateLesson = z.infer<typeof updateLessonSchema>;
 
+export type LessonType = typeof lesson_type.$inferSelect;
+export type InsertLessonType = z.infer<typeof insertLessonTypeSchema>;
+export type UpdateLessonType = z.infer<typeof updateLessonTypeSchema>;
+
 export type Quiz = typeof quizzes.$inferSelect;
 export type InsertQuiz = z.infer<typeof insertQuizSchema>;
 export type UpdateQuiz = z.infer<typeof updateQuizSchema>;
@@ -182,6 +206,22 @@ export type UpdatePurchaseHistory = z.infer<typeof updatePurchaseHistorySchema>;
 
 export type Blacklist = typeof blacklist.$inferSelect
 export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
+
+// Lesson
+export type LessonData = {
+  id: number
+  title: string
+  lessonType: LessonType,
+  description: string,
+  level: string,
+  free: boolean,
+  image: string,
+  price: number,
+  status: string,
+  sections: unknown,
+  createdAt: Date,
+  updatedAt: Date
+}
 
 // Lesson section type
 export type LessonSection = {
@@ -210,11 +250,12 @@ export type DashboardStats = {
 
 // Purchase History type
 export type PurchaseHistoryData = {
-  id: number;
+  id: number
   purchaseId: string,
   email: string,
   lessonId: number,
   purchaseDate: string,
+  purchaseAmount: number,
   platformType: string | null,
   paymentMethod: string | null,
   paymentStatus: string | null

@@ -10,13 +10,14 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { PurchaseHistoryModal } from "./PurchaseHistoryModal";
+import { format } from "date-fns";
 
-export type PurchaseHistoryQuery = {
+type PurchaseHistoryQuery = {
   data: PurchaseHistoryData[],
   total: number
 }
 
-export function PurchaseHistoryview(){
+export default function PurchaseHistoryView(){
     const [searchTerm, setSearchTerm] = useState("");
     const [paymentStatusFilter, setPaymentStatusFilter] = useState("all")
     const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
@@ -52,6 +53,7 @@ export function PurchaseHistoryview(){
         "Payment Method",
         "Platform Type",
         "Payment Status",
+        "Purchase Amount",
         "Actions"
     ]
 
@@ -221,36 +223,34 @@ export function PurchaseHistoryview(){
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center">
-                                                        <div>
-                                                            <p className="font-medium neutral-dark">{e.email}</p>
-                                                        </div>
+                                                        <p className="font-medium neutral-dark">{e.email}</p>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center">
-                                                        <div>
-                                                            <p className="font-medium neutral-dark">{e.purchaseDate}</p>
-                                                        </div>
+                                                        <span className="neutral-medium text-sm">
+                                                            {/* { moment(e.purchaseDate).format("LLL") } */}
+                                                            { format(e.purchaseDate, "PPpp") }
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center">
-                                                        <div>
-                                                            <p className="font-medium neutral-dark">{e.paymentMethod}</p>
-                                                        </div>
+                                                        <p className="font-medium neutral-dark">{e.paymentMethod}</p>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex -items-center">
-                                                        <div>
-                                                            <p className="font-medium neutra-dark">{e.platformType}</p>
-                                                        </div>
+                                                        <p className="font-medium neutra-dark">{e.platformType}</p>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <Badge className={getPaymentStatusBadgeColor(e.paymentStatus)}>
                                                         { e.paymentStatus }
                                                     </Badge>
+                                                </td>
+                                                <td className="p-4">
+                                                    <p className="font-medium neutra-dark">{ `$${((e.purchaseAmount || 0) / 100).toFixed(2)}` }</p>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center space-x-2">
@@ -268,8 +268,8 @@ export function PurchaseHistoryview(){
                                                         className="neutral-medium hover:bg-gray-50"
                                                     >
                                                         <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button 
+                                                    </Button> */}
+                                                    {/* <Button 
                                                         variant="ghost" 
                                                         size="icon"
                                                         onClick={() => handleDelete(user)}

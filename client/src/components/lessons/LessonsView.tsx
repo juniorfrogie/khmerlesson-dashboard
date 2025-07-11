@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Filter, Plus, Edit, Eye, Trash2, BookOpen } from "lucide-react";
-import { Lesson } from "@shared/schema";
+import { Lesson, LessonData, LessonType } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { IMAGE_MAP } from "@/lib/constants";
@@ -25,8 +25,8 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLessons, setSelectedLessons] = useState<number[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-  const [previewLesson, setPreviewLesson] = useState<Lesson | null>(null);
+  const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
+  const [previewLesson, setPreviewLesson] = useState<LessonData | null>(null);
 
   const { toast } = useToast();
 
@@ -45,26 +45,40 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   //   ],
   // });
 
-   const getLessons = async ({ queryKey }: any) => {
+  const getLessons = async ({ queryKey }: any) => {
+    const [_key, params] = queryKey
+    const response = await apiRequest(
+      "GET", 
+      `/api/lessons?level=${params.level}&type=${params.type}&search=${params.search}&status=${params.status}`
+    )
+    return await response.json()
+  }
+  
+  const { data: lessons = [], isLoading } = useQuery<LessonData[]>(
+    {
+      queryKey: ['lessons', {
+        level: levelFilter,
+        type: typeFilter,
+        search: searchTerm,
+        status: statusFilter
+      }],
+      queryFn: getLessons
+    })
+      
+  const getAllLessonType = async ({ queryKey }: any) => {
       const [_key, params] = queryKey
-      const response = await apiRequest(
-        "GET", 
-        `/api/lessons?level=${params.level}&type=${params.type}&search=${params.search}&status=${params.status}`
+      const response = await apiRequest("GET", 
+          `/api/lesson-type`
       )
       return await response.json()
     }
+    
+    const { data: lessonTypeList = [] } = useQuery<LessonType[]>({
+      queryKey: ['lesson-type'],
+      refetchOnMount: false,
+      queryFn: getAllLessonType 
+  })
   
-    const { data: lessons = [], isLoading } = useQuery<Lesson[]>(
-      {
-        queryKey: ['lessons', {
-          level: levelFilter,
-          type: typeFilter,
-          search: searchTerm,
-          status: statusFilter
-        }],
-        queryFn: getLessons
-      })
-
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/lessons/${id}`),
     onSuccess: async () => {
@@ -84,18 +98,18 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
     },
   });
 
-  const handleDelete = (lesson: Lesson) => {
+  const handleDelete = (lesson: Lesson | LessonData) => {
     onDelete("lesson", lesson.title, () => {
       deleteMutation.mutate(lesson.id);
     });
   };
 
-  const handleEdit = (lesson: Lesson) => {
+  const handleEdit = (lesson: LessonData) => {
     setEditingLesson(lesson);
     setIsModalOpen(true);
   };
 
-  const handlePreview = (lesson: Lesson) => {
+  const handlePreview = (lesson: LessonData) => {
     setPreviewLesson(lesson);
   };
 
@@ -186,11 +200,18 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  {Object.keys(IMAGE_MAP).map(type => (
+                  {/* {Object.keys(IMAGE_MAP).map(type => (
                     <SelectItem key={type} value={type}>
                       {type.charAt(0).toUpperCase() + type.slice(1)}
                     </SelectItem>
-                  ))}
+                  ))} */}
+                  {
+                    lessonTypeList.map((item) => (
+                      <SelectItem key={item.id} value={`${item.title.toLowerCase()}`}>
+                        { item.title }
+                      </SelectItem>
+                    ))
+                  }
                 </SelectContent>
               </Select>
 
@@ -262,7 +283,8 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                         <td className="p-4">
                           <div className="flex items-center">
                             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                              <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span>
+                              {/* <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span> */}
+                              { <span className="text-lg">{ lesson.lessonType.icon || "📚"}</span> }
                             </div>
                             <div>
                               <p className="font-medium neutral-dark">{lesson.title}</p>
@@ -273,7 +295,8 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                         <td className="p-4">
                           { lesson.image && lesson.image.length > 0 && (
                             <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
-                              {lesson.image.charAt(0).toUpperCase() + lesson.image.slice(1)}
+                              {/* {lesson.image.charAt(0).toUpperCase() + lesson.image.slice(1)} */}
+                              {lesson.lessonType.title.charAt(0).toUpperCase() + lesson.lessonType.title.slice(1)}
                             </Badge>
                           )}
                         </td>

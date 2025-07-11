@@ -22,6 +22,11 @@ const pageConfig = {
     subtitle: "Create and manage learning content",
     action: { text: "New Lesson", icon: Plus },
   },
+  lesson_type: {
+    title: "Lesson Type Management",
+    subtitle: "Create and manage learning content",
+    action: { text: "New Lesson Type", icon: Plus },
+  },
   quizzes: {
     title: "Quiz Management",
     subtitle: "Create and manage quiz questions",

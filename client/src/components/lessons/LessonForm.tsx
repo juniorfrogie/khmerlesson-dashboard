@@ -16,15 +16,24 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Eye, Save } from "lucide-react";
-import { Lesson, LessonSection } from "@shared/schema";
-import { IMAGE_MAP } from "@/lib/constants";
+import { LessonData, LessonType } from "@shared/schema";
+// import { IMAGE_MAP } from "@/lib/constants";
 import RichTextEditor from "@/components/ui/rich-text-editor";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 const lessonSchema = z.object({
+  lessonTypeId: z.number().min(1, "Lesson Type is required"),
+  lessonType: z.object({
+    id: z.number(),
+    icon: z.string(),
+    title: z.string(),
+    iconMode: z.string()
+  }).optional(), 
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   level: z.enum(["Beginner", "Intermediate", "Advanced"]),
-  image: z.string().min(1, "Type is required"),
+  image: z.string(),
   free: z.boolean(),
   price: z.number().optional(),
   sections: z.array(z.object({
@@ -36,7 +45,7 @@ const lessonSchema = z.object({
 type LessonFormData = z.infer<typeof lessonSchema>;
 
 interface LessonFormProps {
-  lesson: Lesson | null;
+  lesson: LessonData | null;
   onSubmit: (data: LessonFormData, isDraft?: boolean) => void;
   onPreview: (data: LessonFormData) => void;
   isLoading: boolean;
@@ -44,10 +53,13 @@ interface LessonFormProps {
 
 export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: LessonFormProps) {
   const [autoSaveTime, setAutoSaveTime] = useState<Date | null>(null);
+  //const [lessonTypeList, setLessonTypeList] = useState<LessonType[]>([])
 
   const form = useForm<LessonFormData>({
     resolver: zodResolver(lessonSchema),
     defaultValues: {
+      lessonTypeId: lesson?.lessonType?.id,
+      lessonType: lesson?.lessonType,
       title: lesson?.title || "",
       description: lesson?.description || "",
       level: lesson?.level || "Beginner",
@@ -85,9 +97,16 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
 
   const handlePreview = () => {
     const data = form.getValues();
+    const lessonType = lessonTypeList.find(e => e.id === data.lessonTypeId)
     if (data.title && data.sections.length > 0) {
       onPreview({
         ...data,
+        lessonType: {
+          id: lessonType?.id ?? -1,
+          icon: lessonType?.icon ?? "",
+          title: lessonType?.title ?? "",
+          iconMode: lessonType?.iconMode ?? ""
+        },
         price: data.free ? undefined : (data.price || 0) * 100,
       });
     }
@@ -96,9 +115,44 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
   const handleSubmit = (data: LessonFormData, isDraft = false) => {
     onSubmit({
       ...data,
+      image: form.getValues("image"),
+      // lessonType: form.getValues("lessonType"),
       price: data.free ? undefined : (data.price || 0) * 100,
     }, isDraft);
   };
+
+  const getAllLessonType = async ({ queryKey }: any) => {
+    const [_key, params] = queryKey
+    const response = await apiRequest("GET", 
+        `/api/lesson-type`
+    )
+    return await response.json()
+  }
+  
+  const { data: lessonTypeList = [] } = useQuery<LessonType[]>({
+    queryKey: ['lesson-type'],
+    refetchOnMount: false,
+    queryFn: getAllLessonType 
+  })
+
+  const handleLessonTypeChange = (field: any, value: string) => {
+    field.onChange(parseInt(value))
+    const lessonTypeData = lessonTypeList.find(e => e.id === parseInt(value))
+    form.setValue("image", lessonTypeData?.title?.toLowerCase() ?? "")
+    // if(lessonTypeData){
+    //   form.setValue("image", lessonTypeData?.title?.toLowerCase() ?? "")
+    //   form.setValue("lessonType", lessonTypeData)
+    // }
+  }
+
+  // const getAllLessonType = async () => {
+  //   const response = await apiRequest("GET", "/api/lesson-type")
+  //   return await response.json()
+  // }
+
+  // useEffect(() => {
+  //   getAllLessonType().then(data => setLessonTypeList(data))
+  // }, [])
 
   return (
     <Form {...form}>
@@ -119,7 +173,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
             )}
           />
           
-          <FormField
+          {/* <FormField
             control={form.control}
             name="image"
             render={({ field }) => (
@@ -137,6 +191,34 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
                         {emoji} {key.charAt(0).toUpperCase() + key.slice(1)}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          /> */}
+
+          {/* field.onChange(parseInt(e)) */}
+          <FormField
+            control={form.control}
+            name="lessonTypeId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Lesson Type *</FormLabel>
+                <Select onValueChange={(e) => handleLessonTypeChange(field, e)} value={ !field.value ? "" : `${field.value}` } >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {
+                      lessonTypeList.map((item) => (
+                        <SelectItem key={item.id} value={`${item.id}`}>
+                            { item.icon } { item.title }
+                        </SelectItem>
+                      ))
+                    }
                   </SelectContent>
                 </Select>
                 <FormMessage />

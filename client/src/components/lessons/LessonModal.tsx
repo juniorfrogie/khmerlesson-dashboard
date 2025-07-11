@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 // import { Button } from "@/components/ui/button";
 // import { X } from "lucide-react";
-import { Lesson } from "@shared/schema";
+import { Lesson, LessonData } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import LessonForm from "./LessonForm";
@@ -17,7 +17,7 @@ import LessonPreview from "./LessonPreview";
 interface LessonModalProps {
   isOpen: boolean;
   onClose: () => void;
-  lesson: Lesson | null;
+  lesson: LessonData | null;
 }
 
 export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProps) {

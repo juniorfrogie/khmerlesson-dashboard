@@ -1,5 +1,5 @@
 import { ActiveView } from "@/pages/dashboard";
-import { GraduationCap, BarChart3, BookOpen, HelpCircle, BarChart, Download, Code, User, History } from "lucide-react";
+import { GraduationCap, BarChart3, BookOpen, HelpCircle, BarChart, Download, Code, User, History, BookType } from "lucide-react";
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -9,6 +9,7 @@ interface SidebarProps {
 const navigation = [
   { key: "dashboard" as ActiveView, label: "Dashboard", icon: BarChart3 },
   { key: "lessons" as ActiveView, label: "Lessons", icon: BookOpen },
+  { key: "lesson_type" as ActiveView, label: "Lesson Type", icon: BookType },
   { key: "quizzes" as ActiveView, label: "Quizzes", icon: HelpCircle },
   { key: "users" as ActiveView, label: "Users", icon: User },
   { key: "purchase_history" as ActiveView, label: "Purchase History", icon: History },

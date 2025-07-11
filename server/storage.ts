@@ -24,6 +24,12 @@ import {
   PurchaseHistoryData,
   UpdatePurchaseHistory,
   InsertUserWithAuthService,
+  LessonType,
+  lesson_type,
+  InsertLessonType,
+  UpdateLessonType,
+  insertLessonTypeSchema,
+  LessonData,
 } from "@shared/schema";
 import { db } from "./db";
 import { and, count, eq, not, lte } from "drizzle-orm";
@@ -49,12 +55,19 @@ export interface IStorage {
   createUserWithAuthService(user: InsertUserWithAuthService): Promise<User>;
   
   // Lessons
-  getLessons(): Promise<Lesson[]>;
+  // getLessons(): Promise<Lesson[]>;
+  getLessons(): Promise<LessonData[]>;
   getLesson(id: number): Promise<Lesson | undefined>;
   createLesson(lesson: InsertLesson): Promise<Lesson>;
   updateLesson(id: number, lesson: UpdateLesson): Promise<Lesson | undefined>;
   deleteLesson(id: number): Promise<boolean>;
   getLessonsJoin(user: User): Promise<any>
+
+  // Lesson Type
+  getAllLessonType(): Promise<LessonType[]>;
+  createLessonType(lessonType: InsertLessonType): Promise<LessonType>;
+  updateLessonType(id: number, lessonType: UpdateLessonType): Promise<LessonType | undefined>;
+  deleteLessonType(id: number): Promise<boolean>;
   
   // Quizzes
   getQuizzes(): Promise<Quiz[]>;
@@ -224,12 +237,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Lesson operations
-  async getLessons(): Promise<Lesson[]> {
-    const result = await db.select().from(lessons).orderBy(lessons.createdAt);
-    return result;
+  async getLessons(): Promise<LessonData[]> {
+    // const result = await db.select().from(lessons).orderBy(lessons.createdAt);
+    const result = await db.select().from(lessons)
+      .leftJoin(lesson_type, eq(lesson_type.id, lessons.lessonTypeId))
+      .orderBy(lessons.createdAt)
+  
+    const lessonList = result.map(e => (<LessonData>{
+      id: e.lessons.id,
+      lessonTypeId: e.lessons.lessonTypeId,
+      lessonType: e.lesson_type,
+      title: e.lessons.title,
+      description: e.lessons.description,
+      level: e.lessons.level,
+      free: e.lessons.free,
+      image: e.lessons.image,
+      price: e.lessons.price,
+      status: e.lessons.status,
+      sections: e.lessons.sections,
+      createdAt: e.lessons.createdAt,
+      updatedAt: e.lessons.updatedAt
+    })) 
+    return lessonList;
   }
 
-  // Lesson operations
   async getLessonsJoin(user: User): Promise<any> {
     // const result = await db.select().from(users)
     // .innerJoin(purchase_history, eq(users.id, purchase_history.userId))
@@ -361,6 +392,7 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount > 0;
   }
 
+  // Quiz Operations
   async getQuizzes(): Promise<Quiz[]> {
     const result = await db.select().from(quizzes).orderBy(quizzes.createdAt);
     return result;
@@ -460,7 +492,6 @@ export class DatabaseStorage implements IStorage {
     return imported;
   }
 
-
   // Purchase History Operations
   async createPurchaseHistory(insertPurchaseHistory: InsertPurchaseHistory): Promise<PurchaseHistory> {
     const [purchaseHistory] = await db
@@ -511,6 +542,7 @@ export class DatabaseStorage implements IStorage {
       email: e.users.email,
       lessonId: e.purchase_history.lessonId,
       purchaseDate: e.purchase_history.purchaseDate,
+      purchaseAmount: e.lessons.price ?? 0,
       platformType: e.purchase_history.platformType,
       paymentMethod: e.purchase_history.paymentMethod,
       paymentStatus: e.purchase_history.paymentStatus
@@ -523,6 +555,7 @@ export class DatabaseStorage implements IStorage {
     return result[0]["count"] ?? 0
   }
 
+  // Blacklist Operations
   async createBlacklist(insertBlacklist: InsertBlacklist): Promise<Blacklist> {
     const [blacklists] = await db
       .insert(blacklist)
@@ -544,6 +577,33 @@ export class DatabaseStorage implements IStorage {
     const now = new Date()
     const result = await db.delete(blacklist).where(lte(blacklist.expiredAt, now));
     return result.rowCount ?? 0;
+  }
+
+  // Lesson Type Operations
+  async getAllLessonType(): Promise<LessonType[]> {
+    const result = await db.select().from(lesson_type).orderBy(lesson_type.createdAt)
+    return result
+  }
+
+  async createLessonType(lessonType: InsertLessonType): Promise<LessonType> {
+    const [ result ] = await db.insert(lesson_type).values(
+      {...lessonType, 
+        icon: lessonType.icon, 
+        title: lessonType.title
+      }
+    ).returning()
+    return result
+  }
+
+  async updateLessonType(id: number, lessonType: UpdateLessonType): Promise<LessonType | undefined> {
+    const [result] = await db.update(lesson_type).set({...lessonType, updatedAt: new Date()})
+      .where(eq(lesson_type.id, id)).returning()
+    return result || undefined
+  }
+
+  async deleteLessonType(id: number): Promise<boolean> {
+    const result = await db.delete(lesson_type).where(eq(lesson_type.id, id))
+    return (result.rowCount ?? 0) > 0
   }
 }
 
