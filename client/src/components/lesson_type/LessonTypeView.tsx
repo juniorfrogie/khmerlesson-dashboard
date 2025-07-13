@@ -9,6 +9,7 @@ import { Button } from "../ui/button";
 import LessonTypeModal from "./LessonTypeModal";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import IconMode from "../common/IconMode";
 
 interface LessonTypeViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -124,7 +125,7 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
                             <div className="relative">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400"/>
                                 <Input 
-                                    placeholder="Search..."
+                                    placeholder="Search title..."
                                     className="pl-10"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}/>
@@ -178,9 +179,7 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
                                                 </td>
                                                 <td className="p-4">
                                                     {/* <p className="font-medium neutral-dark">{lessonType.icon}</p> */}
-                                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                                                        { <span className="text-lg">{ lessonType.icon || "📚"}</span> }
-                                                    </div>
+                                                    <IconMode lessonType={lessonType}/>
                                                 </td>
                                                 <td className="p-4">
                                                     <p className="font-medium neutral-dark">{lessonType.title}</p>

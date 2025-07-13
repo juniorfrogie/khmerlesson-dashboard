@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "../ui/input";
 import { Lesson, PurchaseHistoryData } from "@shared/schema";
-import { Button } from "../ui/button";
 import { useQuery } from "@tanstack/react-query";
 
 const purchaseHistorySchema = z.object({

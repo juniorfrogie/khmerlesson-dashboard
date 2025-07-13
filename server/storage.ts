@@ -315,24 +315,27 @@ export class DatabaseStorage implements IStorage {
     
     // return publishedLessons;
 
-    const result = await db.select().from(lessons).orderBy(lessons.createdAt);
+    const result = await db.select().from(lessons)
+      .innerJoin(lesson_type, eq(lesson_type.id, lessons.lessonTypeId))
+      .orderBy(lessons.createdAt);
     const lessonsUserPurchased = await db.select().from(lessons)
       .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
       .innerJoin(users, eq(users.id, purchase_history.userId))
       .where(eq(users.id, user.id))
       .orderBy(lessons.createdAt);
 
-    const publishedLessons = result.filter(e => e.status === "published").map(e => ({
-      id: e.id,
-      title: e.title,
-      description: e.description,
-      level: e.level,
-      image: e.image,
-      free: e.free,
-      price: e.price,
+    const publishedLessons = result.filter(e => e.lessons.status === "published").map(e => ({
+      id: e.lessons.id,
+      title: e.lessons.title,
+      description: e.lessons.description,
+      level: e.lessons.level,
+      lessonType: e.lesson_type,
+      image: e.lessons.image,
+      free: e.lessons.free,
+      price: e.lessons.price,
       hasPurchased: false,
-      createdAt: e.createdAt,
-      updatedAt: e.updatedAt
+      createdAt: e.lessons.createdAt,
+      updatedAt: e.lessons.updatedAt
     }))
 
     // for(let e1 of publishedLessons){

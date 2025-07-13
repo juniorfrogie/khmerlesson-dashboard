@@ -7,10 +7,12 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const lessonTypeSchema = z.object({
   icon: z.string().min(1, "Icon is required"), 
-  title: z.string().min(1, "Title is required")
+  title: z.string().min(1, "Title is required"),
+  iconMode: z.string().default("raw")
 });
 
 type LessonTypeFormData = z.infer<typeof lessonTypeSchema>;
@@ -23,37 +25,114 @@ interface LessonTypeFormProps {
 }
 
 export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: LessonTypeFormProps){
-    const [iconMode, setIconMode] = useState<'raw' | 'file'>("raw")
+    const [iconMode, setIconMode] = useState<'raw' | 'file'>(lessonType?.iconMode === "file" ? "file" : "raw")
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
-    const [previewImage, setPreviewImage] = useState("")
+    const [previewImage, setPreviewImage] = useState(lessonType?.iconMode === "file" ? `${lessonType.icon}` : "")
+    const { toast } = useToast()
 
     const form = useForm<LessonTypeFormData>({
         resolver: zodResolver(lessonTypeSchema),
         defaultValues: {
+            icon: lessonType?.icon ?? "",
             title: lessonType?.title ?? "",
-            icon: lessonType?.icon ?? ""
+            iconMode: lessonType?.iconMode
         }
     })
 
     const handleSubmit = (data: LessonTypeFormData) => {
-        onSubmit({...data})
+        if(iconMode === "file" && previewImage.length === 0 && !selectedFile){
+            form.setError("icon", {
+                message: "Icon is Required"
+            })
+            return
+        }
+        //
+        const iconValue = form.getValues("icon")
+        const payload = {
+            ...data,
+            icon: previewImage.length > 0 && iconMode === "file" 
+                ? previewImage : iconValue
+        }
+        //console.log(payload)
+        onSubmit({...payload})
     }
 
-    const handleFileChange = (event: any) => {
-        if(selectedFile){
-            URL.revokeObjectURL(previewImage)
+    const uploadFile = async (file: File) => {
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const response = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+            })
+            if(response.status !== 201) throw "Failed to upload file!"
+            const responseData = await response.json()
+            return responseData
+        } catch (error) {
+            console.error(error)
+            toast({
+                title: "Error",
+                description: `${error}`,
+                variant: "destructive"
+            });
         }
-        const file = event.target.files[0]
-        setSelectedFile(file)
-        const href = URL.createObjectURL(file)
-        setPreviewImage(href)
-        form.setValue("icon", href)
+    }
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        form.clearErrors()
+        // if(selectedFile){
+        //     URL.revokeObjectURL(previewImage)
+        // }
+        // const files = event.target.files
+        // if(!files) return
+        // if(files.length === 0) return
+
+        // const file = files[0]
+        // setSelectedFile(file)
+        // const href = URL.createObjectURL(file)
+        // setPreviewImage(href)
+        // form.setValue("icon", file.name)
+        
+        const files = event.target.files
+        if(!files) return
+        if(files.length === 0) return
+
+        const file = files[0]
+        const result = await uploadFile(file)
+        if(result){
+            // if(selectedFile){
+            //     URL.revokeObjectURL(previewImage)
+            // }
+            // setSelectedFile(file)
+            // const href = URL.createObjectURL(file)
+            // setPreviewImage(href)
+            setSelectedFile(file)
+            setPreviewImage(`${result.data.filename}`)
+            form.setValue("icon", `${result.data.filename}`)
+        }
     }
 
     const handleIconModeChange = (value: string) => {
+        form.clearErrors()
+        form.setValue("iconMode", value)
         setIconMode(value as any)
-        setSelectedFile(null)
-        form.resetField("icon")
+        //setSelectedFile(null)
+        // if(lessonType){
+        //     form.resetField("icon")
+        // }
+        //
+        // if(!lessonType && value === "raw" && form.getValues("icon") === " "){
+        //     form.resetField("icon")
+        // }else if(!lessonType && value === "file" && previewImage.length > 0){
+        //     const iconValue = form.getValues("icon")
+        //     form.setValue("icon", iconValue.length === 0 ? " " : iconValue)
+        // }
+
+        form.resetField("icon", { defaultValue: "" })
+        if(value === "file"){
+            form.setValue("icon", selectedFile?.name ?? lessonType?.icon ?? "")
+        }
     }
 
     return (
@@ -95,7 +174,7 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
                             <FormItem>
                                 <FormLabel>Icon</FormLabel>
                                 <FormControl>
-                                    <Input type="text" placeholder="Enter icon" {...field}/>
+                                    <Input type="text" placeholder="Enter icon" {...field } />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -121,13 +200,13 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
                                 </FormItem>
                             )}>
                         </FormField>
-                        { selectedFile && (
+                        { previewImage.length > 0 && (
                             <div className="space-y-2">
                                 <p>
                                     Preview
                                 </p>
                                 <div className="flex items-center justify-center border rounded p-4">
-                                    <img src={previewImage} width="150" height="150"/>
+                                    <img src={`/uploads/${previewImage}`} width="150" height="150"/>
                                 </div>
                             </div>
                         )}

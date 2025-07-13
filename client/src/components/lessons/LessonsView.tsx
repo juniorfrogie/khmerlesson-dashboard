@@ -10,7 +10,7 @@ import { Search, Filter, Plus, Edit, Eye, Trash2, BookOpen } from "lucide-react"
 import { Lesson, LessonData, LessonType } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { IMAGE_MAP } from "@/lib/constants";
+// import { IMAGE_MAP } from "@/lib/constants";
 import LessonModal from "./LessonModal";
 import LessonPreview from "./LessonPreview";
 
@@ -282,10 +282,15 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center">
-                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                              {/* <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span> */}
-                              { <span className="text-lg">{ lesson.lessonType.icon || "📚"}</span> }
+                            <div className="size-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                              {/* <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span>
+                              { <span className="text-lg">{ lesson.lessonType.icon || "📚"}</span> } */}
+                              {
+                              lesson.lessonType?.iconMode === "file" ? <img src={`/uploads/${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
+                                : <span className="text-lg">{lesson.lessonType?.icon || "📚"}</span>
+                              }
                             </div>
+                            {/* <IconMode lessonType={lesson.lessonType}/> */}
                             <div>
                               <p className="font-medium neutral-dark">{lesson.title}</p>
                               <p className="text-sm neutral-medium">{lesson.description}</p>

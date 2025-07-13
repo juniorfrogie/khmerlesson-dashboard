@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express"
 import { createServer, type Server } from "http";
 import { request } from "https";
 import { storage } from "./storage";
@@ -13,12 +14,14 @@ import { forgotPasswordSchema, loginSchema, insertUserSchema,
 import { z } from "zod";
 import apiRoutes from "./api";
 import paypalRoutes from "./paypal/orders"
+import fileUploadRoute from "./file-upload/file_upload"
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import cors from "cors";
 import { mailTemplate } from "./mail/mail_template";
 import cron from "node-cron"
+import path from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -32,7 +35,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount public API routes
   app.use("/api/v1", apiRoutes);
-  app.use("/api", paypalRoutes);
+  app.use("/api", paypalRoutes, fileUploadRoute);
+
+  const publicDir = path.join(import.meta.dirname, '..'); 
+  //console.log(publicDir)
+  app.use(express.static(publicDir))
 
   // Dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
@@ -64,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (type && type !== "all") {
-        lessons = lessons.filter(lesson => lesson.lessonType.title === type);
+        lessons = lessons.filter(lesson => lesson.lessonType.title.toLowerCase() === type);
       }
       
       if (status && status !== "all") {
