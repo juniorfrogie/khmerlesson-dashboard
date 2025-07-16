@@ -40,21 +40,13 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
     })
 
     const handleSubmit = (data: LessonTypeFormData) => {
-        if(iconMode === "file" && previewImage.length === 0 && !selectedFile){
-            form.setError("icon", {
-                message: "Icon is Required"
-            })
-            return
-        }
-        //
-        const iconValue = form.getValues("icon")
-        const payload = {
-            ...data,
-            icon: previewImage.length > 0 && iconMode === "file" 
-                ? previewImage : iconValue
-        }
-        //console.log(payload)
-        onSubmit({...payload})
+        // if(iconMode === "file" && previewImage.length === 0 && !selectedFile){
+        //     form.setError("icon", {
+        //         message: "Icon is Required"
+        //     })
+        //     return
+        // }
+        onSubmit({...data})
     }
 
     const uploadFile = async (file: File) => {
@@ -66,7 +58,9 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
                 method: "POST",
                 body: formData
             })
-            if(response.status !== 201) throw "Failed to upload file!"
+            if(response.status !== 201) {
+                throw "Failed to upload file!"
+            }
             const responseData = await response.json()
             return responseData
         } catch (error) {
@@ -101,12 +95,6 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
         const file = files[0]
         const result = await uploadFile(file)
         if(result){
-            // if(selectedFile){
-            //     URL.revokeObjectURL(previewImage)
-            // }
-            // setSelectedFile(file)
-            // const href = URL.createObjectURL(file)
-            // setPreviewImage(href)
             setSelectedFile(file)
             setPreviewImage(`${result.data.filename}`)
             form.setValue("icon", `${result.data.filename}`)
@@ -118,20 +106,10 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
         form.setValue("iconMode", value)
         setIconMode(value as any)
         //setSelectedFile(null)
-        // if(lessonType){
-        //     form.resetField("icon")
-        // }
-        //
-        // if(!lessonType && value === "raw" && form.getValues("icon") === " "){
-        //     form.resetField("icon")
-        // }else if(!lessonType && value === "file" && previewImage.length > 0){
-        //     const iconValue = form.getValues("icon")
-        //     form.setValue("icon", iconValue.length === 0 ? " " : iconValue)
-        // }
-
         form.resetField("icon", { defaultValue: "" })
         if(value === "file"){
-            form.setValue("icon", selectedFile?.name ?? lessonType?.icon ?? "")
+            //form.setValue("icon", previewImage.length > 0 ? previewImage : lessonType?.icon ?? "")
+            form.setValue("icon", previewImage.length > 0 ? previewImage : "")
         }
     }
 
@@ -200,6 +178,7 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
                                 </FormItem>
                             )}>
                         </FormField>
+                        <small className="text-center text-gray-400 text-xs leading-4">Max size: 2MB (support only PNG or SVG)</small>
                         { previewImage.length > 0 && (
                             <div className="space-y-2">
                                 <p>

@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -31,6 +32,7 @@ export default function LessonPreview({ lesson, isOpen, onClose, isFormPreview =
             <BookOpen className="mr-2 h-5 w-5" />
             Lesson Preview
           </DialogTitle>
+          <DialogDescription />
         </DialogHeader>
         
         <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">
@@ -66,7 +68,11 @@ export default function LessonPreview({ lesson, isOpen, onClose, isFormPreview =
                           {lesson.level}
                         </Badge>
                         <Badge variant={lesson.free ? "default" : "secondary"}>
-                          {lesson.free ? "Free" : `$${((lesson.price || 0) / 100).toFixed(2)}`}
+                          {/* {lesson.free ? "Free" : `$${((lesson.price || 0) / 100).toFixed(2)}`} */}
+                          {lesson.free ? "Free" : `${Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                          }).format((lesson.price || 0) / 100)}`}
                         </Badge>
                       </div>
                     </div>

@@ -30,6 +30,7 @@
   --fluent-green: 120 100% 27%; /* #107C10 */
   --fluent-orange: 30 100% 50%; /* #FF8C00 */
   --fluent-red: 15 87% 43%; /* #D83B01 */
+  --fluent-yellow: 53 98% 30%; /* #FEF08B */
   --neutral-dark: 0 0% 20%; /* #323130 */
   --neutral-medium: 0 2% 38%; /* #605E5C */
   --neutral-light: 0 2% 54%; /* #8A8886 */
@@ -108,6 +109,10 @@
   
   .bg-fluent-red {
     background-color: hsl(var(--fluent-red));
+  }
+
+  .fluent-yellow {
+    color: hsl(var(--fluent-yellow));
   }
   
   .neutral-dark {

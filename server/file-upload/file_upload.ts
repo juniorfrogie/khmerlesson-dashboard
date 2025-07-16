@@ -3,12 +3,12 @@ import multer from "multer"
 
 const router = Router()
 
-router.use((err: any, req: any, res: any, next: any) => {
-    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).send('File too large!');
-    }
-    next(err);
-})
+// router.use((err: any, req: any, res: any, next: any) => {
+//     if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+//         return res.status(413).send('File too large!');
+//     }
+//     next(err);
+// })
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {

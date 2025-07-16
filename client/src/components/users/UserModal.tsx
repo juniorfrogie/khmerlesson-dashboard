@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -12,7 +13,7 @@ import { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UserForm from "./UserForm";
-import { ChangePasswordView } from "./ChangePasswordView";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 
 interface UserModalProps {
   isOpen: boolean;
@@ -127,6 +128,7 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
             <DialogTitle>
               {user ? "Edit User" : "Create New User"}
             </DialogTitle>
+            <DialogDescription />
           </DialogHeader>
           
           <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">
@@ -144,7 +146,7 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
         </DialogContent>
       </Dialog>
 
-      <ChangePasswordView 
+      <ChangePasswordModal 
         user={user}
         isOpen={showChangePassowrdView}
         onClose={() => setShowChangePassowrdView(false)}

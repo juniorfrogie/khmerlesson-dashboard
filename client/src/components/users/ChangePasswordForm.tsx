@@ -1,4 +1,4 @@
-// import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { User } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { Eye, EyeOff } from "lucide-react";
 
 interface ChangePasswordProps {
   user: User | null
@@ -36,6 +37,7 @@ export function ChangePasswordForm({ user, onClose }: ChangePasswordProps){
     //const [ isLoading, setIsLoading ] = useState(false)
     const { toast } = useToast()
     const { changePassword, isChangePasswordLoading } = useAuth()
+    const [ showPassword, setShowPassword ] = useState(false)
 
     const form = useForm<ChangePasswordFormData>({
         resolver: zodResolver(changePasswordSchema),
@@ -59,7 +61,7 @@ export function ChangePasswordForm({ user, onClose }: ChangePasswordProps){
             toast({
                 title: "Error",
                 description: error.message || "Failed to change password",
-                variant: "destructive",
+                variant: "destructive"
             });
         }
     };  
@@ -88,7 +90,21 @@ export function ChangePasswordForm({ user, onClose }: ChangePasswordProps){
                     <FormItem>
                         <FormLabel>New Password</FormLabel>
                         <FormControl>
-                            <Input type="password" placeholder="Enter new password" {...field} />
+                            <div className="relative">
+                                <Input type={showPassword ? "text" : "password"} placeholder="Enter new password" {...field} />
+                                {
+                                    field.value && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                                            onClick={() => setShowPassword(!showPassword)}>
+                                                { showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" /> }
+                                        </Button>
+                                    )
+                                }
+                            </div>
                         </FormControl>
                         <FormMessage />
                     </FormItem>

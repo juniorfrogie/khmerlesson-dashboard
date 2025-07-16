@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,7 +16,7 @@ interface ChangePasswordProps {
   onClose: () => void;
 }
 
-export function ChangePasswordView({ user, isOpen, onClose }: ChangePasswordProps){
+export function ChangePasswordModal({ user, isOpen, onClose }: ChangePasswordProps){
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="overflow-hidden">
@@ -24,6 +25,7 @@ export function ChangePasswordView({ user, isOpen, onClose }: ChangePasswordProp
                     <Lock className="mr-2 h-5 w-5" />
                     Change Password
                 </DialogTitle>
+                <DialogDescription />
                 </DialogHeader>
                 <div className="flex items-end space-x-3 border-b py-6">
                     <Card className="bg-blue-50 border-blue-200">

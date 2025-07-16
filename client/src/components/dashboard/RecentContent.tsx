@@ -1,17 +1,40 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LessonData, Quiz } from "@shared/schema";
+import { LessonData, Quiz, User } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
-import { IMAGE_MAP } from "@/lib/constants";
+import { apiRequest } from "@/lib/queryClient";
+// import { IMAGE_MAP } from "@/lib/constants";
 
 export default function RecentContent() {
+  // const { data: lessons = [] } = useQuery<LessonData[]>({
+  //   queryKey: ["/api/lessons"],
+  // });
+
+  // const { data: quizzes = [] } = useQuery<Quiz[]>({
+  //   queryKey: ["/api/quizzes"],
+  // });
+
+  const getLessons = async ({ queryKey }: any) => {
+    const [ _key, params ] = queryKey
+    const response = await apiRequest("GET", "/api/lessons")
+    return await response.json()
+  }
+  
   const { data: lessons = [] } = useQuery<LessonData[]>({
-    queryKey: ["/api/lessons"],
+    queryKey: ["lessons"],
+    queryFn: getLessons
   });
 
+  const getQuizzes = async ({ queryKey }: any) => {
+    const [ _key, params ] = queryKey
+    const response = await apiRequest("GET", "/api/quizzes")
+    return await response.json()
+  }
+
   const { data: quizzes = [] } = useQuery<Quiz[]>({
-    queryKey: ["/api/quizzes"],
-  });
+    queryKey: ["quizzes"],
+    queryFn: getQuizzes
+  })
 
   // Combine and sort recent content
   const recentContent = [

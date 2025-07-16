@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 // import { Card, CardContent } from "@/components/ui/card";
-import { Lock, Save } from "lucide-react";
+import { Lock } from "lucide-react";
 import { User } from "@shared/schema";
 // import RichTextEditor from "@/components/ui/rich-text-editor";
 
@@ -40,7 +40,7 @@ type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
 interface UserFormProps {
   user: User | null;
-  onSubmit: (data: UserFormData, isDraft?: boolean) => void;
+  onSubmit: (data: UserFormData) => void;
   onStatusSubmit: (data: any) => void;
   onChangePasswordView: (data: UserFormData) => void;
   onUpdateSubmit: (data: UpdateUserFormData) => void;
@@ -58,10 +58,10 @@ export default function UserForm({ user, onSubmit, onStatusSubmit,
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
-      isActive: user?.isActive || true,
-      role: user?.role || "admin"
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
+      isActive: user?.isActive ?? true,
+      role: user?.role ?? "admin"
     }
   });
 
@@ -107,10 +107,10 @@ export default function UserForm({ user, onSubmit, onStatusSubmit,
     })
   }
 
-  const handleSubmit = (data: UserFormData, isDraft = false) => {
+  const handleSubmit = (data: UserFormData) => {
     onSubmit({
       ...data,
-    }, isDraft);
+    });
   };
 
   const handleUpdateSubmit = (data: UpdateUserFormData) => {
@@ -332,7 +332,7 @@ export default function UserForm({ user, onSubmit, onStatusSubmit,
         {/* Form Actions */}
         <div className="flex items-center justify-between border-t border-gray-200 pt-6">
           <div className="flex items-center space-x-3">
-            { !user && (
+            {/* { !user && (
               <Button 
               type="button" 
               variant="outline" 
@@ -348,7 +348,7 @@ export default function UserForm({ user, onSubmit, onStatusSubmit,
                 <Save className="inline mr-1 h-3 w-3" />
                 Auto-saved {autoSaveTime.toLocaleTimeString()}
               </div>
-            )}
+            )} */}
 
             { user?.role === "admin" && (
               <Button 

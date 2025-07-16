@@ -16,6 +16,11 @@ interface UsersViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
 }
 
+type UserListData = {
+  users: User[]
+  total: number
+}
+
 export default function UsersView({ }: UsersViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -26,6 +31,7 @@ export default function UsersView({ }: UsersViewProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [limit, _] = useState(15)
   var [offset, setOffset] = useState(0)
+  const [pageNumber, setPageNumber] = useState(1)
 
   const { toast } = useToast();
 
@@ -39,20 +45,6 @@ export default function UsersView({ }: UsersViewProps) {
     "Actions"
   ]
 
-  // const { data: users = [], isLoading } = useQuery<User[]>({
-  //   queryKey: ["/api/users", { 
-  //     search: searchTerm, 
-  //     role: roleFilter === "all" ? "" : roleFilter, 
-  //     isActive: statusFilter === "all" ? "" : statusFilter
-  //   }],
-  // });
-
-  // const { data: users = [], isLoading } = useQuery<User[]>({
-  //   queryKey: [
-  //     `/api/users?role=${roleFilter}&isActive=${statusFilter}&search=${searchTerm}`
-  //   ]
-  // });
-
   const getUsers = async ({ queryKey }: any) => {
     const [_key, params] = queryKey
     const response = await apiRequest("GET", 
@@ -61,7 +53,7 @@ export default function UsersView({ }: UsersViewProps) {
     return result
   }
 
-  const { data: data = { users: [], total: 0}, isLoading, refetch } = useQuery<{users: User[], total: number}>(
+  const { data: data = { users: [], total: 0}, isLoading, refetch } = useQuery<UserListData>(
     {
       queryKey: ['users', {
         role: roleFilter,
@@ -143,7 +135,6 @@ export default function UsersView({ }: UsersViewProps) {
   const refreshData = async () => {
     try{
       setIsRefreshing(true)
-      //await queryClient.invalidateQueries({queryKey: ["users"]})
       await refetch()
       setIsRefreshing(false)
     }catch(error){
@@ -153,22 +144,16 @@ export default function UsersView({ }: UsersViewProps) {
   }
 
   const next = () => {
-    let min = offset + 1
+    let min = offset + limit
     setOffset(Math.min(min, data.total))
+    setPageNumber(pageNumber + 1)
   }
 
   const previous = () => {
-    let max = offset - 1
+    let max = offset - limit
     setOffset(Math.max(0, max))
+    setPageNumber(pageNumber - 1)
   }
-
-  // const getBadgeVariant = (status: string) => {
-  //   switch (status) {
-  //     case "published": return "default";
-  //     case "draft": return "secondary";
-  //     default: return "outline";
-  //   }
-  // };
 
   const getActiveBadgeColor = (active: boolean) => {
     return active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
@@ -412,9 +397,9 @@ export default function UsersView({ }: UsersViewProps) {
                     Previous
                   </Button>
                   <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
-                    { offset + 1}
+                    { pageNumber }
                   </Button>
-                  <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.users.length === data.total}>
+                  <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.users.length === data.total || (offset + limit) === data.total}>
                     Next
                     <ArrowRight />
                   </Button>

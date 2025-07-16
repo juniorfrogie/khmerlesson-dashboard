@@ -1,4 +1,4 @@
-import { BookType, Edit, Plus, Search, Trash2 } from "lucide-react";
+import { BookType, Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { useState } from "react";
@@ -10,6 +10,7 @@ import LessonTypeModal from "./LessonTypeModal";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import IconMode from "../common/IconMode";
+import LessonTypeViewDetailModal from "./LessonTypeViewDetailModal";
 
 interface LessonTypeViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -20,6 +21,7 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
     const [selectedLessonTypeList, setSelectedLessonTypeList] = useState<number[]>([])
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingLessonType, setEditingLessonType] = useState<LessonType | null>(null);
+    const [lessonTypeViewDetail, setLessonTypeViewDetail] = useState<LessonType | null>(null)
     const { toast } = useToast()
 
     // const { data: lessonTypeList = [], isLoading } = useQuery<LessonType[]>({
@@ -99,6 +101,10 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
         onDelete("Lesson Type", data.title, async () => {
             await deleteMutation.mutateAsync(data.id)
         })
+    }
+
+    const handleViewDetail = (data: LessonType) => {
+        setLessonTypeViewDetail(data)
     }
 
     if (isLoading) {
@@ -198,6 +204,13 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
                                                             className="fluent-blue hover:bg-blue-50">
                                                                 <Edit className="h-4 w-4" />
                                                         </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon"
+                                                            onClick={() => handleViewDetail(lessonType)}
+                                                            className="neutral-medium hover:bg-gray-50">
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
@@ -213,6 +226,26 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Pagination */}
+                        {lessonTypeList.length > 0 && (
+                            <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+                            <div className="text-sm neutral-medium">
+                                Showing 1 to {lessonTypeList.length} of {lessonTypeList.length} lesson type
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Button variant="outline" size="sm" disabled>
+                                Previous
+                                </Button>
+                                <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
+                                1
+                                </Button>
+                                <Button variant="outline" size="sm" disabled>
+                                Next
+                                </Button>
+                            </div>
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -221,6 +254,12 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 lessonType={editingLessonType}
+            />
+
+            <LessonTypeViewDetailModal 
+                isOpen={!!lessonTypeViewDetail}
+                onClose={() => setLessonTypeViewDetail(null)}
+                lessonType={lessonTypeViewDetail}
             />
         </>
     )

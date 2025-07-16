@@ -28,7 +28,6 @@ import {
   lesson_type,
   InsertLessonType,
   UpdateLessonType,
-  insertLessonTypeSchema,
   LessonData,
 } from "@shared/schema";
 import { db } from "./db";
@@ -68,6 +67,7 @@ export interface IStorage {
   createLessonType(lessonType: InsertLessonType): Promise<LessonType>;
   updateLessonType(id: number, lessonType: UpdateLessonType): Promise<LessonType | undefined>;
   deleteLessonType(id: number): Promise<boolean>;
+  getLessonTypeDetail(id: number): Promise<Lesson[]>
   
   // Quizzes
   getQuizzes(): Promise<Quiz[]>;
@@ -81,7 +81,7 @@ export interface IStorage {
   getAnalytics(): Promise<Analytics[]>;
   
   // Import/Export
-  exportLessons(): Promise<Lesson[]>;
+  exportLessons(): Promise<Lesson[] | LessonData[]>;
   exportQuizzes(): Promise<Quiz[]>;
   importLessons(lessons: InsertLesson[]): Promise<Lesson[]>;
   importQuizzes(quizzes: InsertQuiz[]): Promise<Quiz[]>;
@@ -350,7 +350,8 @@ export class DatabaseStorage implements IStorage {
 
     for(let lessonPurchased of lessonsUserPurchased){
         const indexFound = publishedLessons.findIndex(e => e.id === lessonPurchased.lessons?.id)
-        let hasPurchased = lessonPurchased.lessons?.id === lessonPurchased.purchase_history?.lessonId && lessonPurchased.purchase_history?.userId === user.id 
+        let hasPurchased = lessonPurchased.lessons?.id === lessonPurchased.purchase_history?.lessonId
+            && lessonPurchased.purchase_history?.userId === user.id 
             && lessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
         if(indexFound === -1) break
         //if(publishedLessons[indexFound].free) continue
@@ -392,7 +393,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLesson(id: number): Promise<boolean> {
     const result = await db.delete(lessons).where(eq(lessons.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Quiz Operations
@@ -433,45 +434,92 @@ export class DatabaseStorage implements IStorage {
 
   async deleteQuiz(id: number): Promise<boolean> {
     const result = await db.delete(quizzes).where(eq(quizzes.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getDashboardStats(): Promise<DashboardStats> {
     const allLessons = await db.select().from(lessons);
     const allQuizzes = await db.select().from(quizzes);
+    const allUsers = await db.select({email: users.email, 
+      isActive: users.isActive, 
+      role: users.role,
+      createdAt: users.createdAt}).from(users).where(eq(users.role, "student"))
+    const allPurchaseHistory = await db.select().from(purchase_history)
     
     const totalLessons = allLessons.length;
     const totalQuizzes = allQuizzes.length;
+    const totalUsers = allUsers.length;
+    const totalActiveUsers = allUsers.filter(f => f.isActive).length
+    const totalPurchaseHistoryComplete = allPurchaseHistory
+      .filter(f => f.paymentStatus?.toLowerCase() === "completed")
+      .reduce((sum, f) => sum + ((f.purchaseAmount) / 100), 0)
     const freeLessons = allLessons.filter(l => l.free).length;
     const premiumLessons = allLessons.filter(l => !l.free).length;
     
     // Calculate growth (mock data)
-    const lessonsGrowth = 12; // 12% growth
-    const quizzesGrowth = 8;  // 8% growth
+    //const lessonsGrowth = 12; // 12% growth
+    //const quizzesGrowth = 8;  // 8% growth
+    //const usersGrowth = 12
+
+    const currentDate = new Date()
+    const currentMonth = currentDate.getMonth() + 1
+
+    // Calculate MoM (Month over Month) Users Growth Rate
+    const currentMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) === currentMonth)
+    const priorMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth)
+    const usersGrowth = ((currentMonthUsers.length / priorMonthUsers.length) - 1) * 100
+
+    // Calculate MoM (Month over Month) Active Users Growth Rate
+    const currentMonthActiveUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) === currentMonth && f.isActive)
+    const priorMonthActiveUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth && f.isActive)
+    const activeUsersGrowth = ((currentMonthActiveUsers.length / priorMonthActiveUsers.length) - 1) * 100
+
+    // Calculate MoM (Month over Month) Lessons Growth Rate
+    const currentMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) === currentMonth)
+    const priorMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) < currentMonth)
+    const lessonsGrowth = ((currentMonthLessons.length / priorMonthLessons.length) - 1) * 100
+
+    // Calculate MoM (Month over Month) Quizzes Growth Rate
+    const currentMonthQuizzes = allQuizzes.filter(f => (f.createdAt.getMonth() + 1) === currentMonth)
+    const priorMonthQuizzes = allQuizzes.filter(f => (f.createdAt.getMonth() + 1) < currentMonth)
+    const quizzesGrowth = ((currentMonthQuizzes.length / priorMonthQuizzes.length) - 1) * 100
+
+    // Calculate complete purchase amount Growth Rate
+    const currentMonthPurchases = allPurchaseHistory.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
+      && f.paymentStatus?.toLowerCase() === "completed")
+    const priorMonthPurchases = allPurchaseHistory.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
+      && f.paymentStatus?.toLowerCase() === "completed")
+    const purchasesGrowth = ((currentMonthPurchases.length / priorMonthPurchases.length) - 1) * 100
     
     // Calculate average price
     const premiumLessonsWithPrice = allLessons.filter(l => !l.free && l.price);
     const avgPrice = premiumLessonsWithPrice.length > 0 
-      ? premiumLessonsWithPrice.reduce((sum, l) => sum + (l.price || 0), 0) / premiumLessonsWithPrice.length
+      ? premiumLessonsWithPrice.reduce((sum, l) => sum + ((l.price || 0) / 100), 0) / premiumLessonsWithPrice.length
       : 0;
 
     return {
       totalLessons,
       totalQuizzes,
+      totalUsers,
+      totalActiveUsers,
+      totalPurchaseHistoryComplete,
       freeLessons,
       premiumLessons,
       lessonsGrowth,
       quizzesGrowth,
+      usersGrowth,
+      activeUsersGrowth,
+      purchasesGrowth,
       avgPrice: Math.round(avgPrice)
     };
   }
 
   async getAnalytics(): Promise<Analytics[]> {
-    const result = await db.select().from(analytics).orderBy(analytics.date);
+    const result = await db.select().from(analytics).orderBy(analytics.createdAt);
     return result;
   }
 
-  async exportLessons(): Promise<Lesson[]> {
+  async exportLessons(): Promise<Lesson[] | LessonData[]> {
     return this.getLessons();
   }
 
@@ -545,7 +593,7 @@ export class DatabaseStorage implements IStorage {
       email: e.users.email,
       lessonId: e.purchase_history.lessonId,
       purchaseDate: e.purchase_history.purchaseDate,
-      purchaseAmount: e.lessons.price ?? 0,
+      purchaseAmount: e.purchase_history.purchaseAmount,
       platformType: e.purchase_history.platformType,
       paymentMethod: e.purchase_history.paymentMethod,
       paymentStatus: e.purchase_history.paymentStatus
@@ -607,6 +655,13 @@ export class DatabaseStorage implements IStorage {
   async deleteLessonType(id: number): Promise<boolean> {
     const result = await db.delete(lesson_type).where(eq(lesson_type.id, id))
     return (result.rowCount ?? 0) > 0
+  }
+
+  async getLessonTypeDetail(id: number): Promise<Lesson[]> {
+    const result = await db.select().from(lessons)
+      .where(eq(lessons.lessonTypeId, id))
+      .orderBy(lessons.createdAt)
+    return result
   }
 }
 

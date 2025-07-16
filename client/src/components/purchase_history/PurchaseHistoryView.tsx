@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Edit, RefreshCcw, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, RefreshCcw, Search } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { apiRequest } from "@/lib/queryClient";
@@ -26,7 +26,7 @@ export default function PurchaseHistoryView(){
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [limit, _] = useState(15)
     var [offset, setOffset] = useState(0)
-
+    const [pageNumber, setPageNumber] = useState(1)
 
     const getPurchaseHistory = async ({ queryKey }: any) => {
         const [_key, params] = queryKey
@@ -117,16 +117,23 @@ export default function PurchaseHistoryView(){
     // };
 
     const next = () => {
-        let min = offset + 1
+        let min = offset + limit
         setOffset(Math.min(min, data.total))
+        setPageNumber(pageNumber + 1)
     }
 
     const previous = () => {
-        let max = offset - 1
+        let max = offset - limit
         setOffset(Math.max(0, max))
+        setPageNumber(pageNumber - 1)
     }
 
-    const handleEdit = (data: PurchaseHistoryData) => {
+    // const handleEdit = (data: PurchaseHistoryData) => {
+    //     setEditingPurchaseHistory(data);
+    //     setIsModalOpen(true);
+    // };
+    
+    const handlePreview = (data: PurchaseHistoryData) => {
         setEditingPurchaseHistory(data);
         setIsModalOpen(true);
     };
@@ -254,21 +261,21 @@ export default function PurchaseHistoryView(){
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center space-x-2">
-                                                    <Button 
+                                                    {/* <Button 
                                                         variant="ghost" 
                                                         size="icon"
                                                         onClick={() => handleEdit(e)}
                                                         className="fluent-blue hover:bg-blue-50">
                                                         <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    {/* <Button 
+                                                    </Button> */}
+                                                    <Button 
                                                         variant="ghost" 
                                                         size="icon"
-                                                        onClick={() => handlePreview(lesson)}
+                                                        onClick={() => handlePreview(e)}
                                                         className="neutral-medium hover:bg-gray-50"
                                                     >
                                                         <Eye className="h-4 w-4" />
-                                                    </Button> */}
+                                                    </Button>
                                                     {/* <Button 
                                                         variant="ghost" 
                                                         size="icon"
@@ -299,9 +306,9 @@ export default function PurchaseHistoryView(){
                             Previous
                         </Button>
                         <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
-                            { offset + 1}
+                            { pageNumber }
                         </Button>
-                        <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.data.length === data.total}>
+                        <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.data.length === data.total || (offset + limit) === data.total}>
                             Next
                             <ArrowRight />
                         </Button>

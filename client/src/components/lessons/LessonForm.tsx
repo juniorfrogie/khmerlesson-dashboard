@@ -139,10 +139,6 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
     field.onChange(parseInt(value))
     const lessonTypeData = lessonTypeList.find(e => e.id === parseInt(value))
     form.setValue("image", lessonTypeData?.title?.toLowerCase() ?? "")
-    // if(lessonTypeData){
-    //   form.setValue("image", lessonTypeData?.title?.toLowerCase() ?? "")
-    //   form.setValue("lessonType", lessonTypeData)
-    // }
   }
 
   // const getAllLessonType = async () => {

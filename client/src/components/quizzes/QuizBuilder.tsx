@@ -16,9 +16,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Plus, Trash2, GripVertical, Save } from "lucide-react";
-import { Quiz, QuizQuestion } from "@shared/schema";
+import { Lesson, Quiz, QuizQuestion } from "@shared/schema";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 const quizSchema = z.object({
+  lessonId: z.number().min(1, "Lesson is required"),
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   questions: z.array(z.object({
@@ -45,9 +49,10 @@ export default function QuizBuilder({ quiz, onSubmit, isLoading }: QuizBuilderPr
   const form = useForm<QuizFormData>({
     resolver: zodResolver(quizSchema),
     defaultValues: {
+      lessonId: quiz?.lessonId ?? undefined,
       title: quiz?.title || "",
       description: quiz?.description || "",
-      questions: quiz?.questions || [
+      questions: quiz?.questions as any || [
         {
           id: 1,
           question: "",
@@ -104,11 +109,49 @@ export default function QuizBuilder({ quiz, onSubmit, isLoading }: QuizBuilderPr
     onSubmit(data, isDraft);
   };
 
+  const getLessons = async ({ queryKey }: any) => {
+    const [_key, params] = queryKey
+    const response = await apiRequest("GET", "/api/lessons")
+    return await response.json()
+  }
+  
+  const { data: lessons = [] } = useQuery<Lesson[]>({
+    queryKey: ["lessons"],
+    queryFn: getLessons
+  })
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((data) => handleSubmit(data))} className="space-y-6">
         {/* Basic Information */}
         <div className="grid grid-cols-1 gap-6">
+          <FormField 
+            control={form.control}
+            name="lessonId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Lesson *</FormLabel>
+                <Select onValueChange={(e) => field.onChange(parseInt(e))} value={!field.value ? "" : `${field.value}`}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select lesson" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {
+                      lessons.map((lesson) => (
+                        <SelectItem key={lesson.id} value={`${lesson.id}`}>
+                          { lesson.title }
+                        </SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+            />
+
           <FormField
             control={form.control}
             name="title"

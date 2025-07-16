@@ -453,7 +453,6 @@ router.get("/search", async (req, res) => {
   }
 });
 
-
 // POST /api/v1/lessons/purchase
 router.post("/lessons/purchase", async (req, res) => {
   try {

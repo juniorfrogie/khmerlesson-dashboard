@@ -6,7 +6,7 @@ import { z } from "zod";
 export const lessons = pgTable("lessons", {
   id: serial("id").primaryKey(),
   lessonTypeId: integer("lesson_type_id")
-    .references(() => lesson_type.id, { onDelete: "cascade", onUpdate: "cascade"}),
+    .references(() => lesson_type.id, { onDelete: "cascade", onUpdate: "cascade"}), // association with lesson type
   title: text("title").notNull(),
   description: text("description").notNull(),
   free: boolean("free").notNull().default(true),
@@ -32,7 +32,7 @@ export const quizzes = pgTable("quizzes", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  lessonId: integer("lesson_id"), // optional association with lesson
+  lessonId: integer("lesson_id").references(() => lessons.id, { onDelete: "cascade", onUpdate: "cascade" }), // optional association with lesson
   questions: jsonb("questions").notNull().default([]), // array of quiz questions
   status: text("status").notNull().default("draft"), // "draft" | "active"
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -68,6 +68,7 @@ export const purchase_history = pgTable("purchase_history", {
   userId: integer("user_id").references(() => users.id, {onDelete: 'cascade'}).notNull(),
   userEmail: varchar("user_email").references(() => users.email, {onDelete: 'cascade'}).notNull(),
   lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: 'cascade'}).notNull(),
+  purchaseAmount: integer("purchase_amount").notNull(),
   paymentMethod: varchar("payment_method"),
   platformType: varchar("platform_type"),
   paymentStatus: varchar("payment_status"), // Complete, Refund, Pending, Cancel
@@ -211,15 +212,15 @@ export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
 export type LessonData = {
   id: number
   title: string
-  lessonType: LessonType,
-  description: string,
-  level: string,
-  free: boolean,
-  image: string,
-  price: number,
-  status: string,
-  sections: unknown,
-  createdAt: Date,
+  lessonType: LessonType
+  description: string
+  level: string
+  free: boolean
+  image: string
+  price: number
+  status: string
+  sections: unknown
+  createdAt: Date
   updatedAt: Date
 }
 
@@ -241,22 +242,28 @@ export type QuizQuestion = {
 export type DashboardStats = {
   totalLessons: number;
   totalQuizzes: number;
+  totalUsers: number;
+  totalActiveUsers: number;
+  totalPurchaseHistoryComplete: number;
   freeLessons: number;
   premiumLessons: number;
   lessonsGrowth: number;
   quizzesGrowth: number;
+  usersGrowth: number;
+  activeUsersGrowth: number;
+  purchasesGrowth: number;
   avgPrice: number;
 };
 
 // Purchase History type
 export type PurchaseHistoryData = {
   id: number
-  purchaseId: string,
-  email: string,
-  lessonId: number,
-  purchaseDate: string,
-  purchaseAmount: number,
-  platformType: string | null,
-  paymentMethod: string | null,
+  purchaseId: string
+  email: string
+  lessonId: number
+  purchaseDate: string
+  purchaseAmount: number
+  platformType: string | null
+  paymentMethod: string | null
   paymentStatus: string | null
 }

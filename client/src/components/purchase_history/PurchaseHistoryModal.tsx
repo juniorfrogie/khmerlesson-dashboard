@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -61,8 +62,10 @@ export function PurchaseHistoryModal({ isOpen, onClose, data }: PurchaseHistoryM
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader className="pb-4">
             <DialogTitle>
-              {data ? "Edit Purchase history" : "Create Purchase history"}
+              {/* {data ? "Edit Purchase history" : "Create Purchase history"} */}
+              Purchase History Detail
             </DialogTitle>
+            <DialogDescription />
           </DialogHeader>
           
           <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Filter, Plus, Edit, Eye, Trash2, BookOpen } from "lucide-react";
+import { Search, Plus, Edit, Eye, Trash2, BookOpen } from "lucide-react";
 import { Lesson, LessonData, LessonType } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,11 @@ interface LessonsViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
 }
 
+// type LessonListData = {
+//   lessons: LessonData[],
+//   total: number
+// }
+
 export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [levelFilter, setLevelFilter] = useState("all");
@@ -27,6 +32,8 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
   const [previewLesson, setPreviewLesson] = useState<LessonData | null>(null);
+  // const [limit, _] = useState(2)
+  // var [offset, setOffset] = useState(0)
 
   const { toast } = useToast();
 
@@ -164,6 +171,16 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
       </Card>
     );
   }
+
+  // const next = () => {
+  //   let min = offset + 1
+  //   setOffset(Math.min(min, data.total))
+  // }
+
+  // const previous = () => {
+  //   let max = offset - 1
+  //   setOffset(Math.max(0, max))
+  // }
 
   return (
     <>
@@ -317,7 +334,11 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                         </td>
                         <td className="p-4">
                           <span className="neutral-dark font-medium">
-                            {lesson.free ? "Free" : `$${((lesson.price || 0) / 100).toFixed(2)}`}
+                            {/* {lesson.free ? "Free" : `$${((lesson.price || 0) / 100).toFixed(2)}`} */}
+                            {lesson.free ? "Free" : `${Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            }).format((lesson.price || 0) / 100)}`}
                           </span>
                         </td>
                         <td className="p-4">

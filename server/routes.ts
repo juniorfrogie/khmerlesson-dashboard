@@ -22,6 +22,7 @@ import cors from "cors";
 import { mailTemplate } from "./mail/mail_template";
 import cron from "node-cron"
 import path from "path";
+import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -38,7 +39,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api", paypalRoutes, fileUploadRoute);
 
   const publicDir = path.join(import.meta.dirname, '..'); 
-  //console.log(publicDir)
   app.use(express.static(publicDir))
 
   // Dashboard stats
@@ -55,6 +55,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/lessons", async (req, res) => {
     try {
       const { search, level, type, status } = req.query;
+      // const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
+      // const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
       let lessons = await storage.getLessons();
       
       // Apply filters
@@ -162,6 +164,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(lessonTypes)
     } catch(error) {
       res.status(500).json({ message: "Failed to fetch lesson type" });
+    }
+  })
+
+  app.get("/api/lesson-type/:id", async (req, res) => {
+    try{
+      const { id } = req.params
+      let lessonTypeDetails = await storage.getLessonTypeDetail(parseInt(id))
+      res.json(lessonTypeDetails)
+    } catch(error) {
+      res.status(500).json({ message: "Failed to fetch lesson type detail" });
     }
   })
 
@@ -534,32 +546,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   app.post("/api/auth/logout", async (req, res) => {
-  try {
-    const authHeader = req.headers['authorization']
-    let token = authHeader && authHeader.split(' ')[1]
+    try {
+      const authHeader = req.headers['authorization']
+      let token = authHeader && authHeader.split(' ')[1]
 
-    if (!token && req.body.token) {
-      token = req.body.token;
+      if (!token && req.body.token) {
+        token = req.body.token;
+      }
+
+      if (token) {
+        await blacklistToken(token);
+      }
+
+      res.cookie("token", "none", {
+        expires: new Date(Date.now() + 10 * 1000),
+        httpOnly: true
+      })
+
+      res.status(200).json({
+        success: true,
+        message: "Logout successful"
+      })
+    } catch (error) { 
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Failed to logout" });
     }
-
-    if (token) {
-      await blacklistToken(token);
-    }
-
-    res.cookie("token", "none", {
-      expires: new Date(Date.now() + 10 * 1000),
-      httpOnly: true
-    })
-
-    res.status(200).json({
-      success: true,
-      message: "Logout successful"
-    })
-  } catch (error) { 
-    console.error("Logout error:", error);
-    res.status(500).json({ message: "Failed to logout" });
-  }
-});
+  });
 
   // Forgot Password
   app.post('/api/auth/forgot-password', async (req, res) => {
@@ -684,10 +696,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { role, isActive, search } = req.query;
       //let users = await storage.getAllUsers();
-      let limit = parseInt(req.query.limit?.toString() ?? "10") || 10
-      let offset = parseInt(req.query.offset?.toString() ?? "0") || 0
+      const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
+      const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
       let users = await storage.getUsers(limit, offset);
-      let usercount = await storage.getUserCount()
+      const usercount = await storage.getUserCount()
       
       // Apply filters
       if (role && role !== "all") {
@@ -783,6 +795,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update user" });
     }
   });
+
+  // Check if token is valid
+  app.post("/api/verifyToken", (req: any, res: any, next) => {
+    try {
+      const { cookie } = req.headers
+      if(cookie){
+        const token = cookie.split("token=")[1].split(";")[0]
+         jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
+          if (err) return res.status(403).json({message: "Forbidden"})
+          next()
+        })
+      }
+    } catch (error) {
+      res.status(500).send("Failed to verify token")
+    }
+  })
 
   // app.get("/api/usercount", async (req, res) => {
   //   try{
@@ -954,7 +982,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-
   //Clean up expired token From Blacklist in every 10 minutes
   const cleanExpiredTokens = async () => {
     const result = await storage.deleteBlacklist();
@@ -964,8 +991,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
     }
   }
-
   cron.schedule("*/10 * * * *", cleanExpiredTokens);
+
+  //DELETE delete file
+  app.delete("/api/unlinkFile/:filename", (req, res) => {
+    try {
+      const { filename } = req.params
+      const { role } = req.body
+
+      if(role === "admin"){
+        fs.unlink(`uploads/${filename}`, (err) => {
+          if(err) throw err
+          console.log(`File deleted successfully: ${filename}`)
+          res.send()
+        })
+      }
+    } catch (error) {
+      res.status(500).send("Failed to delete file")
+    }
+  })
 
   const httpServer = createServer(app);
   return httpServer;

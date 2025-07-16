@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -99,6 +100,7 @@ export default function LessonModal({ isOpen, onClose, lesson }: LessonModalProp
             <DialogTitle>
               {lesson ? "Edit Lesson" : "Create New Lesson"}
             </DialogTitle>
+            <DialogDescription />
           </DialogHeader>
           
           <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">
