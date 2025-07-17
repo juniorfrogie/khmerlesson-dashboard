@@ -333,6 +333,10 @@ export class DatabaseStorage implements IStorage {
       image: e.lessons.image,
       free: e.lessons.free,
       price: e.lessons.price,
+      priceCurrency: `${Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD"
+      }).format((e.lessons.price || 0) / 100)}`,
       hasPurchased: false,
       createdAt: e.lessons.createdAt,
       updatedAt: e.lessons.updatedAt
