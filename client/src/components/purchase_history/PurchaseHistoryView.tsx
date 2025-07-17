@@ -257,7 +257,12 @@ export default function PurchaseHistoryView(){
                                                     </Badge>
                                                 </td>
                                                 <td className="p-4">
-                                                    <p className="font-medium neutra-dark">{ `$${((e.purchaseAmount || 0) / 100).toFixed(2)}` }</p>
+                                                    <p className="font-medium neutra-dark">
+                                                        {`${Intl.NumberFormat("en-US", {
+                                                            style: "currency",
+                                                            currency: "USD",
+                                                        }).format((e.purchaseAmount || 0) / 100)}`}
+                                                    </p>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center space-x-2">
