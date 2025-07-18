@@ -19,11 +19,21 @@ const storage = multer.diskStorage({
     }
 })
 
+const fileFilter = (req: any, file: any, cb: any) => {
+  // Check file type based on MIME type
+  if (file.mimetype === 'image/png' || file.mimetype === 'image/svg+xml') {
+    cb(null, true); // Accept the file
+  } else {
+    cb(new Error('Invalid file type. Only PNG and SVG are allowed.'), false); // Reject the file
+  }
+}
+
 const upload = multer({
     storage: storage,
     limits: {
         fileSize: 1024 * 1024 * 2 // Limit file size to 2MB
-    }
+    },
+    fileFilter: fileFilter
 })
 
 router.post("/upload", upload.single('file'), async (req, res) => {

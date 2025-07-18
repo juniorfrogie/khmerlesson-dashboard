@@ -58,12 +58,9 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
                 method: "POST",
                 body: formData
             })
-            if(response.status !== 201) {
-                throw "Failed to upload file!"
-            }
             const responseData = await response.json()
             return responseData
-        } catch (error) {
+        } catch (error) { 
             console.error(error)
             toast({
                 title: "Error",
@@ -88,16 +85,42 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
         // setPreviewImage(href)
         // form.setValue("icon", file.name)
         
-        const files = event.target.files
-        if(!files) return
-        if(files.length === 0) return
+        try {
+            const files = event.target.files
+            if(!files) return
+            if(files.length === 0) return
 
-        const file = files[0]
-        const result = await uploadFile(file)
-        if(result){
-            setSelectedFile(file)
-            setPreviewImage(`${result.data.filename}`)
-            form.setValue("icon", `${result.data.filename}`)
+            const file = files[0]
+            const result = await uploadFile(file)
+            if(result){
+                if(result.data){
+                    setSelectedFile(file)
+                    setPreviewImage(`${result.data.filename}`)
+                    form.setValue("icon", `${result.data.filename}`)
+                    //
+                    toast({
+                        title: "Success",
+                        description: `${result.message}`
+                    });
+                }else{
+                    form.setError("icon", {
+                        message: `${result.message}`
+                    })
+                    //
+                    toast({
+                        title: "Error",
+                        description: `${result.message}`,
+                        variant: "destructive"
+                    });
+                }
+            }
+        } catch (error) {
+            console.error(error)
+            toast({
+                title: "Error",
+                description: `${error}`,
+                variant: "destructive"
+            });
         }
     }
 

@@ -467,33 +467,49 @@ export class DatabaseStorage implements IStorage {
 
     const currentDate = new Date()
     const currentMonth = currentDate.getMonth() + 1
+    const currentYear = currentDate.getFullYear()
 
     // Calculate MoM (Month over Month) Users Growth Rate
-    const currentMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) === currentMonth)
-    const priorMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth)
-    const usersGrowth = ((currentMonthUsers.length / priorMonthUsers.length) - 1) * 100
+    const currentMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
+      && f.createdAt.getFullYear() === currentYear)
+    const priorMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
+      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
+      && f.createdAt.getFullYear() === currentYear)
+    const usersGrowth = priorMonthUsers.length === 0 ? 0 : ((currentMonthUsers.length / priorMonthUsers.length) - 1)
 
     // Calculate MoM (Month over Month) Active Users Growth Rate
-    const currentMonthActiveUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) === currentMonth && f.isActive)
-    const priorMonthActiveUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth && f.isActive)
-    const activeUsersGrowth = ((currentMonthActiveUsers.length / priorMonthActiveUsers.length) - 1) * 100
+    const currentMonthActiveUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
+      && f.isActive && f.createdAt.getFullYear() === currentYear)
+    const priorMonthActiveUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth && f.isActive 
+      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
+      && f.createdAt.getFullYear() === currentYear)
+    const activeUsersGrowth = priorMonthActiveUsers.length === 0 ? 0 : ((currentMonthActiveUsers.length / priorMonthActiveUsers.length) - 1)
 
     // Calculate MoM (Month over Month) Lessons Growth Rate
-    const currentMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) === currentMonth)
-    const priorMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) < currentMonth)
-    const lessonsGrowth = ((currentMonthLessons.length / priorMonthLessons.length) - 1) * 100
+    const currentMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
+      && f.createdAt.getFullYear() === currentYear)
+    const priorMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
+      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
+      && f.createdAt.getFullYear() === currentYear)
+    const lessonsGrowth = priorMonthLessons.length === 0 ? 0 : ((currentMonthLessons.length / priorMonthLessons.length) - 1)
 
     // Calculate MoM (Month over Month) Quizzes Growth Rate
-    const currentMonthQuizzes = allQuizzes.filter(f => (f.createdAt.getMonth() + 1) === currentMonth)
-    const priorMonthQuizzes = allQuizzes.filter(f => (f.createdAt.getMonth() + 1) < currentMonth)
-    const quizzesGrowth = ((currentMonthQuizzes.length / priorMonthQuizzes.length) - 1) * 100
+    const currentMonthQuizzes = allQuizzes.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
+      && f.createdAt.getFullYear() === currentYear)
+    const priorMonthQuizzes = allQuizzes.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
+      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
+      && f.createdAt.getFullYear() === currentYear)
+    const quizzesGrowth = priorMonthQuizzes.length === 0 ? 0 : ((currentMonthQuizzes.length / priorMonthQuizzes.length) - 1)
 
     // Calculate complete purchase amount Growth Rate
     const currentMonthPurchases = allPurchaseHistory.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
-      && f.paymentStatus?.toLowerCase() === "completed")
+      && f.paymentStatus?.toLowerCase() === "completed" 
+      && f.createdAt.getFullYear() === currentYear)
     const priorMonthPurchases = allPurchaseHistory.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
-      && f.paymentStatus?.toLowerCase() === "completed")
-    const purchasesGrowth = ((currentMonthPurchases.length / priorMonthPurchases.length) - 1) * 100
+      && f.paymentStatus?.toLowerCase() === "completed" 
+      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
+      && f.createdAt.getFullYear() === currentYear)
+    const purchasesGrowth = priorMonthPurchases.length === 0 ? 0 : ((currentMonthPurchases.length / priorMonthPurchases.length) - 1)
     
     // Calculate average price
     const premiumLessonsWithPrice = allLessons.filter(l => !l.free && l.price);

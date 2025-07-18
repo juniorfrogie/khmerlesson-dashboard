@@ -62,11 +62,11 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
       lessonType: lesson?.lessonType,
       title: lesson?.title || "",
       description: lesson?.description || "",
-      level: lesson?.level || "Beginner",
+      level: lesson?.level as any || "Beginner",
       image: lesson?.image || "",
       free: lesson?.free ?? true,
       price: lesson?.price ? lesson.price / 100 : undefined,
-      sections: lesson?.sections || [{ title: "", content: "" }],
+      sections: lesson?.sections as any || [{ title: "", content: "" }],
     },
   });
 
@@ -211,7 +211,6 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
                     {
                       lessonTypeList.map((item) => (
                         <SelectItem key={item.id} value={`${item.id}`}>
-                            {/* { item.icon } { item.title } */}
                             { item.iconMode === "raw" ? (`${item.icon}\t${item.title}`) : 
                               <div className="flex gap-1">
                                 <img className="w-4 h-4" src={`/uploads/${item.icon}`} alt={item.title} />
