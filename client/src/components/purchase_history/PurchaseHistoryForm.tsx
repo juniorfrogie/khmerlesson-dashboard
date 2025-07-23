@@ -65,7 +65,7 @@ export function PurchaseHistoryForm({ data, onRefundSubmit, isLoading }: Purchas
                     </div>
                     <div className="border-t border-gray-200 pt-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold neutral-dark">Lesson</h3>
+                            <h3 className="text-lg font-semibold neutral-dark">Lessons</h3>
                         </div>
                         <div className="space-y-4">
                             { isFetching ? (<small className="text-gray-500">Loading...</small>) : 

@@ -1,4 +1,4 @@
-import { BookType, Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
+import { BookType, ChevronLeft, ChevronRight, Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { useState } from "react";
@@ -235,13 +235,13 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
                             </div>
                             <div className="flex items-center space-x-2">
                                 <Button variant="outline" size="sm" disabled>
-                                Previous
+                                    <ChevronLeft />
                                 </Button>
                                 <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
                                 1
                                 </Button>
                                 <Button variant="outline" size="sm" disabled>
-                                Next
+                                    <ChevronRight />
                                 </Button>
                             </div>
                             </div>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Edit, User2, RefreshCcw, ArrowLeft, ArrowRight } from "lucide-react";
+import { Search, Plus, Edit, User2, RefreshCcw, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -393,15 +393,13 @@ export default function UsersView({ }: UsersViewProps) {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button variant="outline" size="sm" onClick={previous} disabled={offset < 1}>
-                    <ArrowLeft />
-                    Previous
+                    <ChevronLeft />
                   </Button>
                   <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
                     { pageNumber }
                   </Button>
                   <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.users.length === data.total || (offset + limit) === data.total}>
-                    Next
-                    <ArrowRight />
+                    <ChevronRight />
                   </Button>
                 </div>
               </div>

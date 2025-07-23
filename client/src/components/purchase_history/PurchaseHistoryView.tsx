@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Eye, RefreshCcw, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Eye, RefreshCcw, Search } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { apiRequest } from "@/lib/queryClient";
@@ -27,11 +27,12 @@ export default function PurchaseHistoryView(){
     const [limit, _] = useState(15)
     var [offset, setOffset] = useState(0)
     const [pageNumber, setPageNumber] = useState(1)
+    const [purchaseDateFilter, setPurchaseDateFilter] = useState("all")
 
     const getPurchaseHistory = async ({ queryKey }: any) => {
         const [_key, params] = queryKey
         const response = await apiRequest("GET", 
-          `/api/purchase_history?payment_status=${params.paymentStatus}&search=${params.search}&limit=${params.limit}&offset=${params.offset}`)
+          `/api/purchase_history?payment_status=${params.paymentStatus}&purchase_date=${params.purchaseDate}&search=${params.search}&limit=${params.limit}&offset=${params.offset}`)
         const result = await response.json()
         return result
     }
@@ -41,6 +42,7 @@ export default function PurchaseHistoryView(){
         queryKey: ['purchase_history', {
             paymentStatus: paymentStatusFilter,
             search: searchTerm,
+            purchaseDate: purchaseDateFilter,
             limit: limit,
             offset: offset
         }],
@@ -64,7 +66,7 @@ export default function PurchaseHistoryView(){
             setIsRefreshing(false)
         }catch(error){
             setIsRefreshing(false)
-            console.log(error)
+            console.error(error)
         }
     }
 
@@ -177,6 +179,26 @@ export default function PurchaseHistoryView(){
                             <SelectItem value="Completed">Completed</SelectItem>
                             <SelectItem value="Pending">Pending</SelectItem>
                             <SelectItem value="Refund">Refund</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={purchaseDateFilter} onValueChange={setPurchaseDateFilter}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="All Purchase date" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Purchase date</SelectItem>
+                            <SelectItem value="today">Today</SelectItem>
+                            <SelectItem value="yesterday">Yesterday</SelectItem>
+                            <SelectItem value="this-week">This week</SelectItem>
+                            <SelectItem value="this-month">This month</SelectItem>
+                            <SelectItem value="this-year">This year</SelectItem>
+                            <SelectItem value="last-week">Last week</SelectItem>
+                            <SelectItem value="last-month">Last month</SelectItem>
+                            <SelectItem value="last-year">Last year</SelectItem>
+                            <SelectItem value="last-7-days">Last 7 days</SelectItem>
+                            <SelectItem value="last-30-days">Last 30 days</SelectItem>
+                            <SelectItem value="last-90-days">Last 90 days</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -307,15 +329,13 @@ export default function PurchaseHistoryView(){
                         </div>
                         <div className="flex items-center space-x-2">
                         <Button variant="outline" size="sm" onClick={previous} disabled={offset < 1}>
-                            <ArrowLeft />
-                            Previous
+                            <ChevronLeft />
                         </Button>
                         <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
                             { pageNumber }
                         </Button>
                         <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.data.length === data.total || (offset + limit) === data.total}>
-                            Next
-                            <ArrowRight />
+                            <ChevronRight />
                         </Button>
                         </div>
                     </div>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Edit, Eye, Trash2, BookOpen } from "lucide-react";
+import { Search, Plus, Edit, Eye, Trash2, BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import { Lesson, LessonData, LessonType } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -389,13 +389,13 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button variant="outline" size="sm" disabled>
-                    Previous
+                    <ChevronLeft />
                   </Button>
                   <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
                     1
                   </Button>
                   <Button variant="outline" size="sm" disabled>
-                    Next
+                    <ChevronRight />
                   </Button>
                 </div>
               </div>
