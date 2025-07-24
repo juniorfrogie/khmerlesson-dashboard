@@ -11,8 +11,9 @@ import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal
 import APISettings from "./api-settings";
 import PurchaseHistoryView from "@/components/purchase_history/PurchaseHistoryView";
 import LessonTypeView from "@/components/lesson_type/LessonTypeView";
+import MainLessonsView from "@/components/main_lessons/MainLessonsView";
 
-export type ActiveView = "dashboard" | "lessons" | "lesson_type" | "quizzes"  | "users" | "purchase_history" | "analytics" | "import-export" | "api-settings";
+export type ActiveView = "dashboard" | "main_lessons" |  "lessons" | "lesson_type" | "quizzes"  | "users" | "purchase_history" | "analytics" | "import-export" | "api-settings";
 
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
@@ -58,6 +59,8 @@ export default function Dashboard() {
             </div>
           </div>
         );
+      case "main_lessons":
+        return <MainLessonsView onDelete={openDeleteModal} />;
       case "lessons":
         return <LessonsView onDelete={openDeleteModal} />;
       case "lesson_type":

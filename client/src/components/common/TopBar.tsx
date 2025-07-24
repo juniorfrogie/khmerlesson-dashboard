@@ -17,6 +17,11 @@ const pageConfig = {
     subtitle: "Manage your Khmer learning content",
     action: { text: "Create New", icon: Plus },
   },
+  main_lessons: {
+    title: "Main Lesson Management",
+    subtitle: "Create and manage main learning content",
+    action: { text: "New Main Lesson", icon: Plus },
+  },
   lessons: {
     title: "Lesson Management",
     subtitle: "Create and manage learning content",
@@ -24,7 +29,7 @@ const pageConfig = {
   },
   lesson_type: {
     title: "Lesson Type Management",
-    subtitle: "Create and manage learning content",
+    subtitle: "Create and manage lesson type",
     action: { text: "New Lesson Type", icon: Plus },
   },
   quizzes: {

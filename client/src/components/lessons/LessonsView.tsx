@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Edit, Eye, Trash2, BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Edit, Eye, Trash2, ChevronLeft, ChevronRight, Library } from "lucide-react";
 import { Lesson, LessonData, LessonType } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -282,7 +282,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                     <tr>
                       <td colSpan={8} className="p-8 text-center">
                         <div className="text-gray-500">
-                          <BookOpen className="mx-auto h-12 w-12 mb-2 opacity-50" />
+                          <Library className="mx-auto h-12 w-12 mb-2 opacity-50" />
                           <p>No lessons found</p>
                           <p className="text-sm">Create your first lesson to get started</p>
                         </div>
@@ -303,11 +303,10 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                               {/* <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span>
                               { <span className="text-lg">{ lesson.lessonType.icon || "📚"}</span> } */}
                               {
-                              lesson.lessonType?.iconMode === "file" ? <img src={`/uploads/${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
-                                : <span className="text-lg">{lesson.lessonType?.icon || "📚"}</span>
+                                lesson.lessonType?.iconMode === "file" ? <img src={`/uploads/${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
+                                  : <span className="text-lg">{lesson.lessonType?.icon || "📚"}</span>
                               }
                             </div>
-                            {/* <IconMode lessonType={lesson.lessonType}/> */}
                             <div>
                               <p className="font-medium neutral-dark">{lesson.title}</p>
                               <p className="text-sm neutral-medium">{lesson.description}</p>

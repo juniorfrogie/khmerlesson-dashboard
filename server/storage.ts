@@ -25,10 +25,14 @@ import {
   UpdatePurchaseHistory,
   InsertUserWithAuthService,
   LessonType,
-  lesson_type,
   InsertLessonType,
   UpdateLessonType,
   LessonData,
+  lessonType,
+  MainLesson,
+  InsertMainLesson,
+  UpdateMainLesson,
+  mainLessons,
 } from "@shared/schema";
 import { db } from "./db";
 import { and, count, eq, not, lte } from "drizzle-orm";
@@ -52,20 +56,25 @@ export interface IStorage {
   changePassword(id: number, currentPassword: string, newPassword: string): Promise<User | null>
   getUserCount(): Promise<number>;
   createUserWithAuthService(user: InsertUserWithAuthService): Promise<User>;
+
+  // Main Lessons
+  getMainLessons(): Promise<MainLesson[]>
+  createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson>
+  updateMainLesson(id: number, mainLesson: UpdateMainLesson): Promise<MainLesson | undefined>
   
   // Lessons
   // getLessons(): Promise<Lesson[]>;
   getLessons(): Promise<LessonData[]>;
   getLesson(id: number): Promise<Lesson | undefined>;
-  createLesson(lesson: InsertLesson): Promise<Lesson>;
+  createLesson(insertLesson: InsertLesson): Promise<Lesson>;
   updateLesson(id: number, lesson: UpdateLesson): Promise<Lesson | undefined>;
   deleteLesson(id: number): Promise<boolean>;
   getLessonsJoin(user: User): Promise<any>
 
   // Lesson Type
   getAllLessonType(): Promise<LessonType[]>;
-  createLessonType(lessonType: InsertLessonType): Promise<LessonType>;
-  updateLessonType(id: number, lessonType: UpdateLessonType): Promise<LessonType | undefined>;
+  createLessonType(insertLessonType: InsertLessonType): Promise<LessonType>;
+  updateLessonType(id: number, updateLessonType: UpdateLessonType): Promise<LessonType | undefined>;
   deleteLessonType(id: number): Promise<boolean>;
   getLessonTypeDetail(id: number): Promise<Lesson[]>
   
@@ -236,11 +245,34 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  // Main Lesson operations
+  async getMainLessons(): Promise<MainLesson[]> {
+    const result = await db.select().from(mainLessons).orderBy(mainLessons.createdAt)
+    return result
+  }
+
+  async createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson> {
+    const [result] = await db.insert(mainLessons).values(
+      {
+        ...mainLesson, 
+        status: mainLesson.status || "draft"
+      }).returning()
+    return result
+  }
+
+  async updateMainLesson(id: number, mainLesson: UpdateMainLesson): Promise<MainLesson | undefined> {
+    const [result] = await db.update(mainLessons).set({
+      ...mainLesson,
+      updatedAt: new Date()
+    }).where(eq(mainLessons.id, id)).returning()
+    return result || undefined
+  }
+
   // Lesson operations
   async getLessons(): Promise<LessonData[]> {
     // const result = await db.select().from(lessons).orderBy(lessons.createdAt);
     const result = await db.select().from(lessons)
-      .leftJoin(lesson_type, eq(lesson_type.id, lessons.lessonTypeId))
+      .leftJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
       .orderBy(lessons.createdAt)
   
     const lessonList = result.map(e => (<LessonData>{
@@ -316,7 +348,7 @@ export class DatabaseStorage implements IStorage {
     // return publishedLessons;
 
     const result = await db.select().from(lessons)
-      .innerJoin(lesson_type, eq(lesson_type.id, lessons.lessonTypeId))
+      .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
       .orderBy(lessons.createdAt);
     const lessonsUserPurchased = await db.select().from(lessons)
       .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
@@ -652,28 +684,28 @@ export class DatabaseStorage implements IStorage {
 
   // Lesson Type Operations
   async getAllLessonType(): Promise<LessonType[]> {
-    const result = await db.select().from(lesson_type).orderBy(lesson_type.createdAt)
+    const result = await db.select().from(lessonType).orderBy(lessonType.createdAt)
     return result
   }
 
-  async createLessonType(lessonType: InsertLessonType): Promise<LessonType> {
-    const [ result ] = await db.insert(lesson_type).values(
-      {...lessonType, 
-        icon: lessonType.icon, 
-        title: lessonType.title
+  async createLessonType(insertLessonType: InsertLessonType): Promise<LessonType> {
+    const [ result ] = await db.insert(lessonType).values(
+      {...insertLessonType, 
+        icon: insertLessonType.icon, 
+        title: insertLessonType.title
       }
     ).returning()
     return result
   }
 
-  async updateLessonType(id: number, lessonType: UpdateLessonType): Promise<LessonType | undefined> {
-    const [result] = await db.update(lesson_type).set({...lessonType, updatedAt: new Date()})
-      .where(eq(lesson_type.id, id)).returning()
+  async updateLessonType(id: number, updateLessonType: UpdateLessonType): Promise<LessonType | undefined> {
+    const [result] = await db.update(lessonType).set({...updateLessonType, updatedAt: new Date()})
+      .where(eq(lessonType.id, id)).returning()
     return result || undefined
   }
 
   async deleteLessonType(id: number): Promise<boolean> {
-    const result = await db.delete(lesson_type).where(eq(lesson_type.id, id))
+    const result = await db.delete(lessonType).where(eq(lessonType.id, id))
     return (result.rowCount ?? 0) > 0
   }
 

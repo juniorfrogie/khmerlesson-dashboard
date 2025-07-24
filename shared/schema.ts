@@ -1,12 +1,23 @@
-// import exp from "constants";
 import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const mainLessons = pgTable("main_lessons", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  imageCover: text("image_cover").notNull(),
+  status: text("status").notNull().default("draft"), // "draft" | "published"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+})
+
 export const lessons = pgTable("lessons", {
   id: serial("id").primaryKey(),
+  // mainLessonId: integer("main_lesson_id")
+  //   .references(() => mainLessons.id, {onDelete: "cascade", onUpdate: "cascade"}), // association with main lesson
   lessonTypeId: integer("lesson_type_id")
-    .references(() => lesson_type.id, { onDelete: "cascade", onUpdate: "cascade"}), // association with lesson type
+    .references(() => lessonType.id, {onDelete: "cascade", onUpdate: "cascade"}), // association with lesson type
   title: text("title").notNull(),
   description: text("description").notNull(),
   free: boolean("free").notNull().default(true),
@@ -16,27 +27,27 @@ export const lessons = pgTable("lessons", {
   sections: jsonb("sections").notNull().default([]), // array of {title: string, content: string}
   status: text("status").notNull().default("draft"), // "draft" | "published"
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
-export const lesson_type = pgTable("lesson_type", {
+export const lessonType = pgTable("lesson_type", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   icon: text("icon").notNull(),
-  iconMode: text("icon_mode").notNull().default("raw"), // "Raw" | "File"
+  iconMode: text("icon_mode").notNull().default("raw"), // "raw" | "file"
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
 export const quizzes = pgTable("quizzes", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  lessonId: integer("lesson_id").references(() => lessons.id, { onDelete: "cascade", onUpdate: "cascade" }), // optional association with lesson
+  lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: "cascade", onUpdate: "cascade" }), // optional association with lesson
   questions: jsonb("questions").notNull().default([]), // array of quiz questions
   status: text("status").notNull().default("draft"), // "draft" | "active"
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
 export const users = pgTable("users", {
@@ -50,7 +61,7 @@ export const users = pgTable("users", {
   resetToken: varchar("reset_token"),
   registrationType: varchar("registration_type").notNull().default("authenication"), // "authenication" | "google_service"
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
 export const analytics = pgTable("analytics", {
@@ -59,7 +70,7 @@ export const analytics = pgTable("analytics", {
   quizId: integer("quiz_id"),
   completions: integer("completions").default(0),
   averageScore: integer("average_score"), // for quizzes
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
 export const purchase_history = pgTable("purchase_history", {
@@ -82,6 +93,15 @@ export const blacklist = pgTable("blacklist", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiredAt: timestamp("expired_at").notNull()
 });
+
+// Main Lesson schema
+export const insertMainLessonSchema = createInsertSchema(mainLessons).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+})
+
+export const updateMainLessonSchema = insertMainLessonSchema.partial()
 
 // Blacklist schema
 export const insertBlacklistSchema = createInsertSchema(blacklist).omit({
@@ -107,13 +127,13 @@ export const insertLessonSchema = createInsertSchema(lessons).omit({
 export const updateLessonSchema = insertLessonSchema.partial();
 
 // Lesson Type schema
-export const insertLessonTypeSchema = createInsertSchema(lesson_type).omit({
+export const insertLessonTypeSchema = createInsertSchema(lessonType).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 })
 
-export const updateLessonTypeSchema = createInsertSchema(lesson_type).partial()
+export const updateLessonTypeSchema = createInsertSchema(lessonType).partial()
 
 // Quiz schema
 export const insertQuizSchema = createInsertSchema(quizzes).omit({
@@ -187,11 +207,15 @@ export type ChangePasswordUser = z.infer<typeof changePasswordSchema>;
 // export type UserCount = z.infer<typeof userCount>
 export type InsertUserWithAuthService = z.infer<typeof insertUserWithAuthServiceSchema>;
 
+export type MainLesson = typeof mainLessons.$inferSelect
+export type InsertMainLesson = z.infer<typeof insertMainLessonSchema>
+export type UpdateMainLesson = z.infer<typeof updateMainLessonSchema>
+
 export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type UpdateLesson = z.infer<typeof updateLessonSchema>;
 
-export type LessonType = typeof lesson_type.$inferSelect;
+export type LessonType = typeof lessonType.$inferSelect;
 export type InsertLessonType = z.infer<typeof insertLessonTypeSchema>;
 export type UpdateLessonType = z.infer<typeof updateLessonTypeSchema>;
 

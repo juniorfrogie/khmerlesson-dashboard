@@ -10,7 +10,9 @@ import { forgotPasswordSchema, loginSchema, insertUserSchema,
    insertPurchaseHistorySchema,
    insertUserWithAuthServiceSchema,
    insertLessonTypeSchema,
-   updateLessonTypeSchema} from "@shared/schema";
+   updateLessonTypeSchema,
+   insertMainLessonSchema,
+   updateMainLessonSchema} from "@shared/schema";
 import { z } from "zod";
 import apiRoutes from "./api";
 import paypalRoutes from "./paypal/orders"
@@ -52,6 +54,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
+
+  // Main Lessons CRUD
+  app.get("/api/main-lessons", async (req, res) => {
+    try {
+      const { search } = req.query
+      let mainLessons = await storage.getMainLessons()
+
+      // Apply filters
+      if (search) {
+        const searchTerm = (search as string).toLowerCase();
+        mainLessons = mainLessons.filter(mainLesson => 
+          mainLesson.title.toLowerCase().includes(searchTerm) ||
+          mainLesson.description.toLowerCase().includes(searchTerm)
+        )
+      }
+
+      return res.json(mainLessons)
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch main lessons" });
+    }
+  })
+
+  app.post("/api/main-lessons", async (req, res) => {
+    try {
+      const validatedData = insertMainLessonSchema.parse(req.body);
+      const mainLesson = await storage.createMainLesson(validatedData);
+      res.status(201).json(mainLesson);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create main lesson" });
+    }
+  })
+
+  app.patch("/api/main-lessons/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id)
+      const validatedData = updateMainLessonSchema.parse(req.body)
+      const mainLesson = await storage.updateMainLesson(id, validatedData)
+      
+      if(!mainLesson){
+        return res.status(404).json({message: "Main lesson not found"})
+      }
+
+      return res.json(mainLesson)
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update main lesson" });
+    }
+  })
 
   // Lessons CRUD
   app.get("/api/lessons", async (req, res) => {

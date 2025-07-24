@@ -23,7 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 const lessonSchema = z.object({
-  lessonTypeId: z.number().min(1, "Lesson Type is required"),
+  lessonTypeId: z.number().min(1, "Lessodn Type is required"),
   lessonType: z.object({
     id: z.number(),
     icon: z.string(),
@@ -116,7 +116,6 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
     onSubmit({
       ...data,
       image: form.getValues("image"),
-      // lessonType: form.getValues("lessonType"),
       price: data.free ? undefined : (data.price || 0) * 100,
     }, isDraft);
   };
