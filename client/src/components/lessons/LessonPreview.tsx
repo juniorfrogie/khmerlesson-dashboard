@@ -8,7 +8,7 @@ import {
 // import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen } from "lucide-react";
+import { Library } from "lucide-react";
 import { LessonData } from "@shared/schema";
 // import { IMAGE_MAP } from "@/lib/constants";
 
@@ -29,7 +29,7 @@ export default function LessonPreview({ lesson, isOpen, onClose, isFormPreview =
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center">
-            <BookOpen className="mr-2 h-5 w-5" />
+            <Library className="mr-2 h-5 w-5" />
             Lesson Preview
           </DialogTitle>
           <DialogDescription />

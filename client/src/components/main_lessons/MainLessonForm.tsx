@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { MainLesson } from "@shared/schema";
 import { Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const mainLessonSchema = z.object({
     imageCover: z.string().min(1, "Image cover is required"),
@@ -32,33 +33,95 @@ interface MainLessonFormProps{
 
 export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: MainLessonFormProps){
     const [autoSaveTime, setAutoSaveTime] = useState<Date | null>(null)
-    const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    //const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    const [previewImage, setPreviewImage] = useState<string | null>(mainLesson ? mainLesson.imageCover :  null)
+    const { toast } = useToast()
 
     const form = useForm<MainLessonFormData>({
         resolver: zodResolver(mainLessonSchema),
         defaultValues: {
-            imageCover: mainLesson?.imageCover ??  "",
+            imageCover: mainLesson?.imageCover ?? "",
             title: mainLesson?.title ?? "",
             description: mainLesson?.description ?? ""
         }
     })
 
+    const uploadFile = async (file: File) => {
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const response = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+            })
+            const responseData = await response.json()
+            return responseData
+        } catch (error) { 
+            console.error(error)
+            toast({
+                title: "Error",
+                description: `${error}`,
+                variant: "destructive"
+            });
+        }
+    }
+
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        form.clearErrors()
         try {
             const files = event.target.files
             if(!files) return
             if(files.length === 0) return
 
             const file = files[0]
-            setSelectedFile(file)
+            // setPreviewImage(file.name)
+            // form.setValue("imageCover", `${file.name}`)
+            const result = await uploadFile(file)
+            if(result){
+                if(result.data){
+                    //setSelectedFile(file)
+                    setPreviewImage(`${result.data.filename}`)
+                    form.setValue("imageCover", `${result.data.filename}`)
+                    //
+                    toast({
+                        title: "Success",
+                        description: `${result.message}`
+                    });
+                }else{
+                    form.setError("imageCover", {
+                        message: `${result.message}`
+                    })
+                    //
+                    toast({
+                        title: "Error",
+                        description: `${result.message}`,
+                        variant: "destructive"
+                    });
+                }
+            }
         } catch (error) {
             console.error(error)
+            toast({
+                title: "Error",
+                description: `${error}`,
+                variant: "destructive"
+            });
         }
     }
 
     const handleSubmit = (data: MainLessonFormData, isDraft = false) => {
         onSubmit({...data}, isDraft)
     }
+
+    // Auto-save simulation
+    useEffect(() => {
+        const timer = setInterval(() => {
+        setAutoSaveTime(new Date());
+        }, 30000);
+
+        return () => clearInterval(timer);
+    }, []);
 
     return (
         <>
@@ -72,16 +135,15 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                         <FormItem>
                             <FormLabel>Image cover *</FormLabel>
                             <FormControl>
-                                {/* <Input type="file" accept="image/png, image/svg+xml"  {...field} /> */}
                             <div className="flex flex-col items-center space-y-6">
                                 <div className="flex items-center justify-center w-full">
                                     <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                             <svg className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
                                             </svg>
                                             <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span></p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">SVG, PNG (MAX. 300x300px)</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">support only SVG, PNG</p>
                                         </div>
                                         {/* <input id="dropzone-file" type="file" class="hidden" /> */}
                                         <Input id="dropzone-file" type="file"
@@ -93,13 +155,13 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                                             className="hidden"/>
                                     </label>
                                 </div> 
-                                {/* {
-                                    selectedFile && (
+                                {
+                                    previewImage && previewImage.length > 0 && (
                                         <div className="w-full border rounded p-4 flex items-center justify-center">
-                                            <img className="rounded" src={`${selectedFile.webkitRelativePath}`} width="150" height="150"/>
+                                            <img className="rounded" src={`/uploads/${previewImage}`} width="150" height="150"/>
                                         </div>
                                     )
-                                } */}
+                                }
                             </div>
                             </FormControl>
                             <FormMessage />
@@ -157,7 +219,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                     </div>
                     <div className="flex items-center space-x-3">
                         <Button type="submit" disabled={isLoading} className="bg-fluent-blue hover:bg-blue-600">
-                            {isLoading ? "Publishing..." : "Publish Lesson"}
+                            {isLoading ? "Publishing..." : "Publish"}
                         </Button>
                     </div>
                 </div>

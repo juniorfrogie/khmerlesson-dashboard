@@ -1,14 +1,15 @@
-import { BookOpen, Plus, Search } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Edit, Plus, Search, Trash2 } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { MainLesson } from "@shared/schema";
 import { Badge } from "../ui/badge";
 import MainLessonModal from "./MainLessonModal";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface MainLessonsViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -23,18 +24,42 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
 
     const mainLessonTableHeaders = [
         "Image cover",
-        "Title",
-        "Description",
+        "Main Lesson",
         "Status",
         "Update",
         "Actions"
     ]
 
     const getMainLessons = async ({ queryKey }: any) => {
+        const [_key, params] = queryKey
+        const response = await apiRequest("GET", `/api/main-lessons?search=${params.search}`)
+        return await response.json()
     }
 
     const { data: mainLessons = [], isLoading } = useQuery<MainLesson[]>({
-        queryKey: ["/api/main-lessons"]
+        queryKey: ["main-lessons", {
+            search: searchTerm
+        }],
+        queryFn: getMainLessons
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: number) => await apiRequest("DELETE", `/api/main-lesson/${id}`),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["main-lessons"] });
+            await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+            toast({
+                title: "Success",
+                description: "Main Lesson deleted successfully"
+            });
+        },
+        onError: () => {
+            toast({
+                title: "Error", 
+                description: "Failed to delete main lesson",
+                variant: "destructive"
+            });
+        }
     })
 
     const toggleLessonSelection = (mainLessonId: number) => {
@@ -64,6 +89,17 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
     const handleNewMainLesson = () => {
         setEditingMainLesson(null)
         setIsModalOpen(true)
+    }
+
+    const handleEdit = (mainLesson: MainLesson) => {
+        setEditingMainLesson(mainLesson)
+        setIsModalOpen(true)
+    }
+
+    const handleDelete = (mainLesson: MainLesson) => {
+        onDelete("main lesson", mainLesson.title, async () => {
+            await deleteMutation.mutateAsync(mainLesson.id)
+        })
     }
 
     if(isLoading){
@@ -153,11 +189,14 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <p>{ mainLesson.title }</p>
+                                                    <div>
+                                                        <p className="font-medium neutral-dark">{ mainLesson.title }</p>
+                                                        <p className="text-sm neutral-medium">{ mainLesson.description }</p>
+                                                    </div>
                                                 </td>
-                                                <td className="p-4">
-                                                    <p>{ mainLesson.description }</p>
-                                                </td>
+                                                {/* <td className="p-4">
+                                                    <p className="neutral-medium">{ mainLesson.description }</p>
+                                                </td> */}
                                                 <td className="p-4">
                                                     <Badge variant={getBadgeVariant(mainLesson.status)}>
                                                         {mainLesson.status.charAt(0).toUpperCase() + mainLesson.status.slice(1)}
@@ -168,6 +207,34 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                                         {new Date(mainLesson.updatedAt).toLocaleDateString()}
                                                     </span>
                                                 </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon"
+                                                            onClick={() => handleEdit(mainLesson)}
+                                                            className="fluent-blue hover:bg-blue-50"
+                                                            >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        {/* <Button 
+                                                            variant="ghost" 
+                                                            size="icon"
+                                                            onClick={() => handlePreview(lesson)}
+                                                            className="neutral-medium hover:bg-gray-50"
+                                                            >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button> */}
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon"
+                                                            onClick={() => handleDelete(mainLesson)}
+                                                            className="fluent-red hover:bg-red-50"
+                                                            >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         ))
                                     )
@@ -175,6 +242,25 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination */}
+                    {mainLessons.length > 0 && (
+                        <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+                        <div className="text-sm neutral-medium">
+                            Showing 1 to {mainLessons.length} of {mainLessons.length} main lessons
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Button variant="outline" size="sm" disabled>
+                            <ChevronLeft />
+                            </Button>
+                            <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
+                            1
+                            </Button>
+                            <Button variant="outline" size="sm" disabled>
+                            <ChevronRight />
+                            </Button>
+                        </div>
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>

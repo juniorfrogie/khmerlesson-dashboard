@@ -108,6 +108,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
+  app.delete("/api/main-lesson/:id", async (req, res) => {{
+    try {
+      const id = parseInt(req.params.id)
+      const deletedMainLesson = await storage.deleteMainLesson(id)
+
+      if(!deletedMainLesson){
+        return res.status(404).json({message: "Main lesson not found"})
+      }
+
+      res.status(204).send()
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete main lesson" });
+    }
+  }})
+
   // Lessons CRUD
   app.get("/api/lessons", async (req, res) => {
     try {

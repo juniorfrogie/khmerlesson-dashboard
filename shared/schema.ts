@@ -14,8 +14,8 @@ export const mainLessons = pgTable("main_lessons", {
 
 export const lessons = pgTable("lessons", {
   id: serial("id").primaryKey(),
-  // mainLessonId: integer("main_lesson_id")
-  //   .references(() => mainLessons.id, {onDelete: "cascade", onUpdate: "cascade"}), // association with main lesson
+  mainLessonId: integer("main_lesson_id")
+    .references(() => mainLessons.id, {onDelete: "cascade", onUpdate: "cascade"}), // association with main lesson
   lessonTypeId: integer("lesson_type_id")
     .references(() => lessonType.id, {onDelete: "cascade", onUpdate: "cascade"}), // association with lesson type
   title: text("title").notNull(),
@@ -236,6 +236,7 @@ export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
 export type LessonData = {
   id: number
   title: string
+  mainLessonId: number,
   lessonType: LessonType
   description: string
   level: string

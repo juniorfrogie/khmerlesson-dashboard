@@ -16,14 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Eye, Save } from "lucide-react";
-import { LessonData, LessonType } from "@shared/schema";
+import { LessonData, LessonType, MainLesson, mainLessons } from "@shared/schema";
 // import { IMAGE_MAP } from "@/lib/constants";
 import RichTextEditor from "@/components/ui/rich-text-editor";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 const lessonSchema = z.object({
-  lessonTypeId: z.number().min(1, "Lessodn Type is required"),
+  mainLessonId: z.number().min(1, "Main lesson is required"),
+  lessonTypeId: z.number().min(1, "Lesson type is required"),
   lessonType: z.object({
     id: z.number(),
     icon: z.string(),
@@ -58,6 +59,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
   const form = useForm<LessonFormData>({
     resolver: zodResolver(lessonSchema),
     defaultValues: {
+      mainLessonId: lesson?.mainLessonId ?? undefined,
       lessonTypeId: lesson?.lessonType?.id,
       lessonType: lesson?.lessonType,
       title: lesson?.title || "",
@@ -113,19 +115,37 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
   };
 
   const handleSubmit = (data: LessonFormData, isDraft = false) => {
-    onSubmit({
-      ...data,
-      image: form.getValues("image"),
-      price: data.free ? undefined : (data.price || 0) * 100,
-    }, isDraft);
+    // onSubmit({
+    //   ...data,
+    //   image: form.getValues("image"),
+    //   price: data.free ? undefined : (data.price || 0) * 100,
+    // }, isDraft);
+    console.log(data)
   };
 
+  // Get all main lessons
+  const getMainLessons = async ({ queryKey }: any) => {
+    const [_key, params] = queryKey
+    const response = await apiRequest("GET", `/api/main-lessons`)
+    return await response.json()
+  }
+
+  const { data: mainLessons = [] } = useQuery<MainLesson[]>({
+    queryKey: ["main-lessons"],
+    queryFn: getMainLessons
+  })
+
+  // Get all lessons type
   const getAllLessonType = async ({ queryKey }: any) => {
     const [_key, params] = queryKey
     const response = await apiRequest("GET", 
         `/api/lesson-type`
     )
     return await response.json()
+  }
+
+  const handleMainLessonChange = (field: any, value: string) => {
+    field.onChange(parseInt(value))
   }
   
   const { data: lessonTypeList = [] } = useQuery<LessonType[]>({
@@ -154,6 +174,33 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
       <form onSubmit={form.handleSubmit((data) => handleSubmit(data))} className="space-y-6">
         {/* Basic Information */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="mainLessonId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Main Lesson *</FormLabel>
+                <Select onValueChange={(e) => handleMainLessonChange(field, e)} value={ !field.value ? "" : `${field.value}` } >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select main lesson" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {
+                      mainLessons.map((item) => (
+                        <SelectItem key={item.id} value={`${item.id}`}>
+                            { item.title }
+                        </SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name="title"

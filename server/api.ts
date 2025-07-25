@@ -54,6 +54,34 @@ const authenticateToken = async (req: any, res: any, next: any) => {
 router.use(authenticateAPI);
 router.use(authenticateToken);
 
+// ===== MAIN LESSONS API =====
+
+// GET /api/v1/main-lessons - List all published main lessons
+router.get("/main-lessons", async (req, res) => {
+  try {
+    const mainLessons = await storage.getMainLessons();
+    const publishedMainLessons = mainLessons.filter(f => f.status === "published")
+      .map(mainLesson => ({
+        id: mainLesson.id,
+        title: mainLesson.title,
+        description: mainLesson.description,
+        imageCover: mainLesson.imageCover,
+        createdAt: mainLesson.createdAt,
+        updatedAt: mainLesson.updatedAt
+    }))
+    res.json({
+      success: true,
+      data: publishedMainLessons,
+      total: publishedMainLessons.length
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch main lessons' 
+    });
+  }
+})
+
 // ===== LESSONS API =====
 
 // GET /api/v1/lessons - List all published lessons
@@ -81,7 +109,7 @@ router.get("/lessons", async (req: any, res: any) => {
     //   total: publishedLessons.length
     // });
     
-    const lessons = await storage.getLessonsJoin(req.user);
+    const lessons = await storage.getLessonsJoin(req.user, 1);
     res.json({
       success: true,
       data: lessons,

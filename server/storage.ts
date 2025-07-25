@@ -61,6 +61,7 @@ export interface IStorage {
   getMainLessons(): Promise<MainLesson[]>
   createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson>
   updateMainLesson(id: number, mainLesson: UpdateMainLesson): Promise<MainLesson | undefined>
+  deleteMainLesson(id: number): Promise<boolean>
   
   // Lessons
   // getLessons(): Promise<Lesson[]>;
@@ -69,7 +70,7 @@ export interface IStorage {
   createLesson(insertLesson: InsertLesson): Promise<Lesson>;
   updateLesson(id: number, lesson: UpdateLesson): Promise<Lesson | undefined>;
   deleteLesson(id: number): Promise<boolean>;
-  getLessonsJoin(user: User): Promise<any>
+  getLessonsJoin(user: User, mainLessonId: number): Promise<any>
 
   // Lesson Type
   getAllLessonType(): Promise<LessonType[]>;
@@ -268,6 +269,11 @@ export class DatabaseStorage implements IStorage {
     return result || undefined
   }
 
+  async deleteMainLesson(id: number): Promise<boolean> {
+    const result = await db.delete(mainLessons).where(eq(mainLessons.id, id))
+    return (result.rowCount ?? 0) > 0
+  }
+
   // Lesson operations
   async getLessons(): Promise<LessonData[]> {
     // const result = await db.select().from(lessons).orderBy(lessons.createdAt);
@@ -277,6 +283,7 @@ export class DatabaseStorage implements IStorage {
   
     const lessonList = result.map(e => (<LessonData>{
       id: e.lessons.id,
+      mainLessonId: e.lessons.mainLessonId,
       lessonTypeId: e.lessons.lessonTypeId,
       lessonType: e.lesson_type,
       title: e.lessons.title,
@@ -293,7 +300,7 @@ export class DatabaseStorage implements IStorage {
     return lessonList;
   }
 
-  async getLessonsJoin(user: User): Promise<any> {
+  async getLessonsJoin(user: User, mainLessonId: number): Promise<any> {
     // const result = await db.select().from(users)
     // .innerJoin(purchase_history, eq(users.id, purchase_history.userId))
     // .fullJoin(lessons, eq(lessons.id, purchase_history.lessonId))
@@ -349,11 +356,13 @@ export class DatabaseStorage implements IStorage {
 
     const result = await db.select().from(lessons)
       .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
+      .innerJoin(mainLessons, eq(mainLessons.id, lessons.mainLessonId))
+      .where(eq(mainLessons.id, mainLessonId))
       .orderBy(lessons.createdAt);
     const lessonsUserPurchased = await db.select().from(lessons)
       .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
       .innerJoin(users, eq(users.id, purchase_history.userId))
-      .where(eq(users.id, user.id))
+      .where(and(eq(users.id, user.id), eq(mainLessons.id, mainLessonId)))
       .orderBy(lessons.createdAt);
 
     const publishedLessons = result.filter(e => e.lessons.status === "published").map(e => ({
@@ -390,7 +399,6 @@ export class DatabaseStorage implements IStorage {
             && lessonPurchased.purchase_history?.userId === user.id 
             && lessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
         if(indexFound === -1) break
-        //if(publishedLessons[indexFound].free) continue
         publishedLessons[indexFound].hasPurchased = hasPurchased
     }
     return publishedLessons;

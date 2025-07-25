@@ -23,9 +23,9 @@ export default function MainLessonModal({ isOpen, onClose, mainLesson }: MainLes
     const { toast } = useToast()
 
     const createMutation = useMutation({
-        mutationFn: async (data: any) => await apiRequest("POST", "", data),
+        mutationFn: async (data: any) => await apiRequest("POST", "/api/main-lessons", data),
         onSuccess: async () => {
-            //await queryClient.invalidateQueries({ queryKey: ["lessons"] });
+            await queryClient.invalidateQueries({ queryKey: ["main-lessons"] });
             await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
             toast({
                 title: "Success",
@@ -43,9 +43,9 @@ export default function MainLessonModal({ isOpen, onClose, mainLesson }: MainLes
     })
 
     const updateMutation = useMutation({
-        mutationFn: async (data: any) => await apiRequest("PUT", "", data),
+        mutationFn: async (data: any) => await apiRequest("PATCH", `/api/main-lessons/${mainLesson?.id}`, data),
         onSuccess: async () => {
-            //await queryClient.invalidateQueries({ queryKey: ["lessons"] });
+            await queryClient.invalidateQueries({ queryKey: ["main-lessons"] });
             await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
             toast({
                 title: "Success",
@@ -62,14 +62,23 @@ export default function MainLessonModal({ isOpen, onClose, mainLesson }: MainLes
         }
     })
 
-    const handleSubmit = () => {}
+    const handleSubmit = async (data: any, isDraft = false) => {
+        const payload = {
+            ...data,
+            status: isDraft ? "draft" : "published"
+        }
+        if(mainLesson){
+            await updateMutation.mutateAsync(payload)
+        }else{
+            await createMutation.mutateAsync(payload)
+        }
+    }
 
     useEffect(() => {
         if (!isOpen) {
             setFormData(null);
         }
     }, [isOpen]);
-
 
     return (
         <>
