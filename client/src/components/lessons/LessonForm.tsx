@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Eye, Save } from "lucide-react";
-import { LessonData, LessonType, MainLesson, mainLessons } from "@shared/schema";
+import { LessonData, LessonType, MainLesson } from "@shared/schema";
 // import { IMAGE_MAP } from "@/lib/constants";
 import RichTextEditor from "@/components/ui/rich-text-editor";
 import { useQuery } from "@tanstack/react-query";
@@ -115,12 +115,11 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
   };
 
   const handleSubmit = (data: LessonFormData, isDraft = false) => {
-    // onSubmit({
-    //   ...data,
-    //   image: form.getValues("image"),
-    //   price: data.free ? undefined : (data.price || 0) * 100,
-    // }, isDraft);
-    console.log(data)
+    onSubmit({
+      ...data,
+      image: form.getValues("image"),
+      price: data.free ? undefined : (data.price || 0) * 100,
+    }, isDraft);
   };
 
   // Get all main lessons

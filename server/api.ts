@@ -2,6 +2,7 @@ import { Router } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
 import jwt from "jsonwebtoken"
+import path from "path"
 
 const router = Router();
 
@@ -66,6 +67,10 @@ router.get("/main-lessons", async (req, res) => {
         title: mainLesson.title,
         description: mainLesson.description,
         imageCover: mainLesson.imageCover,
+        imageFile: {
+          name: mainLesson.imageCover,
+          extension: path.extname(`/uploads/${mainLesson.imageCover}`)
+        },
         createdAt: mainLesson.createdAt,
         updatedAt: mainLesson.updatedAt
     }))
@@ -84,32 +89,50 @@ router.get("/main-lessons", async (req, res) => {
 
 // ===== LESSONS API =====
 
-// GET /api/v1/lessons - List all published lessons
-router.get("/lessons", async (req: any, res: any) => {
-  try {
-    // const lessons = await storage.getLessons();
-    // // Only return published lessons for public API
-    // const publishedLessons = lessons
-    //   .filter(lesson => lesson.status === 'published')
-    //   .map(lesson => ({
-    //     id: lesson.id,
-    //     title: lesson.title,
-    //     description: lesson.description,
-    //     level: lesson.level,
-    //     image: lesson.image,
-    //     free: lesson.free,
-    //     price: lesson.price,
-    //     createdAt: lesson.createdAt,
-    //     updatedAt: lesson.updatedAt
-    //   }));
+// GET /api/v1/lessons - List all published lessons associate with users
+// router.get("/lessons", async (req: any, res: any) => {
+//   try {
+//     // const lessons = await storage.getLessons();
+//     // // Only return published lessons for public API
+//     // const publishedLessons = lessons
+//     //   .filter(lesson => lesson.status === 'published')
+//     //   .map(lesson => ({
+//     //     id: lesson.id,
+//     //     title: lesson.title,
+//     //     description: lesson.description,
+//     //     level: lesson.level,
+//     //     image: lesson.image,
+//     //     free: lesson.free,
+//     //     price: lesson.price,
+//     //     createdAt: lesson.createdAt,
+//     //     updatedAt: lesson.updatedAt
+//     //   }));
 
-    // res.json({
-    //   success: true,
-    //   data: publishedLessons,
-    //   total: publishedLessons.length
-    // });
+//     // res.json({
+//     //   success: true,
+//     //   data: publishedLessons,
+//     //   total: publishedLessons.length
+//     // });
     
-    const lessons = await storage.getLessonsJoin(req.user, 1);
+//     const lessons = await storage.getLessonsJoin(req.user);
+//     res.json({
+//       success: true,
+//       data: lessons,
+//       total: lessons.length
+//     });
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false, 
+//       error: 'Failed to fetch lessons' 
+//     });
+//   }
+// });
+
+// GET /api/v1/lessons - List all published lessons associate with users and main-lessons
+router.get("/lessons/main-lessons/:id", async (req: any, res: any) => {
+  try {  
+    const id = parseInt(req.params.id)
+    const lessons = await storage.getLessonsJoin(req.user, id);
     res.json({
       success: true,
       data: lessons,

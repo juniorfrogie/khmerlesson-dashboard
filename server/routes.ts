@@ -33,7 +33,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware to set CORS headers for all routes
   app.use(cors({
-    origin: "*"
+    origin: app.get("env") === "development" ? "*" : "https://cambodianlesson.netlify.app"
   }))
 
   // Mount public API routes

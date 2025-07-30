@@ -38,6 +38,7 @@ import { db } from "./db";
 import { and, count, eq, not, lte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import generatorPassword from "generate-password"
+import { extname } from "path"
 
 export interface IStorage {
   // Users
@@ -362,16 +363,21 @@ export class DatabaseStorage implements IStorage {
     const lessonsUserPurchased = await db.select().from(lessons)
       .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
       .innerJoin(users, eq(users.id, purchase_history.userId))
-      .where(and(eq(users.id, user.id), eq(mainLessons.id, mainLessonId)))
+      .where(eq(users.id, user.id))
       .orderBy(lessons.createdAt);
 
     const publishedLessons = result.filter(e => e.lessons.status === "published").map(e => ({
       id: e.lessons.id,
+      mainLessonId: e.lessons.mainLessonId,
       title: e.lessons.title,
       description: e.lessons.description,
       level: e.lessons.level,
       lessonType: e.lesson_type,
       image: e.lessons.image,
+      imageFile: e.lesson_type.iconMode === "raw" ? null : {
+        name: e.lesson_type.icon,
+        extension: extname(`/uploads/${e.lesson_type.icon}`)
+      },
       free: e.lessons.free,
       price: e.lessons.price,
       priceCurrency: `${Intl.NumberFormat("en-US", {
