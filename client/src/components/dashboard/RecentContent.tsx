@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LessonData, Quiz, User } from "@shared/schema";
+import { LessonData, MainLesson, Quiz } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 // import { IMAGE_MAP } from "@/lib/constants";
@@ -13,6 +13,17 @@ export default function RecentContent() {
   // const { data: quizzes = [] } = useQuery<Quiz[]>({
   //   queryKey: ["/api/quizzes"],
   // });
+
+  const getMainLessons = async ({ queryKey }: any) => {
+    const [_key, params] = queryKey
+    const response = await apiRequest("GET", "/api/main-lessons?limit=3&offset=0")
+    return await response.json()
+  }
+
+  const { data: mainLessons = [] } = useQuery<MainLesson[]>({
+    queryKey: ["main-lessons"],
+    queryFn: getMainLessons
+  })
 
   const getLessons = async ({ queryKey }: any) => {
     const [ _key, params ] = queryKey
@@ -38,10 +49,20 @@ export default function RecentContent() {
 
   // Combine and sort recent content
   const recentContent = [
+    ...mainLessons.slice(0, 3).map(mainLesson => ({
+      id: mainLesson.id,
+      title: mainLesson.title,
+      imageCover: mainLesson.imageCover,
+      type: `Main lesson`,
+      icon: null,
+      iconMode: null,
+      updated: formatDistanceToNow(new Date(mainLesson.updatedAt), { addSuffix: true }),
+    })),
     ...lessons.slice(0, 3).map(lesson => ({
       id: lesson.id,
       title: lesson.title,
       type: `Lesson • ${lesson.level}`,
+      imageCover: null,
       //icon: IMAGE_MAP[lesson.image] || "📚",
       icon: lesson.lessonType?.icon || "📚",
       iconMode: lesson.lessonType?.iconMode,
@@ -51,11 +72,12 @@ export default function RecentContent() {
       id: quiz.id,
       title: quiz.title,
       type: `Quiz • ${Array.isArray(quiz.questions) ? quiz.questions.length : 0} questions`,
+      imageCover: null,
       icon: "❓",
       iconMode: null,
       updated: formatDistanceToNow(new Date(quiz.updatedAt), { addSuffix: true }),
     })),
-  ].sort((a, b) => b.id - a.id).slice(0, 5);
+  ].sort((a, b) => b.id + a.id).slice(0, 8);
 
   return (
     <Card className="border border-gray-200">
@@ -70,15 +92,23 @@ export default function RecentContent() {
             recentContent.map((item, index) => (
               <div key={`${item.id}-${index}`} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                    {/* <span className="text-lg">{item.icon}</span> */}
-                    {
-                      item.iconMode ? (
-                        item.iconMode === "file" ? <img src={`/uploads/${item.icon}`} width="24" height="24" alt="icon"/> 
-                        : <span className="text-lg">{item.icon}</span>
-                      ) : (<span className="text-lg">{item.icon}</span>)
-                    }
-                  </div>
+                  {
+                    item.icon ? (
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                        {/* <span className="text-lg">{item.icon}</span> */}
+                        {
+                          item.iconMode ? (
+                            item.iconMode === "file" ? <img className="w-[24px] h-[24px]" src={`/uploads/${item.icon}`} alt="icon"/> 
+                            : <span className="text-lg">{item.icon}</span>
+                          ) : (<span className="text-lg">{item.icon}</span>)
+                        }
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center mr-4">
+                        <img className="h-[150px] rounded-lg" src={`/uploads/${item.imageCover}`} />
+                      </div>
+                    )
+                  }
                   <div>
                     <p className="font-medium neutral-dark">{item.title}</p>
                     <p className="text-sm neutral-medium">{item.type}</p>

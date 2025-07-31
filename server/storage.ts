@@ -32,7 +32,7 @@ import {
   MainLesson,
   InsertMainLesson,
   UpdateMainLesson,
-  mainLessons,
+  mainLessons
 } from "@shared/schema";
 import { db } from "./db";
 import { and, count, eq, not, lte } from "drizzle-orm";
@@ -59,7 +59,8 @@ export interface IStorage {
   createUserWithAuthService(user: InsertUserWithAuthService): Promise<User>;
 
   // Main Lessons
-  getMainLessons(): Promise<MainLesson[]>
+  getAllMainLessons(): Promise<MainLesson[]>
+  getMainLessons(limit: number, offset: number): Promise<MainLesson[]>
   createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson>
   updateMainLesson(id: number, mainLesson: UpdateMainLesson): Promise<MainLesson | undefined>
   deleteMainLesson(id: number): Promise<boolean>
@@ -72,6 +73,8 @@ export interface IStorage {
   updateLesson(id: number, lesson: UpdateLesson): Promise<Lesson | undefined>;
   deleteLesson(id: number): Promise<boolean>;
   getLessonsJoin(user: User, mainLessonId: number): Promise<any>
+  getLessonDetailByLessonTypeId(id: number): Promise<Lesson[]>
+  getLessonDetailByMainLessonId(id: number): Promise<LessonData[]>
 
   // Lesson Type
   getAllLessonType(): Promise<LessonType[]>;
@@ -248,8 +251,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Main Lesson operations
-  async getMainLessons(): Promise<MainLesson[]> {
+  async getAllMainLessons(): Promise<MainLesson[]> {
     const result = await db.select().from(mainLessons).orderBy(mainLessons.createdAt)
+    return result
+  }
+
+  async getMainLessons(limit: number, offset: number): Promise<MainLesson[]> {
+    const result = await db.select()
+      .from(mainLessons)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(mainLessons.createdAt)
     return result
   }
 
@@ -444,6 +456,38 @@ export class DatabaseStorage implements IStorage {
   async deleteLesson(id: number): Promise<boolean> {
     const result = await db.delete(lessons).where(eq(lessons.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  async getLessonDetailByLessonTypeId(id: number): Promise<Lesson[]> {
+    const result = await db.select().from(lessons)
+      .where(eq(lessons.lessonTypeId, id))
+      .orderBy(lessons.createdAt)
+    return result
+  }
+
+  async getLessonDetailByMainLessonId(id: number): Promise<LessonData[]> {
+    const result = await db.select().from(lessons)
+      .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
+      .where(eq(lessons.mainLessonId, id))
+      .orderBy(lessons.createdAt)
+
+    const lessonList = result.map(e => (<LessonData>{
+      id: e.lessons.id,
+      mainLessonId: e.lessons.mainLessonId,
+      lessonTypeId: e.lessons.lessonTypeId,
+      lessonType: e.lesson_type,
+      title: e.lessons.title,
+      description: e.lessons.description,
+      level: e.lessons.level,
+      free: e.lessons.free,
+      image: e.lessons.image,
+      price: e.lessons.price,
+      status: e.lessons.status,
+      sections: e.lessons.sections,
+      createdAt: e.lessons.createdAt,
+      updatedAt: e.lessons.updatedAt
+    })) 
+    return lessonList
   }
 
   // Quiz Operations

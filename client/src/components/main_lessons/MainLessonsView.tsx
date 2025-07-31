@@ -1,5 +1,6 @@
-import { BookOpen, ChevronLeft, ChevronRight, Edit, Plus, Search, Trash2 } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "../ui/input";
 import { useState } from "react";
 import { Button } from "../ui/button";
@@ -10,6 +11,7 @@ import { MainLesson } from "@shared/schema";
 import { Badge } from "../ui/badge";
 import MainLessonModal from "./MainLessonModal";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import MainLessonViewDetailModal from "./MainLessonViewDetailModal";
 
 interface MainLessonsViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -17,9 +19,11 @@ interface MainLessonsViewProps {
 
 export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
     const [searchTerm, setSearchTerm] = useState("")
+    const [statusFilter, setStatusFilter] = useState("all")
     const [selectedLessons, setSelectedLessons] = useState<number[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false)
-      const [editingMainLesson, setEditingMainLesson] = useState<MainLesson | null>(null)
+    const [editingMainLesson, setEditingMainLesson] = useState<MainLesson | null>(null)
+    const [mainLessonViewDetail, setMainLessonViewDetail] = useState<MainLesson | null>(null)
     const { toast } = useToast()
 
     const mainLessonTableHeaders = [
@@ -32,13 +36,14 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
 
     const getMainLessons = async ({ queryKey }: any) => {
         const [_key, params] = queryKey
-        const response = await apiRequest("GET", `/api/main-lessons?search=${params.search}`)
+        const response = await apiRequest("GET", `/api/main-lessons?search=${params.search}&status=${params.status}`)
         return await response.json()
     }
 
     const { data: mainLessons = [], isLoading } = useQuery<MainLesson[]>({
         queryKey: ["main-lessons", {
-            search: searchTerm
+            search: searchTerm,
+            status: statusFilter
         }],
         queryFn: getMainLessons
     })
@@ -102,6 +107,10 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
         })
     }
 
+    const handleViewDetail = (data: MainLesson) => {
+        setMainLessonViewDetail(data)
+    }
+
     if(isLoading){
         return (
             <Card>
@@ -132,6 +141,16 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[140px]">
+                                <SelectValue placeholder="All Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="published">Published</SelectItem>
+                                <SelectItem value="draft">Draft</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="flex items-center space-x-3">
                         <Button onClick={handleNewMainLesson} className="bg-fluent-blue hover:bg-blue-600">
@@ -217,14 +236,14 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                                             >
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
-                                                        {/* <Button 
+                                                        <Button 
                                                             variant="ghost" 
                                                             size="icon"
-                                                            onClick={() => handlePreview(lesson)}
+                                                            onClick={() => handleViewDetail(mainLesson)}
                                                             className="neutral-medium hover:bg-gray-50"
                                                             >
                                                             <Eye className="h-4 w-4" />
-                                                        </Button> */}
+                                                        </Button>
                                                         <Button 
                                                             variant="ghost" 
                                                             size="icon"
@@ -268,6 +287,12 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             mainLesson={editingMainLesson} 
+        />
+
+        <MainLessonViewDetailModal 
+            isOpen={!!mainLessonViewDetail}
+            onClose={() => setMainLessonViewDetail(null)}
+            mainLesson={mainLessonViewDetail}
         />
         </>
     )

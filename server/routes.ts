@@ -12,7 +12,8 @@ import { forgotPasswordSchema, loginSchema, insertUserSchema,
    insertLessonTypeSchema,
    updateLessonTypeSchema,
    insertMainLessonSchema,
-   updateMainLessonSchema} from "@shared/schema";
+   updateMainLessonSchema,
+   MainLesson} from "@shared/schema";
 import { z } from "zod";
 import apiRoutes from "./api";
 import paypalRoutes from "./paypal/orders"
@@ -33,7 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware to set CORS headers for all routes
   app.use(cors({
-    origin: "*"
+    origin: app.get("env") === "development" ? "*" : "https://cambodianlesson.netlify.app"
   }))
 
   // Mount public API routes
@@ -42,8 +43,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   //app.disable('etag');
 
-  const publicDir = path.join(import.meta.dirname, '..'); 
-  app.use(express.static(publicDir))
+  // const publicDir = path.join(import.meta.dirname, '..');
+  const uploadDir = path.join(import.meta.dirname, '.', '../uploads');
+  app.use("/uploads", express.static(uploadDir))
 
   // Dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
@@ -58,8 +60,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Main Lessons CRUD
   app.get("/api/main-lessons", async (req, res) => {
     try {
-      const { search } = req.query
-      let mainLessons = await storage.getMainLessons()
+      const { search, status } = req.query
+      let mainLessons = <MainLesson[]>[]
+      if(req.query.limit && req.query.offset){
+        const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
+        const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
+        mainLessons = await storage.getMainLessons(limit, offset)
+      }else{
+        mainLessons = await storage.getAllMainLessons()
+      }
+      //let mainLessons = await storage.getAllMainLessons()
 
       // Apply filters
       if (search) {
@@ -70,9 +80,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       }
 
+      if(status && status !== "all"){
+        mainLessons = mainLessons.filter(f => f.status === status)
+      }
+
       return res.json(mainLessons)
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch main lessons" });
+    }
+  })
+
+  app.get("/api/main-lessons/:id", async (req, res) => {
+    try {
+      const { id } = req.params
+      const result = await storage.getLessonDetailByMainLessonId(parseInt(id))
+      res.json(result)
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch main lessons detail" });
     }
   })
 
@@ -242,7 +266,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/lesson-type/:id", async (req, res) => {
     try{
       const { id } = req.params
-      let lessonTypeDetails = await storage.getLessonTypeDetail(parseInt(id))
+      // const lessonTypeDetails = await storage.getLessonTypeDetail(parseInt(id))
+      const lessonTypeDetails = await storage.getLessonDetailByLessonTypeId(parseInt(id))
       res.json(lessonTypeDetails)
     } catch(error) {
       res.status(500).json({ message: "Failed to fetch lesson type detail" });
