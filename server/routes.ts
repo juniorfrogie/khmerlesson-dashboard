@@ -62,10 +62,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { search, status } = req.query
       let mainLessons = <MainLesson[]>[]
+      let mainLessonCount = 0
       if(req.query.limit && req.query.offset){
         const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
         const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
         mainLessons = await storage.getMainLessons(limit, offset)
+        mainLessonCount = await storage.getMainLessonCount()
       }else{
         mainLessons = await storage.getAllMainLessons()
       }
@@ -84,7 +86,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mainLessons = mainLessons.filter(f => f.status === status)
       }
 
-      return res.json(mainLessons)
+      //return res.json(mainLessons)
+      return res.json({
+        mainLessons: mainLessons,
+        total: status !== "all" ? mainLessons.length : mainLessonCount
+      })
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch main lessons" });
     }
@@ -151,9 +157,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/lessons", async (req, res) => {
     try {
       const { search, level, type, status } = req.query;
-      // const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
-      // const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
-      let lessons = await storage.getLessons();
+      let lessons = []
+      let lessonCount = 0
+      if(req.query.limit && req.query.offset){
+        const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
+        const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
+        lessons = await storage.getLessons(limit, offset)
+        lessonCount = await storage.getLessonCount()
+      }else{
+        lessons = await storage.getAllLessons()
+      }
       
       // Apply filters
       if (search) {
@@ -176,7 +189,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lessons = lessons.filter(lesson => lesson.status === status);
       }
       
-      res.json(lessons);
+      //res.json(lessons);
+      res.json({
+        lessons: lessons,
+        total: level !== "all" || type !== "all" || status !== "all" ? lessons.length : lessonCount
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch lessons" });
     }

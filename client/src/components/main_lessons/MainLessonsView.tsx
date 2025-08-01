@@ -17,6 +17,11 @@ interface MainLessonsViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
 }
 
+type MainLessonData = {
+    mainLessons: MainLesson[]
+    total: number
+}
+
 export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
     const [searchTerm, setSearchTerm] = useState("")
     const [statusFilter, setStatusFilter] = useState("all")
@@ -24,6 +29,9 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingMainLesson, setEditingMainLesson] = useState<MainLesson | null>(null)
     const [mainLessonViewDetail, setMainLessonViewDetail] = useState<MainLesson | null>(null)
+    const [limit, _] = useState(15)
+    var [offset, setOffset] = useState(0)
+    const [pageNumber, setPageNumber] = useState(1)
     const { toast } = useToast()
 
     const mainLessonTableHeaders = [
@@ -36,14 +44,24 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
 
     const getMainLessons = async ({ queryKey }: any) => {
         const [_key, params] = queryKey
-        const response = await apiRequest("GET", `/api/main-lessons?search=${params.search}&status=${params.status}`)
+        const response = await apiRequest("GET", `/api/main-lessons?search=${params.search}&status=${params.status}&limit=${params.limit}&offset=${params.offset}`)
         return await response.json()
     }
 
-    const { data: mainLessons = [], isLoading } = useQuery<MainLesson[]>({
+    // const { data: mainLessons = [], isLoading } = useQuery<MainLesson[]>({
+    //     queryKey: ["main-lessons", {
+    //         search: searchTerm,
+    //         status: statusFilter
+    //     }],
+    //     queryFn: getMainLessons
+    // })
+
+    const { data: data = { mainLessons: [], total: 0 }, isLoading } = useQuery<MainLessonData>({
         queryKey: ["main-lessons", {
             search: searchTerm,
-            status: statusFilter
+            status: statusFilter,
+            limit: limit,
+            offset: offset
         }],
         queryFn: getMainLessons
     })
@@ -76,10 +94,10 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
     };
 
     const toggleSelectAll = () => {
-        if (selectedLessons.length === mainLessons.length) {
+        if (selectedLessons.length === data.mainLessons.length) {
         setSelectedLessons([]);
         } else {
-        setSelectedLessons(mainLessons.map(l => l.id));
+        setSelectedLessons(data.mainLessons.map(l => l.id));
         }
     };
 
@@ -109,6 +127,18 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
 
     const handleViewDetail = (data: MainLesson) => {
         setMainLessonViewDetail(data)
+    }
+
+    const next = () => {
+        let min = offset + limit
+        setOffset(Math.min(min, data.total))
+        setPageNumber(pageNumber + 1)
+    }
+
+    const previous = () => {
+        let max = offset - limit
+        setOffset(Math.max(0, max))
+        setPageNumber(pageNumber - 1)
     }
 
     if(isLoading){
@@ -168,7 +198,7 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                 <tr>
                                     <th className="text-left p-4 font-medium neutral-dark">
                                         <Checkbox 
-                                            checked={mainLessons.length > 0 && selectedLessons.length === mainLessons.length}
+                                            checked={data.mainLessons.length > 0 && selectedLessons.length === data.mainLessons.length}
                                             onCheckedChange={toggleSelectAll}
                                         />
                                     </th>
@@ -183,7 +213,7 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {
-                                    mainLessons.length === 0 ? (
+                                    data.mainLessons.length === 0 ? (
                                         <tr>
                                             <td colSpan={8} className="p-8 text-center">
                                                  <div className="text-gray-500">
@@ -194,7 +224,7 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                             </td>
                                         </tr>
                                     ) : (
-                                        mainLessons.map((mainLesson) => (
+                                        data.mainLessons.map((mainLesson) => (
                                             <tr key={mainLesson.id} className="hover:bg-gray-50">
                                                 <td className="p-4">
                                                     <Checkbox 
@@ -204,7 +234,7 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center">
-                                                        <img src={`/uploads/${mainLesson.imageCover}`} width="150" height="150" alt={mainLesson.title} />
+                                                        <img className="rounded-lg" src={`/uploads/${mainLesson.imageCover}`} width="150" height="150" alt={mainLesson.title} />
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
@@ -262,22 +292,22 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                         </table>
                     </div>
                     {/* Pagination */}
-                    {mainLessons.length > 0 && (
+                    {data.mainLessons.length > 0 && (
                         <div className="p-6 border-t border-gray-200 flex items-center justify-between">
-                        <div className="text-sm neutral-medium">
-                            Showing 1 to {mainLessons.length} of {mainLessons.length} main lessons
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm" disabled>
-                            <ChevronLeft />
-                            </Button>
-                            <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
-                            1
-                            </Button>
-                            <Button variant="outline" size="sm" disabled>
-                            <ChevronRight />
-                            </Button>
-                        </div>
+                            <div className="text-sm neutral-medium">
+                                Showing 1 to {data.mainLessons.length} of {data.mainLessons.length} main lessons
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Button variant="outline" size="sm" onClick={previous} disabled={offset < 1}>
+                                    <ChevronLeft />
+                                </Button>
+                                <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
+                                    { pageNumber }
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.mainLessons.length === data.total || (offset + limit) === data.total}>
+                                    <ChevronRight />
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>

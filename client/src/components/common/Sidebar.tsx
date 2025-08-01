@@ -1,3 +1,4 @@
+import { useAuth } from "@/hooks/use-auth";
 import { ActiveView } from "@/pages/dashboard";
 import { GraduationCap, BarChart3, BookOpen, HelpCircle, BarChart, Download, Code, History, BookType, Library, Users } from "lucide-react";
 
@@ -20,6 +21,8 @@ const navigation = [
 ];
 
 export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
+
+  const { user, getFullName, getShortNameWith2Letter } = useAuth()
 
   return (
     <aside className="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col fixed h-full z-20">
@@ -53,9 +56,13 @@ export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center text-sm neutral-medium">
           <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-2">
-            <span className="text-xs font-medium">AU</span>
+            <span className="text-xs font-medium">{ `${getShortNameWith2Letter()}` }</span>
           </div>
-          <span>Admin User</span>
+          {/* <span>Admin User</span> */}
+          <div className="flex flex-col truncate">
+            <span>{ `${getFullName()}` }</span>
+            <span className="neutral-light">{ `${user?.email}` }</span>
+          </div>
         </div>
       </div>
     </aside>

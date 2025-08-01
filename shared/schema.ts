@@ -265,6 +265,7 @@ export type QuizQuestion = {
 
 // Dashboard stats type
 export type DashboardStats = {
+  totalMainLessons: number;
   totalLessons: number;
   totalQuizzes: number;
   totalUsers: number;
@@ -272,6 +273,7 @@ export type DashboardStats = {
   totalPurchaseHistoryComplete: number;
   freeLessons: number;
   premiumLessons: number;
+  mainLessonsGrowth: number;
   lessonsGrowth: number;
   quizzesGrowth: number;
   usersGrowth: number;

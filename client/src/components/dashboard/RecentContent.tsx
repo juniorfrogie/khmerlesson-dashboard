@@ -17,7 +17,8 @@ export default function RecentContent() {
   const getMainLessons = async ({ queryKey }: any) => {
     const [_key, params] = queryKey
     const response = await apiRequest("GET", "/api/main-lessons?limit=3&offset=0")
-    return await response.json()
+    const body = await response.json()
+    return body["mainLessons"]
   }
 
   const { data: mainLessons = [] } = useQuery<MainLesson[]>({
@@ -28,7 +29,8 @@ export default function RecentContent() {
   const getLessons = async ({ queryKey }: any) => {
     const [ _key, params ] = queryKey
     const response = await apiRequest("GET", "/api/lessons")
-    return await response.json()
+    const body = await response.json()
+    return body["lessons"]
   }
   
   const { data: lessons = [] } = useQuery<LessonData[]>({

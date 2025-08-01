@@ -18,10 +18,10 @@ interface LessonsViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
 }
 
-// type LessonListData = {
-//   lessons: LessonData[],
-//   total: number
-// }
+type LessonListData = {
+  lessons: LessonData[],
+  total: number
+}
 
 export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,8 +32,9 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
   const [previewLesson, setPreviewLesson] = useState<LessonData | null>(null);
-  // const [limit, _] = useState(2)
-  // var [offset, setOffset] = useState(0)
+  const [limit, _] = useState(15)
+  var [offset, setOffset] = useState(0)
+  const [pageNumber, setPageNumber] = useState(1)
 
   const { toast } = useToast();
 
@@ -56,18 +57,33 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
     const [_key, params] = queryKey
     const response = await apiRequest(
       "GET", 
-      `/api/lessons?level=${params.level}&type=${params.type}&search=${params.search}&status=${params.status}`
+      `/api/lessons?level=${params.level}&type=${params.type}&search=${params.search}&status=${params.status}&limit=${params.limit}&offset=${params.offset}`
     )
     return await response.json()
   }
   
-  const { data: lessons = [], isLoading } = useQuery<LessonData[]>(
+  // const { data: lessons = [], isLoading } = useQuery<LessonData[]>(
+  //   {
+  //     queryKey: ['lessons', {
+  //       level: levelFilter,
+  //       type: typeFilter,
+  //       search: searchTerm,
+  //       status: statusFilter,
+  //       limit: limit,
+  //       offset: offset
+  //     }],
+  //     queryFn: getLessons
+  //   })
+
+  const { data: data = { lessons: [], total: 0 }, isLoading } = useQuery<LessonListData>(
     {
       queryKey: ['lessons', {
         level: levelFilter,
         type: typeFilter,
         search: searchTerm,
-        status: statusFilter
+        status: statusFilter,
+        limit: limit,
+        offset: offset
       }],
       queryFn: getLessons
     })
@@ -134,10 +150,10 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   };
 
   const toggleSelectAll = () => {
-    if (selectedLessons.length === lessons.length) {
+    if (selectedLessons.length === data.lessons.length) {
       setSelectedLessons([]);
     } else {
-      setSelectedLessons(lessons.map(l => l.id));
+      setSelectedLessons(data.lessons.map(l => l.id));
     }
   };
 
@@ -172,15 +188,17 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
     );
   }
 
-  // const next = () => {
-  //   let min = offset + 1
-  //   setOffset(Math.min(min, data.total))
-  // }
+  const next = () => {
+    let min = offset + limit
+    setOffset(Math.min(min, data.total))
+    setPageNumber(pageNumber + 1)
+  }
 
-  // const previous = () => {
-  //   let max = offset - 1
-  //   setOffset(Math.max(0, max))
-  // }
+  const previous = () => {
+    let max = offset - limit
+    setOffset(Math.max(0, max))
+    setPageNumber(pageNumber - 1)
+  }
 
   return (
     <>
@@ -264,7 +282,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                   <tr>
                     <th className="text-left p-4 font-medium neutral-dark">
                       <Checkbox 
-                        checked={lessons.length > 0 && selectedLessons.length === lessons.length}
+                        checked={data.lessons.length > 0 && selectedLessons.length === data.lessons.length}
                         onCheckedChange={toggleSelectAll}
                       />
                     </th>
@@ -278,7 +296,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {lessons.length === 0 ? (
+                  {data.lessons.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-8 text-center">
                         <div className="text-gray-500">
@@ -289,7 +307,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                       </td>
                     </tr>
                   ) : (
-                    lessons.map((lesson) => (
+                    data.lessons.map((lesson) => (
                       <tr key={lesson.id} className="hover:bg-gray-50">
                         <td className="p-4">
                           <Checkbox 
@@ -381,10 +399,10 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
             </div>
 
             {/* Pagination */}
-            {lessons.length > 0 && (
+            {/* {data.lessons.length > 0 && (
               <div className="p-6 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-sm neutral-medium">
-                  Showing 1 to {lessons.length} of {lessons.length} lessons
+                  Showing 1 to {data.lessons.length} of {data.lessons.length} lessons
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button variant="outline" size="sm" disabled>
@@ -398,7 +416,25 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                   </Button>
                 </div>
               </div>
-            )}
+            )} */}
+            {data.lessons?.length > 0 && (
+                <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+                    <div className="text-sm neutral-medium">
+                      Showing 1 to {data.lessons?.length} of {data.total} lessons
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="outline" size="sm" onClick={previous} disabled={offset < 1}>
+                          <ChevronLeft />
+                      </Button>
+                      <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
+                          { pageNumber }
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.lessons.length === data.total || (offset + limit) === data.total}>
+                          <ChevronRight />
+                      </Button>
+                    </div>
+                </div>
+              )}
           </div>
         </CardContent>
       </Card>

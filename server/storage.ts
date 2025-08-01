@@ -64,10 +64,12 @@ export interface IStorage {
   createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson>
   updateMainLesson(id: number, mainLesson: UpdateMainLesson): Promise<MainLesson | undefined>
   deleteMainLesson(id: number): Promise<boolean>
+  getMainLessonCount(): Promise<number>;
   
   // Lessons
   // getLessons(): Promise<Lesson[]>;
-  getLessons(): Promise<LessonData[]>;
+  getAllLessons(): Promise<LessonData[]>;
+  getLessons(limit: number, offset: number): Promise<LessonData[]>;
   getLesson(id: number): Promise<Lesson | undefined>;
   createLesson(insertLesson: InsertLesson): Promise<Lesson>;
   updateLesson(id: number, lesson: UpdateLesson): Promise<Lesson | undefined>;
@@ -75,6 +77,7 @@ export interface IStorage {
   getLessonsJoin(user: User, mainLessonId: number): Promise<any>
   getLessonDetailByLessonTypeId(id: number): Promise<Lesson[]>
   getLessonDetailByMainLessonId(id: number): Promise<LessonData[]>
+  getLessonCount(): Promise<number>;
 
   // Lesson Type
   getAllLessonType(): Promise<LessonType[]>;
@@ -287,8 +290,13 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0
   }
 
+  async getMainLessonCount(): Promise<number> {
+    const result = await db.select({count: count()}).from(mainLessons)
+    return result[0]["count"] ?? 0
+  }
+
   // Lesson operations
-  async getLessons(): Promise<LessonData[]> {
+  async getAllLessons(): Promise<LessonData[]> {
     // const result = await db.select().from(lessons).orderBy(lessons.createdAt);
     const result = await db.select().from(lessons)
       .leftJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
@@ -311,6 +319,32 @@ export class DatabaseStorage implements IStorage {
       updatedAt: e.lessons.updatedAt
     })) 
     return lessonList;
+  }
+
+  async getLessons(limit: number, offset: number): Promise<LessonData[]> {
+    const result = await db.select().from(lessons)
+      .leftJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(lessons.createdAt)
+  
+    const lessonList = result.map(e => (<LessonData>{
+      id: e.lessons.id,
+      mainLessonId: e.lessons.mainLessonId,
+      lessonTypeId: e.lessons.lessonTypeId,
+      lessonType: e.lesson_type,
+      title: e.lessons.title,
+      description: e.lessons.description,
+      level: e.lessons.level,
+      free: e.lessons.free,
+      image: e.lessons.image,
+      price: e.lessons.price,
+      status: e.lessons.status,
+      sections: e.lessons.sections,
+      createdAt: e.lessons.createdAt,
+      updatedAt: e.lessons.updatedAt
+    }))
+    return lessonList
   }
 
   async getLessonsJoin(user: User, mainLessonId: number): Promise<any> {
@@ -490,6 +524,11 @@ export class DatabaseStorage implements IStorage {
     return lessonList
   }
 
+  async getLessonCount(): Promise<number> {
+    const result = await db.select({count: count()}).from(lessons)
+    return result[0]["count"] ?? 0
+  }
+
   // Quiz Operations
   async getQuizzes(): Promise<Quiz[]> {
     const result = await db.select().from(quizzes).orderBy(quizzes.createdAt);
@@ -532,6 +571,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDashboardStats(): Promise<DashboardStats> {
+    const allMainLessons = await db.select().from(mainLessons);
     const allLessons = await db.select().from(lessons);
     const allQuizzes = await db.select().from(quizzes);
     const allUsers = await db.select({email: users.email, 
@@ -540,6 +580,7 @@ export class DatabaseStorage implements IStorage {
       createdAt: users.createdAt}).from(users).where(eq(users.role, "student"))
     const allPurchaseHistory = await db.select().from(purchase_history)
     
+    const totalMainLessons = allMainLessons.length;
     const totalLessons = allLessons.length;
     const totalQuizzes = allQuizzes.length;
     const totalUsers = allUsers.length;
@@ -575,6 +616,14 @@ export class DatabaseStorage implements IStorage {
       && f.createdAt.getFullYear() === currentYear)
     const activeUsersGrowth = priorMonthActiveUsers.length === 0 ? 0 : ((currentMonthActiveUsers.length / priorMonthActiveUsers.length) - 1)
 
+    // Calculate MoM (Month over Month) Main Lessons Growth Rate
+    const currentMonthMainLessons = allMainLessons.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
+      && f.createdAt.getFullYear() === currentYear)
+    const priorMonthMainLessons = allMainLessons.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
+      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
+      && f.createdAt.getFullYear() === currentYear)
+    const mainLessonsGrowth = priorMonthMainLessons.length === 0 ? 0 : ((currentMonthMainLessons.length / priorMonthMainLessons.length) - 1)
+
     // Calculate MoM (Month over Month) Lessons Growth Rate
     const currentMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
       && f.createdAt.getFullYear() === currentYear)
@@ -608,6 +657,7 @@ export class DatabaseStorage implements IStorage {
       : 0;
 
     return {
+      totalMainLessons,
       totalLessons,
       totalQuizzes,
       totalUsers,
@@ -615,6 +665,7 @@ export class DatabaseStorage implements IStorage {
       totalPurchaseHistoryComplete,
       freeLessons,
       premiumLessons,
+      mainLessonsGrowth,
       lessonsGrowth,
       quizzesGrowth,
       usersGrowth,
@@ -630,7 +681,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async exportLessons(): Promise<Lesson[] | LessonData[]> {
-    return this.getLessons();
+    return this.getAllLessons();
   }
 
   async exportQuizzes(): Promise<Quiz[]> {

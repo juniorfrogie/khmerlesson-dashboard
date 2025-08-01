@@ -84,8 +84,21 @@ export function useAuth(){
     },
   });
 
+  const getFullName = () => {
+    return `${user?.firstName}\t${user?.lastName}`
+  }
+
+  const getShortNameWith2Letter = () => {
+    const firstName = user?.firstName
+    const lastName = user?.lastName
+    if(!firstName || !lastName) return ''
+    return `${firstName.at(0)?.toUpperCase()}${lastName.at(0)?.toUpperCase()}`
+  }
+
   return { 
     user,
+    getFullName,
+    getShortNameWith2Letter,
     isLoading,
     login: loginMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,

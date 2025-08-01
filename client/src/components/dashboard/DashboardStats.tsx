@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, HelpCircle, Unlock, Crown, TrendingUp, TrendingDown, CircleDollarSign, Users, UserCheck } from "lucide-react";
+import { HelpCircle, Unlock, Crown, TrendingUp, TrendingDown, CircleDollarSign, Users, UserCheck, Library, BookOpen } from "lucide-react";
 import { DashboardStats as StatsType } from "@shared/schema";
 
 export default function DashboardStats() {
@@ -38,11 +38,20 @@ export default function DashboardStats() {
 
   const statCards = [
     {
+      title: "Total Main Lessons",
+      value: numberCompactFormat(stats.totalMainLessons),
+      growth: `${stats.mainLessonsGrowth}%`,
+      growthValue: stats.mainLessonsGrowth,
+      icon: BookOpen,
+      iconBg: "bg-cyan-100",
+      iconColor: "text-cyan-500",
+    },
+    {
       title: "Total Lessons",
       value: numberCompactFormat(stats.totalLessons),
       growth: `${stats.lessonsGrowth}%`,
       growthValue: stats.lessonsGrowth,
-      icon: BookOpen,
+      icon: Library,
       iconBg: "bg-blue-100",
       iconColor: "fluent-blue",
     },
