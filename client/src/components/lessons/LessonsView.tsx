@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 // import { IMAGE_MAP } from "@/lib/constants";
 import LessonModal from "./LessonModal";
 import LessonPreview from "./LessonPreview";
+import Pagination from "../common/Pagination";
 
 interface LessonsViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -96,7 +97,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
       return await response.json()
     }
     
-    const { data: lessonTypeList = [] } = useQuery<LessonType[]>({
+  const { data: lessonTypeList = [] } = useQuery<LessonType[]>({
       queryKey: ['lesson-type'],
       refetchOnMount: false,
       queryFn: getAllLessonType 
@@ -417,24 +418,14 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                 </div>
               </div>
             )} */}
-            {data.lessons?.length > 0 && (
-                <div className="p-6 border-t border-gray-200 flex items-center justify-between">
-                    <div className="text-sm neutral-medium">
-                      Showing 1 to {data.lessons?.length} of {data.total} lessons
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" onClick={previous} disabled={offset < 1}>
-                          <ChevronLeft />
-                      </Button>
-                      <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
-                          { pageNumber }
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.lessons.length === data.total || (offset + limit) === data.total}>
-                          <ChevronRight />
-                      </Button>
-                    </div>
-                </div>
-              )}
+            <Pagination 
+                currentLength={data.lessons?.length ?? 0}
+                limit={limit}
+                offset={offset}
+                pageNumber={pageNumber}
+                next={next}
+                previous={previous}
+                total={data.total} />
           </div>
         </CardContent>
       </Card>

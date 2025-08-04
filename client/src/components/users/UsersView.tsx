@@ -11,6 +11,7 @@ import { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UserModal from "./UserModal";
+import Pagination from "../common/Pagination";
 
 interface UsersViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -385,25 +386,14 @@ export default function UsersView({ }: UsersViewProps) {
             </div>
 
             {/* Pagination */}
-            {data.users.length > 0 && (
-              <div className="p-6 border-t border-gray-200 flex items-center justify-between">
-                <div className="text-sm neutral-medium">
-                  {/* Showing 1 to {users.length} of {users.length} users */}
-                  Showing 1 to {data.users.length} of {data.total} users
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm" onClick={previous} disabled={offset < 1}>
-                    <ChevronLeft />
-                  </Button>
-                  <Button variant="outline" size="sm" className="bg-fluent-blue text-white">
-                    { pageNumber }
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={next} disabled={offset === data.total - 1 || data.users.length === data.total || (offset + limit) === data.total}>
-                    <ChevronRight />
-                  </Button>
-                </div>
-              </div>
-            )}
+            <Pagination 
+                currentLength={data.users?.length ?? 0}
+                limit={limit}
+                offset={offset}
+                pageNumber={pageNumber}
+                next={next}
+                previous={previous}
+                total={data.total} />
           </div>
         </CardContent>
       </Card>

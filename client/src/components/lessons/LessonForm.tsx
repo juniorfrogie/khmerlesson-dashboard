@@ -126,7 +126,8 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
   const getMainLessons = async ({ queryKey }: any) => {
     const [_key, params] = queryKey
     const response = await apiRequest("GET", `/api/main-lessons`)
-    return await response.json()
+    const body = await response.json()
+    return body["mainLessons"]
   }
 
   const { data: mainLessons = [] } = useQuery<MainLesson[]>({

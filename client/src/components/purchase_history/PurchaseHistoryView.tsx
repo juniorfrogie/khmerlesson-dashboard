@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Eye, RefreshCcw, Search } from "lucide-react";
+import { Eye, RefreshCcw, Search } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { apiRequest } from "@/lib/queryClient";
@@ -11,6 +11,7 @@ import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { PurchaseHistoryModal } from "./PurchaseHistoryModal";
 import { format } from "date-fns";
+import Pagination from "../common/Pagination";
 
 type PurchaseHistoryQuery = {
   data: PurchaseHistoryData[],
@@ -322,7 +323,7 @@ export default function PurchaseHistoryView(){
                     </div>
 
                 {/* Pagination */}
-                {data.data?.length > 0 && (
+                {/* {data.data?.length > 0 && (
                     <div className="p-6 border-t border-gray-200 flex items-center justify-between">
                         <div className="text-sm neutral-medium">
                         Showing 1 to {data.data?.length} of {data.total} purchase history
@@ -339,7 +340,15 @@ export default function PurchaseHistoryView(){
                         </Button>
                         </div>
                     </div>
-                )}
+                )} */}
+                <Pagination 
+                    currentLength={data.data?.length ?? 0}
+                    limit={limit}
+                    offset={offset}
+                    pageNumber={pageNumber}
+                    next={next}
+                    previous={previous}
+                    total={data.total} />
                 </div>
             </CardContent>
         </Card>

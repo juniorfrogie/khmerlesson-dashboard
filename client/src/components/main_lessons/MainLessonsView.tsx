@@ -12,6 +12,7 @@ import { Badge } from "../ui/badge";
 import MainLessonModal from "./MainLessonModal";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MainLessonViewDetailModal from "./MainLessonViewDetailModal";
+import Pagination from "../common/Pagination";
 
 interface MainLessonsViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -292,7 +293,7 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                         </table>
                     </div>
                     {/* Pagination */}
-                    {data.mainLessons.length > 0 && (
+                    {/* {data.mainLessons.length > 0 && (
                         <div className="p-6 border-t border-gray-200 flex items-center justify-between">
                             <div className="text-sm neutral-medium">
                                 Showing 1 to {data.mainLessons.length} of {data.mainLessons.length} main lessons
@@ -309,7 +310,15 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                 </Button>
                             </div>
                         </div>
-                    )}
+                    )} */}
+                    <Pagination 
+                        currentLength={data.mainLessons?.length ?? 0}
+                        limit={limit}
+                        offset={offset}
+                        pageNumber={pageNumber}
+                        next={next}
+                        previous={previous}
+                        total={data.total} />
                 </div>
             </CardContent>
         </Card>
