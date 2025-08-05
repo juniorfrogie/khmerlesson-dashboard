@@ -57,6 +57,36 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
             })
             const responseData = await response.json()
             return responseData
+
+            // const xhr = new XMLHttpRequest()
+            // const uploader = xhr.upload
+            // uploader.onprogress = function(event) {
+            //     event.preventDefault()
+            //     if (event.lengthComputable) {
+            //         const loaded = event.loaded // Bytes loaded so far
+            //         const total = event.total   // Total bytes to upload
+            //         const percentage = (loaded / total) * 100
+            //         // Update UI (e.g., progress bar, text display) with the percentage
+            //         console.log(`Upload progress: ${percentage.toFixed(2)}%`)
+            //     }
+            // }
+            // uploader.onloadend = (event) => {
+            //     console.log("Upload finished.")
+            // }
+
+            // xhr.open("POST", "/api/upload", true)
+            // xhr.onreadystatechange = () => {
+            //     if (xhr.readyState === XMLHttpRequest.DONE) {
+            //         if (xhr.status === 201) {
+            //             const jsonResponse = JSON.parse(xhr.responseText)
+            //             setPreviewImage(`${jsonResponse.data.filename}`)
+            //             form.setValue("imageCover", `${jsonResponse.data.filename}`)
+            //         } else {
+            //             console.error('Request failed. Status:', xhr.status)
+            //         }
+            //     }
+            // }
+            // xhr.send(formData)
         } catch (error) { 
             console.error(error)
             toast({
@@ -83,11 +113,6 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                     //setSelectedFile(file)
                     setPreviewImage(`${result.data.filename}`)
                     form.setValue("imageCover", `${result.data.filename}`)
-                    //
-                    toast({
-                        title: "Success",
-                        description: `${result.message}`
-                    });
                 }else{
                     form.setError("imageCover", {
                         message: `${result.message}`
@@ -154,7 +179,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                                             accept="image/png, image/svg+xml" 
                                             className="hidden"/>
                                     </label>
-                                </div> 
+                                </div>
                                 {
                                     previewImage && previewImage.length > 0 && (
                                         <div className="w-full border rounded p-4 flex items-center justify-center">
