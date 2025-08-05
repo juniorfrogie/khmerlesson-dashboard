@@ -11,7 +11,7 @@ export default function IconMode({ lessonType }: iconModeProps) {
                 {/* <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span> */}
                 {/* { <span className="text-2xl">{ lesson.lessonType.icon || "📚"}</span> } */}
                 {
-                lessonType?.iconMode === "file" ? <img src={`/uploads/${lessonType?.icon}`} width="24" height="24" alt={lessonType?.title}/> 
+                lessonType?.iconMode === "file" ? <img src={`/storages/${lessonType?.icon}`} width="24" height="24" alt={lessonType?.title}/> 
                     : <span className="text-lg">{lessonType?.icon || "📚"}</span>
                 }
             </div>

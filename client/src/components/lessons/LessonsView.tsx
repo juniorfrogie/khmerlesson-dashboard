@@ -322,7 +322,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                               {/* <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span>
                               { <span className="text-lg">{ lesson.lessonType.icon || "📚"}</span> } */}
                               {
-                                lesson.lessonType?.iconMode === "file" ? <img src={`/uploads/${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
+                                lesson.lessonType?.iconMode === "file" ? <img src={`/storages/${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
                                   : <span className="text-lg">{lesson.lessonType?.icon || "📚"}</span>
                               }
                             </div>

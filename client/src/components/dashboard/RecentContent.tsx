@@ -100,14 +100,14 @@ export default function RecentContent() {
                         {/* <span className="text-lg">{item.icon}</span> */}
                         {
                           item.iconMode ? (
-                            item.iconMode === "file" ? <img className="w-[24px] h-[24px]" src={`/uploads/${item.icon}`} alt="icon"/> 
+                            item.iconMode === "file" ? <img className="w-[24px] h-[24px]" src={`/storages/${item.icon}`} alt="icon"/> 
                             : <span className="text-lg">{item.icon}</span>
                           ) : (<span className="text-lg">{item.icon}</span>)
                         }
                       </div>
                     ) : (
                       <div className="flex items-center justify-center mr-4">
-                        <img className="h-[150px] rounded-lg" src={`/uploads/${item.imageCover}`} />
+                        <img className="h-[150px] rounded-lg" src={`/storages/${item.imageCover}`} />
                       </div>
                     )
                   }

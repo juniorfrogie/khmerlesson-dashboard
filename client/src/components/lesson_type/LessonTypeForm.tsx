@@ -208,7 +208,7 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
                                     Preview
                                 </p>
                                 <div className="flex items-center justify-center border rounded p-4">
-                                    <img src={`/uploads/${previewImage}`} width="150" height="150"/>
+                                    <img src={`/storages/${previewImage}`} width="150" height="150"/>
                                 </div>
                             </div>
                         )}

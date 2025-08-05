@@ -32,15 +32,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { TOKEN_SECRET } = process.env
   const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
 
-  // async function checkFileExists(path: string) {
-  //   try {
-  //     await fs.promises.access(path, fs.constants.F_OK)
-  //     return true
-  //   } catch (error) {
-  //     console.log(error)
-  //     return false
-  //   }
-  // }
+  async function checkFileExists(path: string) {
+    try {
+      await fs.promises.access(path, fs.constants.F_OK)
+      return true
+    } catch (error) {
+      return false
+    }
+  }
 
   // Middleware to set CORS headers for all routes
   app.use(cors({
@@ -56,6 +55,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // const publicDir = path.join(import.meta.dirname, '..');
   const uploadDir = path.join(import.meta.dirname, '.', '../uploads');
   app.use("/uploads", express.static(uploadDir))
+
+  const storagesDir = path.join(import.meta.dirname, '.', '../storages');
+  app.use("/storages", express.static(storagesDir))
 
   // Dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
@@ -97,12 +99,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       //return res.json(mainLessons)
-      // for(let mainLesson of mainLessons){
-      //   const result = await checkFileExists(`uploads/${mainLesson.imageCover}`)
-      //   if(!result){
-      //     mainLesson.imageCover = "256px-No-Image-Placeholder.svg.png"
-      //   }
-      // }
+      for(let mainLesson of mainLessons){
+        const result = await checkFileExists(`storages/${mainLesson.imageCover}`)
+        if(!result){
+          mainLesson.imageCover = "no-image-placeholder.png"
+        }
+      }
       return res.json({
         mainLessons: mainLessons,
         total: status !== "all" ? mainLessons.length : mainLessonCount

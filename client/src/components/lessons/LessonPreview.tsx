@@ -45,7 +45,7 @@ export default function LessonPreview({ lesson, isOpen, onClose, isFormPreview =
                       {/* <span className="text-2xl">{IMAGE_MAP[lesson.image] || "📚"}</span> */}
                       {/* <span className="text-2xl">{lesson.lessonType?.icon || "📚"}</span> */}
                       {
-                        lesson.lessonType?.iconMode === "file" ? <img src={`/uploads/${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
+                        lesson.lessonType?.iconMode === "file" ? <img src={`/storages/${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
                           : <span className="text-2xl">{lesson.lessonType?.icon || "📚"}</span>
                       }
                     </div>

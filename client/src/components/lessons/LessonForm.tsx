@@ -259,7 +259,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
                         <SelectItem key={item.id} value={`${item.id}`}>
                             { item.iconMode === "raw" ? (`${item.icon}\t${item.title}`) : 
                               <div className="flex gap-1">
-                                <img className="w-4 h-4" src={`/uploads/${item.icon}`} alt={item.title} />
+                                <img className="w-4 h-4" src={`/storages/${item.icon}`} alt={item.title} />
                                 { item.title }
                               </div>
                             }
