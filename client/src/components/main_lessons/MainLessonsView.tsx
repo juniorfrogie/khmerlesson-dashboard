@@ -235,7 +235,7 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center">
-                                                        <img className="rounded-lg" src={`/storages/${mainLesson.imageCover}`} width="150" height="150" alt={mainLesson.title} />
+                                                        <img className="rounded-lg" src={`/uploads/${mainLesson.imageCover}`} width="150" height="150" alt={mainLesson.title} />
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
