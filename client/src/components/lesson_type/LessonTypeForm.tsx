@@ -201,7 +201,7 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
                                 </FormItem>
                             )}>
                         </FormField>
-                        <small className="text-center text-gray-400 text-xs leading-4">Max size: 2MB (support only PNG or SVG)</small>
+                        <small className="text-center text-gray-400 text-xs leading-4">Max size: 10MB (support only PNG or SVG)</small>
                         { previewImage.length > 0 && (
                             <div className="space-y-2">
                                 <p>
