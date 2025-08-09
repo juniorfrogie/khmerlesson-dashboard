@@ -15,10 +15,11 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const certPath = path.resolve(import.meta.dirname, '../certs/ca-certificate.crt')
+//const certPath = path.resolve(import.meta.dirname, '../certs/ca-certificate.crt')
+const certPath = process.env.NODE_EXTRA_CA_CERTS
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? {
   rejectUnauthorized: true,
-  ca: fs.readFileSync(certPath).toString()
+  ca: fs.readFileSync(certPath?.toString() ?? "").toString()
 } : undefined });
 export const db = drizzle({ client: pool, schema });

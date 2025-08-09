@@ -6,7 +6,8 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL, ensure the database is provisioned");
 }
 
-const certPath = path.resolve(import.meta.dirname, '../certs/ca-certificate.crt')
+// const certPath = path.resolve(import.meta.dirname, '../certs/ca-certificate.crt')
+const certPath = process.env.NODE_EXTRA_CA_CERTS
 
 export default defineConfig({
   out: "./migrations",
@@ -16,7 +17,7 @@ export default defineConfig({
     url: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === "production" ? {
       rejectUnauthorized: true,
-      ca: fs.readFileSync(certPath).toString()
+      ca: fs.readFileSync(certPath?.toString() ?? "").toString()
     } : true
   },
 });
