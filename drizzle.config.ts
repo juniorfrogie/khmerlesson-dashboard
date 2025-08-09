@@ -7,7 +7,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 // const certPath = path.resolve(import.meta.dirname, '../certs/ca-certificate.crt')
-const certPath = process.env.NODE_EXTRA_CA_CERTS
+const certPath = process.env.NODE_EXTRA_CA_CERTS ?? ""
 
 export default defineConfig({
   out: "./migrations",
@@ -17,7 +17,7 @@ export default defineConfig({
     url: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === "production" ? {
       rejectUnauthorized: true,
-      ca: fs.readFileSync(certPath?.toString() ?? "").toString()
-    } : true
+      ca: fs.readFileSync(certPath).toString()
+    } : "require"
   },
 });

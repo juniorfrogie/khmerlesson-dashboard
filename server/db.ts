@@ -3,8 +3,6 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 import dotEnv from "dotenv"
-import fs from 'fs';
-import path from 'path'
 
 dotEnv.config()
 neonConfig.webSocketConstructor = ws;
@@ -15,11 +13,5 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-//const certPath = path.resolve(import.meta.dirname, '../certs/ca-certificate.crt')
-const certPath = process.env.NODE_EXTRA_CA_CERTS
-
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? {
-  rejectUnauthorized: true,
-  ca: fs.readFileSync(certPath?.toString() ?? "").toString()
-} : undefined });
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle({ client: pool, schema });
