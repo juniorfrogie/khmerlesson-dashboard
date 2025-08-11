@@ -100,7 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       //return res.json(mainLessons)
       for(let mainLesson of mainLessons){
-        const result = await checkFileExists(`storages/${mainLesson.imageCover}`)
+        const result = await checkFileExists(`uploads/${mainLesson.imageCover}`)
         if(!result){
           mainLesson.imageCover = "no-image-placeholder.png"
         }
