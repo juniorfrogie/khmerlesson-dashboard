@@ -13,8 +13,11 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+const decodedBuffer = Buffer.from(process.env.DATABASE_CA_CERT ?? "", 'base64')
+const decodedString = decodedBuffer.toString('utf-8')
+
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" && process.env.DATABASE_CA_CERT ? {
   rejectUnauthorized: true,
-  ca: process.env.DATABASE_CA_CERT
+  ca: decodedString
 } : undefined });
 export const db = drizzle({ client: pool, schema });
