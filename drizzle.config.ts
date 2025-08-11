@@ -7,7 +7,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 //const certPath = path.resolve(import.meta.dirname, '../certs/ca-certificate.crt')
-const certPath = process.env.DATABASE_CA_CERT ?? ""
+const certPath = process.env.NODE_EXTRA_CA_CERTS ?? ""
 
 
 // const decodedBuffer = Buffer.from(process.env.DATABASE_CA_CERT ?? "", 'base64')
@@ -19,7 +19,7 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === "production" && process.env.DATABASE_CA_CERT ? {
+    ssl: process.env.NODE_ENV === "production" && process.env.NODE_EXTRA_CA_CERTS ? {
       rejectUnauthorized: true,
       ca: fs.readFileSync(certPath).toString()
       //ca: decodedString
