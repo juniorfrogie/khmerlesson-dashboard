@@ -57,17 +57,17 @@ router.post("/upload", upload.single('file'), async (req, res) => {
             ACL: 'public-read', // Makes the file publicly accessible (adjust as needed)
             ContentType: req.file.mimetype
         }
-        if(process.env.NODE_ENV !== "production"){  
+        if(process.env.NODE_ENV === "production"){  
             await s3.upload(params).promise()
         }
 
-        const cdnEndpoint = `${process.env.BUCKET_NAME}.${process.env.BUCKET_END_POINT}`
+        const bucketEndpoint = `${process.env.BUCKET_NAME}.${process.env.BUCKET_END_POINT}`
 
         res.status(201).json({
             message: "File uploaded successfully!",
             data: {
                 filename: process.env.NODE_ENV === "production" ? params.Key : req.file?.filename,
-                url: process.env.NODE_ENV === "production" ? `https://${cdnEndpoint}/${params.Key}` : `/uploads/${req.file?.filename}`,
+                url: process.env.NODE_ENV === "production" ? `https://${bucketEndpoint}/${params.Key}` : `/uploads/${req.file?.filename}`,
                 mimeType: req.file?.mimetype,
                 size: req.file?.size,
                 path: req.file?.path
