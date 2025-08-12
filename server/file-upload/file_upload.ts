@@ -52,7 +52,7 @@ router.post("/upload", upload.single('file'), async (req, res) => {
 
         const params = {
             Bucket: process.env.BUCKET_NAME ?? "",
-            Key: Date.now() + '-' + req.file.originalname, // Unique file name
+            Key: process.env.NODE_EXTRA_CA_CERTS ? Date.now() + '-' + req.file.originalname : `${Date.now() + '-dev-' + req.file.originalname}`, // Unique file name
             Body: req.file.buffer, // The file buffer from Multer
             ACL: 'public-read', // Makes the file publicly accessible (adjust as needed)
             ContentType: req.file.mimetype
