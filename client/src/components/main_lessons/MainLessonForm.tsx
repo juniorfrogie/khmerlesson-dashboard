@@ -111,7 +111,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
             if(result){
                 if(result.data){
                     //setSelectedFile(file)
-                    setPreviewImage(`${result.data.filename}`)
+                    setPreviewImage(`${result.data.url}`)
                     form.setValue("imageCover", `${result.data.filename}`)
                 }else{
                     form.setError("imageCover", {
@@ -183,7 +183,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                                 {
                                     previewImage && previewImage.length > 0 && (
                                         <div className="w-full border rounded p-4 flex items-center justify-center">
-                                            <img className="rounded" src={`/uploads/${previewImage}`} width="150" height="150"/>
+                                            <img className="rounded" src={`${previewImage}`} width="150" height="150"/>
                                         </div>
                                     )
                                 }

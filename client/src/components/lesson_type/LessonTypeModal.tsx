@@ -49,16 +49,16 @@ export default function LessonTypeModal({isOpen, onClose, lessonType}: LessonTyp
             });
             
             // DELETE file exist when icon mode changed
-            if(lessonType?.iconMode === "file"){
-                const responseData = await res.json()
-                if(responseData.iconMode === "raw"){
-                    try {
-                        await apiRequest("DELETE", `/api/unlinkFile/${lessonType?.icon}`, user)  
-                    } catch (error) {
-                        console.error(error)
-                    }
-                }
-            }
+            // if(lessonType?.iconMode === "file"){
+            //     const responseData = await res.json()
+            //     if(responseData.iconMode === "raw"){
+            //         try {
+            //             await apiRequest("DELETE", `/api/unlinkFile/${lessonType?.icon}`, user)  
+            //         } catch (error) {
+            //             console.error(error)
+            //         }
+            //     }
+            // }
             //
             onClose();
         },

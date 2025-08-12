@@ -95,7 +95,7 @@ export default function ContentDistribution() {
                   item.iconMode === "file" ? (
                     <div className="flex items-center">
                       <span className="text-lg mr-3">
-                        <img src={`/uploads/${item.icon}`} width="24" height="24" alt={item.title}/>
+                        <img src={`${item.icon}`} width="24" height="24" alt={item.title}/>
                       </span>
                       <span className="neutral-dark">{item.label}</span>
                     </div>

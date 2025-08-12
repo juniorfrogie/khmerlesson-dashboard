@@ -48,7 +48,7 @@ export default function MainLessonViewDetailModal({ mainLesson, isOpen, onClose 
                                                 <div className="flex items-center space-x-4">
                                                     <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
                                                         {
-                                                            lesson.lessonType?.iconMode === "file" ? <img src={`/uploads/${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
+                                                            lesson.lessonType?.iconMode === "file" ? <img src={`${lesson.lessonType?.icon}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
                                                             : <span className="text-2xl">{lesson.lessonType?.icon || "📚"}</span>
                                                         }
                                                     </div>

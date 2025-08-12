@@ -220,7 +220,6 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                                  <div className="text-gray-500">
                                                     <BookOpen className="mx-auto h-12 w-12 mb-2 opacity-50" />
                                                     <p>No main lessons found</p>
-                                                    {/* <p className="text-sm">Create your first lesson to get started</p> */}
                                                 </div>
                                             </td>
                                         </tr>
@@ -235,7 +234,7 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center">
-                                                        <img className="rounded-lg" src={`/uploads/${mainLesson.imageCover}`} width="150" height="150" alt={mainLesson.title} />
+                                                        <img className="rounded-lg" src={`${mainLesson.imageCover}`} width="150" height="150" alt={mainLesson.title} />
                                                     </div>
                                                 </td>
                                                 <td className="p-4">

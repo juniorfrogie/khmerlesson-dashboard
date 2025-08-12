@@ -31,6 +31,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const { TOKEN_SECRET } = process.env
   const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
+  const bucketEndpoint = `${process.env.BUCKET_NAME}.${process.env.BUCKET_END_POINT}`
 
   async function checkFileExists(path: string) {
     try {
@@ -102,7 +103,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for(let mainLesson of mainLessons){
         const result = await checkFileExists(`uploads/${mainLesson.imageCover}`)
         if(!result){
-          mainLesson.imageCover = "no-image-placeholder.png"
+          mainLesson.imageCover = "/uploads/no-image-placeholder.png"
+        }else{
+          if(process.env.NODE_ENV === "production"){
+            const urlBucketEndpoint = `https://${bucketEndpoint}/${mainLesson.imageCover}`
+            mainLesson.imageCover = urlBucketEndpoint
+          }else{
+            const url = `/uploads/${mainLesson.imageCover}`
+            mainLesson.imageCover = url
+          }
         }
       }
       return res.json({
@@ -118,6 +127,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params
       const result = await storage.getLessonDetailByMainLessonId(parseInt(id))
+      for(let e of result){
+        if(e.lessonType?.iconMode === "file"){
+          if(process.env.NODE_ENV === "production"){
+            const urlBucketEndpoint = `https://${bucketEndpoint}/${e.lessonType?.icon}`
+            e.lessonType.icon = urlBucketEndpoint
+          }else{
+            const url = `/uploads/${e.lessonType?.icon}`
+            e.lessonType.icon = url
+          }
+        }
+      }
       res.json(result)
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch main lessons detail" });
@@ -145,6 +165,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if(!mainLesson){
         return res.status(404).json({message: "Main lesson not found"})
+      }
+      
+      const result = await checkFileExists(`uploads/${mainLesson.imageCover}`)
+      if(!result){
+        mainLesson.imageCover = "/uploads/no-image-placeholder.png"
+      }else{
+        if(process.env.NODE_ENV === "production"){
+          const urlBucketEndpoint = `https://${bucketEndpoint}/${mainLesson.imageCover}`
+          mainLesson.imageCover = urlBucketEndpoint
+        }else{
+          const url = `/uploads/${mainLesson.imageCover}`
+          mainLesson.imageCover = url
+        }
       }
 
       return res.json(mainLesson)
@@ -205,6 +238,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (status && status !== "all") {
         lessons = lessons.filter(lesson => lesson.status === status);
+      }
+
+      for(let lesson of lessons){
+        if(lesson.lessonType?.iconMode === "file"){
+          if(process.env.NODE_ENV === "production"){
+            const urlBucketEndpoint = `https://${bucketEndpoint}/${lesson.lessonType?.icon}`
+            lesson.lessonType.icon = urlBucketEndpoint
+          }else{
+            const url = `/uploads/${lesson.lessonType?.icon}`
+            lesson.lessonType.icon = url
+          }
+        }
       }
       
       //res.json(lessons);
@@ -292,6 +337,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
+      for(let lessonType of lessonTypes){
+        if(lessonType?.iconMode === "file"){
+          if(process.env.NODE_ENV === "production"){
+            const urlBucketEndpoint = `https://${bucketEndpoint}/${lessonType?.icon}`
+            lessonType.icon = urlBucketEndpoint
+          }else{
+            const url = `/uploads/${lessonType?.icon}`
+            lessonType.icon = url
+          }
+        }
+      }
+
       res.json(lessonTypes)
     } catch(error) {
       res.status(500).json({ message: "Failed to fetch lesson type" });
@@ -330,6 +387,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if(!lessonType){
         return res.status(404).json({message: "Lesson type not found"})
+      }
+
+      if(lessonType?.iconMode === "file"){
+        if(process.env.NODE_ENV === "production"){
+          const urlBucketEndpoint = `https://${bucketEndpoint}/${lessonType?.icon}`
+          lessonType.icon = urlBucketEndpoint
+        }else{
+          const url = `/uploads/${lessonType?.icon}`
+          lessonType.icon = url
+        }
       }
 
       res.json(lessonType)
