@@ -50,14 +50,14 @@ router.post("/upload", upload.single('file'), async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        if(process.env.NODE_ENV === "production"){  
-            const params = {
-                Bucket: process.env.BUCKET_NAME ?? "",
-                Key: Date.now() + '-' + req.file.originalname, // Unique file name
-                Body: req.file.buffer, // The file buffer from Multer
-                ACL: 'public-read', // Makes the file publicly accessible (adjust as needed)
-                ContentType: req.file.mimetype
-            }
+        const params = {
+            Bucket: process.env.BUCKET_NAME ?? "",
+            Key: Date.now() + '-' + req.file.originalname, // Unique file name
+            Body: req.file.buffer, // The file buffer from Multer
+            ACL: 'public-read', // Makes the file publicly accessible (adjust as needed)
+            ContentType: req.file.mimetype
+        }
+        if(process.env.NODE_ENV !== "production"){  
             await s3.upload(params).promise()
         }
 
@@ -66,7 +66,7 @@ router.post("/upload", upload.single('file'), async (req, res) => {
         res.status(201).json({
             message: "File uploaded successfully!",
             data: {
-                filename: req.file?.filename,
+                filename: process.env.NODE_ENV === "production" ? params.Key : req.file?.filename,
                 url: process.env.NODE_ENV === "production" ? `https://${cdnEndpoint}/${req.file?.filename}` : `/uploads/${req.file?.filename}`,
                 mimeType: req.file?.mimetype,
                 size: req.file?.size,
