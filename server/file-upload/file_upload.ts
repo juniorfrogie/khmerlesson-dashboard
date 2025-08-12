@@ -67,7 +67,7 @@ router.post("/upload", upload.single('file'), async (req, res) => {
             message: "File uploaded successfully!",
             data: {
                 filename: process.env.NODE_ENV === "production" ? params.Key : req.file?.filename,
-                url: process.env.NODE_ENV === "production" ? `https://${cdnEndpoint}/${req.file?.filename}` : `/uploads/${req.file?.filename}`,
+                url: process.env.NODE_ENV === "production" ? `https://${cdnEndpoint}/${params.Key}` : `/uploads/${req.file?.filename}`,
                 mimeType: req.file?.mimetype,
                 size: req.file?.size,
                 path: req.file?.path
