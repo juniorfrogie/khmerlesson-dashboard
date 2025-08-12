@@ -101,17 +101,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       //return res.json(mainLessons)
       for(let mainLesson of mainLessons){
-        const result = await checkFileExists(`uploads/${mainLesson.imageCover}`)
-        if(!result){
-          mainLesson.imageCover = "/uploads/no-image-placeholder.png"
-        }else{
-          if(process.env.NODE_ENV === "production"){
+        if(process.env.NODE_ENV === "production"){
             const urlBucketEndpoint = `https://${bucketEndpoint}/${mainLesson.imageCover}`
             mainLesson.imageCover = urlBucketEndpoint
-          }else{
-            const url = `/uploads/${mainLesson.imageCover}`
-            mainLesson.imageCover = url
-          }
+        }else{
+            const result = await checkFileExists(`uploads/${mainLesson.imageCover}`)
+            if(!result){
+              mainLesson.imageCover = "/uploads/no-image-placeholder.png"
+            }else{
+              const url = `/uploads/${mainLesson.imageCover}`
+              mainLesson.imageCover = url
+            }
         }
       }
       return res.json({
