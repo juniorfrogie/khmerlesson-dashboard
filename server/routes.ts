@@ -26,19 +26,51 @@ import { mailTemplate } from "./mail/mail_template";
 import cron from "node-cron"
 import path from "path";
 import fs from "fs";
+import AWS from "aws-sdk"
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
   const { TOKEN_SECRET } = process.env
   const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
   const bucketEndpoint = `${process.env.BUCKET_NAME}.${process.env.BUCKET_END_POINT}`
+  const s3 = new AWS.S3({
+    endpoint: process.env.BUCKET_END_POINT, 
+    accessKeyId: process.env.BUCKET_ACCESS_KEY,
+    secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY
+  })
 
-  async function checkFileExists(path: string) {
+  async function checkFileExists(key: string): Promise<string> {
+    const defaultImageNotFoundPath = "/uploads/no-image-placeholder.png"
     try {
-      await fs.promises.access(path, fs.constants.F_OK)
-      return true
+      if(process.env.NODE_ENV === "production"){
+        const params = {
+          Bucket: process.env.BUCKET_NAME ?? "",
+          Key: key
+        }
+        const s3RequestHeadObject = s3.headObject(params)
+        await s3RequestHeadObject.promise()
+        const urlBucketEndpoint = `https://${bucketEndpoint}/${params.Key}`
+        return urlBucketEndpoint
+        // s3.headObject(params, (err, data) => {
+        //   if (err) {
+        //     if (err.code === 'NotFound') {
+        //       console.log('File does not exist in S3 Bucket')
+        //       return defaultImageNotFoundPath
+        //     } else {
+        //       console.log('Error Occured While headObject():', err)
+        //       return defaultImageNotFoundPath
+        //     }
+        //   } else {
+        //     const urlBucketEndpoint = `https://${bucketEndpoint}/${params.Key}`
+        //     return urlBucketEndpoint
+        //   }
+        // });
+      }else{
+        await fs.promises.access(`uploads/${key}`, fs.constants.F_OK)
+        return `/uploads/${key}`
+      }
     } catch (error) {
-      return false
+      return defaultImageNotFoundPath
     }
   }
 
@@ -101,18 +133,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       //return res.json(mainLessons)
       for(let mainLesson of mainLessons){
-        if(process.env.NODE_ENV === "production"){
-            const urlBucketEndpoint = `https://${bucketEndpoint}/${mainLesson.imageCover}`
-            mainLesson.imageCover = urlBucketEndpoint
-        }else{
-            const result = await checkFileExists(`uploads/${mainLesson.imageCover}`)
-            if(!result){
-              mainLesson.imageCover = "/uploads/no-image-placeholder.png"
-            }else{
-              const url = `/uploads/${mainLesson.imageCover}`
-              mainLesson.imageCover = url
-            }
-        }
+        const result = await checkFileExists(`${mainLesson.imageCover}`)
+        mainLesson.imageCover = result
       }
       return res.json({
         mainLessons: mainLessons,
@@ -166,19 +188,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if(!mainLesson){
         return res.status(404).json({message: "Main lesson not found"})
       }
-      
-      const result = await checkFileExists(`uploads/${mainLesson.imageCover}`)
-      if(!result){
-        mainLesson.imageCover = "/uploads/no-image-placeholder.png"
-      }else{
-        if(process.env.NODE_ENV === "production"){
-          const urlBucketEndpoint = `https://${bucketEndpoint}/${mainLesson.imageCover}`
-          mainLesson.imageCover = urlBucketEndpoint
-        }else{
-          const url = `/uploads/${mainLesson.imageCover}`
-          mainLesson.imageCover = url
-        }
-      }
+
+      const result = await checkFileExists(`${mainLesson.imageCover}`)
+      mainLesson.imageCover = result
 
       return res.json(mainLesson)
     } catch (error) {
