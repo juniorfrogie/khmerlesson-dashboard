@@ -60,7 +60,8 @@ router.use(authenticateToken);
 // GET /api/v1/main-lessons - List all published main lessons
 router.get("/main-lessons", async (req, res) => {
   try {
-    const mainLessons = await storage.getMainLessons();
+    const mainLessons = await storage.getAllMainLessons();
+    const bucketEndpoint = `${process.env.BUCKET_NAME}.${process.env.BUCKET_END_POINT}`
     const publishedMainLessons = mainLessons.filter(f => f.status === "published")
       .map(mainLesson => ({
         id: mainLesson.id,
@@ -69,7 +70,8 @@ router.get("/main-lessons", async (req, res) => {
         imageCover: mainLesson.imageCover,
         imageFile: {
           name: mainLesson.imageCover,
-          extension: path.extname(`/uploads/${mainLesson.imageCover}`)
+          url: process.env.NODE_ENV === "production" ? `https://${bucketEndpoint}/${mainLesson.imageCover}` : `${req.protocol + '://' + req.get('host') + `/uploads/${mainLesson.imageCover}`}`,
+          extension: path.extname(process.env.NODE_ENV === "production" ? `https://${bucketEndpoint}/${mainLesson.imageCover}` : `/uploads/${mainLesson.imageCover}`)
         },
         createdAt: mainLesson.createdAt,
         updatedAt: mainLesson.updatedAt
@@ -207,7 +209,7 @@ router.get("/lessons/:id", async (req, res) => {
 router.get("/lessons/level/:level", async (req, res) => {
   try {
     const level = req.params.level;
-    const lessons = await storage.getLessons();
+    const lessons = await storage.getAllLessons();
     
     const filteredLessons = lessons
       .filter(lesson => lesson.status === 'published' && lesson.level.toLowerCase() === level.toLowerCase())
@@ -239,7 +241,7 @@ router.get("/lessons/level/:level", async (req, res) => {
 // GET /api/v1/lessons/free - Get all free lessons
 router.get("/lessons/free", async (req, res) => {
   try {
-    const lessons = await storage.getLessons();
+    const lessons = await storage.getAllLessons();
     
     const freeLessons = lessons
       .filter(lesson => lesson.status === 'published' && lesson.free)
@@ -454,7 +456,7 @@ router.get("/search", async (req, res) => {
     let results: any[] = [];
     
     if (type === 'all' || type === 'lessons') {
-      const lessons = await storage.getLessons();
+      const lessons = await storage.getAllLessons();
       const lessonResults = lessons
         .filter(lesson => 
           lesson.status === 'published' && 

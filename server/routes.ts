@@ -134,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //return res.json(mainLessons)
       for(let mainLesson of mainLessons){
         const result = await checkFileExists(`${mainLesson.imageCover}`)
-        mainLesson.imageCover = result
+        mainLesson.imageCoverUrl = result
       }
       return res.json({
         mainLessons: mainLessons,
@@ -153,10 +153,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if(e.lessonType?.iconMode === "file"){
           if(process.env.NODE_ENV === "production"){
             const urlBucketEndpoint = `https://${bucketEndpoint}/${e.lessonType?.icon}`
-            e.lessonType.icon = urlBucketEndpoint
+            e.lessonType.iconUrl = urlBucketEndpoint
           }else{
             const url = `/uploads/${e.lessonType?.icon}`
-            e.lessonType.icon = url
+            e.lessonType.iconUrl = url
           }
         }
       }
@@ -190,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await checkFileExists(`${mainLesson.imageCover}`)
-      mainLesson.imageCover = result
+      mainLesson.imageCoverUrl = result
 
       return res.json(mainLesson)
     } catch (error) {
@@ -256,10 +256,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if(lesson.lessonType?.iconMode === "file"){
           if(process.env.NODE_ENV === "production"){
             const urlBucketEndpoint = `https://${bucketEndpoint}/${lesson.lessonType?.icon}`
-            lesson.lessonType.icon = urlBucketEndpoint
+            lesson.lessonType.iconUrl = urlBucketEndpoint
           }else{
             const url = `/uploads/${lesson.lessonType?.icon}`
-            lesson.lessonType.icon = url
+            lesson.lessonType.iconUrl = url
           }
         }
       }
@@ -353,10 +353,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if(lessonType?.iconMode === "file"){
           if(process.env.NODE_ENV === "production"){
             const urlBucketEndpoint = `https://${bucketEndpoint}/${lessonType?.icon}`
-            lessonType.icon = urlBucketEndpoint
+            lessonType.iconUrl = urlBucketEndpoint
           }else{
             const url = `/uploads/${lessonType?.icon}`
-            lessonType.icon = url
+            lessonType.iconUrl = url
           }
         }
       }
@@ -404,10 +404,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if(lessonType?.iconMode === "file"){
         if(process.env.NODE_ENV === "production"){
           const urlBucketEndpoint = `https://${bucketEndpoint}/${lessonType?.icon}`
-          lessonType.icon = urlBucketEndpoint
+          lessonType.iconUrl = urlBucketEndpoint
         }else{
           const url = `/uploads/${lessonType?.icon}`
-          lessonType.icon = url
+          lessonType.iconUrl = url
         }
       }
 

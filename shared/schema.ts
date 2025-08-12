@@ -207,7 +207,17 @@ export type ChangePasswordUser = z.infer<typeof changePasswordSchema>;
 // export type UserCount = z.infer<typeof userCount>
 export type InsertUserWithAuthService = z.infer<typeof insertUserWithAuthServiceSchema>;
 
-export type MainLesson = typeof mainLessons.$inferSelect
+//export type MainLesson = typeof mainLessons.$inferSelect
+export type MainLesson = {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
+  status: string;
+  title: string;
+  description: string;
+  imageCover: string;
+  imageCoverUrl: string
+}
 export type InsertMainLesson = z.infer<typeof insertMainLessonSchema>
 export type UpdateMainLesson = z.infer<typeof updateMainLessonSchema>
 
@@ -215,7 +225,16 @@ export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type UpdateLesson = z.infer<typeof updateLessonSchema>;
 
-export type LessonType = typeof lessonType.$inferSelect;
+// export type LessonType = typeof lessonType.$inferSelect;
+export type LessonType = {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
+  title: string;
+  icon: string;
+  iconUrl: string;
+  iconMode: string;
+}
 export type InsertLessonType = z.infer<typeof insertLessonTypeSchema>;
 export type UpdateLessonType = z.infer<typeof updateLessonTypeSchema>;
 

@@ -34,7 +34,7 @@ interface MainLessonFormProps{
 export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: MainLessonFormProps){
     const [autoSaveTime, setAutoSaveTime] = useState<Date | null>(null)
     //const [selectedFile, setSelectedFile] = useState<File | null>(null)
-    const [previewImage, setPreviewImage] = useState<string | null>(mainLesson ? mainLesson.imageCover :  null)
+    const [previewImage, setPreviewImage] = useState<string | null>(mainLesson ? mainLesson.imageCoverUrl : null)
     const { toast } = useToast()
 
     const form = useForm<MainLessonFormData>({

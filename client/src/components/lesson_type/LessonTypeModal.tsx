@@ -22,6 +22,7 @@ export default function LessonTypeModal({isOpen, onClose, lessonType}: LessonTyp
         mutationFn: async (data: LessonType) => await apiRequest("POST", "/api/lesson-type", data),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["lesson-type"] });
+            await queryClient.invalidateQueries({ queryKey: ["lessons"] });
             await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
             toast({
                 title: "Success",
@@ -42,6 +43,7 @@ export default function LessonTypeModal({isOpen, onClose, lessonType}: LessonTyp
         mutationFn: async (data: LessonType) => await apiRequest("PATCH", `/api/lesson-type/${lessonType?.id}`, data),
         onSuccess: async (res) => {
             await queryClient.invalidateQueries({ queryKey: ["lesson-type"] });
+            await queryClient.invalidateQueries({ queryKey: ["lessons"] });
             await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
             toast({
                 title: "Success",

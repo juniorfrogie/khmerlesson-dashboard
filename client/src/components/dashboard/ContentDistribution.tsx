@@ -46,6 +46,7 @@ export default function ContentDistribution() {
     const id = lessonType.id
     const title = lessonType.title
     const icon = lessonType.icon
+    const iconUrl = lessonType.iconUrl
     const iconMode = lessonType.iconMode
     const count = lessons.filter(lesson => lesson.lessonType.title.toLowerCase() === title.toLowerCase()).length;
     const percentage = lessons.length > 0 ? (count / lessons.length) * 100 : 0;
@@ -54,6 +55,7 @@ export default function ContentDistribution() {
       id,
       title,
       icon,
+      iconUrl,
       iconMode,
       count,
       percentage,
@@ -95,7 +97,7 @@ export default function ContentDistribution() {
                   item.iconMode === "file" ? (
                     <div className="flex items-center">
                       <span className="text-lg mr-3">
-                        <img src={`${item.icon}`} width="24" height="24" alt={item.title}/>
+                        <img src={`${item.iconUrl}`} width="24" height="24" alt={item.title}/>
                       </span>
                       <span className="neutral-dark">{item.label}</span>
                     </div>

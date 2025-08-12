@@ -54,7 +54,7 @@ export default function RecentContent() {
     ...mainLessons.slice(0, 3).map(mainLesson => ({
       id: mainLesson.id,
       title: mainLesson.title,
-      imageCover: mainLesson.imageCover,
+      imageCover: mainLesson.imageCoverUrl,
       type: `Main lesson`,
       icon: null,
       iconMode: null,
@@ -66,7 +66,7 @@ export default function RecentContent() {
       type: `Lesson • ${lesson.level}`,
       imageCover: null,
       //icon: IMAGE_MAP[lesson.image] || "📚",
-      icon: lesson.lessonType?.icon || "📚",
+      icon: lesson.lessonType?.iconMode === "file" ? lesson.lessonType?.iconUrl || "📚" : lesson.lessonType?.icon || "📚",
       iconMode: lesson.lessonType?.iconMode,
       updated: formatDistanceToNow(new Date(lesson.updatedAt), { addSuffix: true }),
     })),
