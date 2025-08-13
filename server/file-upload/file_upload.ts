@@ -23,16 +23,16 @@ const storage = multer.diskStorage({
         cb(null, 'uploads/')
     },
     filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname); // Unique filename
+        cb(null, Date.now() + '-dev-' + file.originalname); // Unique filename
     }
 })
 
 const fileFilter = (req: any, file: any, cb: any) => {
   // Check file type based on MIME type
-  if (file.mimetype === 'image/png' || file.mimetype === 'image/svg+xml') {
+  if (file.mimetype === 'image/png' || file.mimetype === 'image/svg+xml' || file.mimetype === 'image/jpeg' || file.mimetype === 'image/webp') {
     cb(null, true); // Accept the file
   } else {
-    cb(new Error('Invalid file type. Only PNG and SVG are allowed.'), false); // Reject the file
+    cb(new Error('Invalid file type. Only PNG, JPEG, WEBP and SVG are allowed.'), false); // Reject the file
   }
 }
 

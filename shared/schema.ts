@@ -255,7 +255,7 @@ export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
 export type LessonData = {
   id: number
   title: string
-  mainLessonId: number,
+  mainLessonId: number
   lessonType: LessonType
   description: string
   level: string
