@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Eye, Save } from "lucide-react";
-import { LessonData, LessonType, MainLesson } from "@shared/schema";
+import { Lesson, LessonType, MainLesson } from "@shared/schema";
 // import { IMAGE_MAP } from "@/lib/constants";
 import RichTextEditor from "@/components/ui/rich-text-editor";
 import { useQuery } from "@tanstack/react-query";
@@ -35,8 +35,8 @@ const lessonSchema = z.object({
   description: z.string().min(1, "Description is required"),
   level: z.enum(["Beginner", "Intermediate", "Advanced"]),
   image: z.string(),
-  free: z.boolean(),
-  price: z.number().optional(),
+  // free: z.boolean(),
+  // price: z.number().optional(),
   sections: z.array(z.object({
     title: z.string().min(1, "Section title is required"),
     content: z.string().min(1, "Section content is required"),
@@ -46,7 +46,7 @@ const lessonSchema = z.object({
 type LessonFormData = z.infer<typeof lessonSchema>;
 
 interface LessonFormProps {
-  lesson: LessonData | null;
+  lesson: Lesson | null;
   onSubmit: (data: LessonFormData, isDraft?: boolean) => void;
   onPreview: (data: LessonFormData) => void;
   isLoading: boolean;
@@ -66,14 +66,14 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
       description: lesson?.description || "",
       level: lesson?.level as any || "Beginner",
       image: lesson?.image || "",
-      free: lesson?.free ?? true,
-      price: lesson?.price ? lesson.price / 100 : undefined,
+      // free: lesson?.free ?? true,
+      // price: lesson?.price ? lesson.price / 100 : undefined,
       sections: lesson?.sections as any || [{ title: "", content: "" }],
     },
   });
 
   const { watch, setValue } = form;
-  const watchedFree = watch("free");
+  // const watchedFree = watch("free");
   const watchedSections = watch("sections");
 
   // Auto-save simulation
@@ -109,7 +109,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
           title: lessonType?.title ?? "",
           iconMode: lessonType?.iconMode ?? ""
         },
-        price: data.free ? undefined : (data.price || 0) * 100,
+        //price: data.free ? undefined : (data.price || 0) * 100,
       });
     }
   };
@@ -118,7 +118,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
     onSubmit({
       ...data,
       image: form.getValues("image"),
-      price: data.free ? undefined : (data.price || 0) * 100,
+      //price: data.free ? undefined : (data.price || 0) * 100,
     }, isDraft);
   };
 
@@ -199,20 +199,6 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
               </FormItem>
             )}
           />
-
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Lesson Title *</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter lesson title" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
           
           {/* <FormField
             control={form.control}
@@ -238,8 +224,23 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
               </FormItem>
             )}
           /> */}
+        </div>
 
-          {/* field.onChange(parseInt(e)) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Lesson Title *</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter lesson title" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name="lessonTypeId"
@@ -271,9 +272,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
               </FormItem>
             )}
           />
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <FormField
             control={form.control}
             name="level"
@@ -297,7 +296,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
             )}
           />
           
-          <FormField
+          {/* <FormField
             control={form.control}
             name="free"
             render={({ field }) => (
@@ -339,7 +338,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
                 </FormItem>
               )}
             />
-          )}
+          )} */}
         </div>
 
         <FormField

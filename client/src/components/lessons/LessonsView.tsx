@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Plus, Edit, Eye, Trash2, ChevronLeft, ChevronRight, Library } from "lucide-react";
-import { Lesson, LessonData, LessonType } from "@shared/schema";
+import { Lesson, LessonType } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 // import { IMAGE_MAP } from "@/lib/constants";
@@ -20,7 +20,7 @@ interface LessonsViewProps {
 }
 
 type LessonListData = {
-  lessons: LessonData[],
+  lessons: Lesson[],
   total: number
 }
 
@@ -31,8 +31,8 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLessons, setSelectedLessons] = useState<number[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
-  const [previewLesson, setPreviewLesson] = useState<LessonData | null>(null);
+  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [previewLesson, setPreviewLesson] = useState<Lesson | null>(null);
   const [limit, _] = useState(15)
   var [offset, setOffset] = useState(0)
   const [pageNumber, setPageNumber] = useState(1)
@@ -122,18 +122,18 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
     },
   });
 
-  const handleDelete = (lesson: Lesson | LessonData) => {
+  const handleDelete = (lesson: Lesson) => {
     onDelete("lesson", lesson.title, () => {
       deleteMutation.mutate(lesson.id);
     });
   };
 
-  const handleEdit = (lesson: LessonData) => {
+  const handleEdit = (lesson: Lesson) => {
     setEditingLesson(lesson);
     setIsModalOpen(true);
   };
 
-  const handlePreview = (lesson: LessonData) => {
+  const handlePreview = (lesson: Lesson) => {
     setPreviewLesson(lesson);
   };
 
@@ -291,7 +291,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                     <th className="text-left p-4 font-medium neutral-dark">Type</th>
                     <th className="text-left p-4 font-medium neutral-dark">Level</th>
                     <th className="text-left p-4 font-medium neutral-dark">Status</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Price</th>
+                    {/* <th className="text-left p-4 font-medium neutral-dark">Price</th> */}
                     <th className="text-left p-4 font-medium neutral-dark">Updated</th>
                     <th className="text-left p-4 font-medium neutral-dark">Actions</th>
                   </tr>
@@ -336,7 +336,11 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                           { lesson.image && lesson.image.length > 0 && (
                             <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
                               {/* {lesson.image.charAt(0).toUpperCase() + lesson.image.slice(1)} */}
-                              {lesson.lessonType.title.charAt(0).toUpperCase() + lesson.lessonType.title.slice(1)}
+                              {
+                                lesson.lessonType && (
+                                  lesson.lessonType.title.charAt(0).toUpperCase() + lesson.lessonType.title.slice(1)
+                                )
+                              }
                             </Badge>
                           )}
                         </td>
@@ -350,15 +354,15 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                             {lesson.status.charAt(0).toUpperCase() + lesson.status.slice(1)}
                           </Badge>
                         </td>
-                        <td className="p-4">
+                        {/* <td className="p-4">
                           <span className="neutral-dark font-medium">
-                            {/* {lesson.free ? "Free" : `$${((lesson.price || 0) / 100).toFixed(2)}`} */}
+                            {lesson.free ? "Free" : `$${((lesson.price || 0) / 100).toFixed(2)}`}
                             {lesson.free ? "Free" : `${Intl.NumberFormat("en-US", {
                               style: "currency",
                               currency: "USD",
                             }).format((lesson.price || 0) / 100)}`}
                           </span>
-                        </td>
+                        </td> */}
                         <td className="p-4">
                           <span className="neutral-medium text-sm">
                             {new Date(lesson.updatedAt).toLocaleDateString()}

@@ -16,8 +16,11 @@ import { Button } from "@/components/ui/button";
 import { MainLesson } from "@shared/schema";
 import { Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 const mainLessonSchema = z.object({
+    free: z.boolean(),
+    price: z.number().optional(),
     imageCover: z.string().min(1, "Image cover is required"),
     title: z.string().min(1, "Title is required"),
     description: z.string().min(1, "Description is required")
@@ -34,17 +37,22 @@ interface MainLessonFormProps{
 export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: MainLessonFormProps){
     const [autoSaveTime, setAutoSaveTime] = useState<Date | null>(null)
     //const [selectedFile, setSelectedFile] = useState<File | null>(null)
-    const [previewImage, setPreviewImage] = useState<string | null>(mainLesson ? mainLesson.imageCoverUrl : null)
+    const [previewImage, setPreviewImage] = useState<string | null>(mainLesson ? `${mainLesson.imageCoverUrl}` : null)
     const { toast } = useToast()
 
     const form = useForm<MainLessonFormData>({
         resolver: zodResolver(mainLessonSchema),
         defaultValues: {
+            free: mainLesson?.free ?? true,
+            price: mainLesson?.price ? mainLesson.price / 100 : undefined,
             imageCover: mainLesson?.imageCover ?? "",
             title: mainLesson?.title ?? "",
             description: mainLesson?.description ?? ""
         }
     })
+
+    const { watch } = form
+    const watchedFree = watch("free")
 
     const uploadFile = async (file: File) => {
         try {
@@ -136,7 +144,16 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
     }
 
     const handleSubmit = (data: MainLessonFormData, isDraft = false) => {
-        onSubmit({...data}, isDraft)
+        form.clearErrors()
+        //onSubmit({...data, price: data.free ? undefined : (data?.price || 0) * 100}, isDraft)
+        const price = data.free ? undefined : (data?.price || 0) * 100
+        if(price === 0){
+            form.setError("price", {
+                message: "Price is required"
+            })
+            return
+        }
+        onSubmit({...data, price: price}, isDraft)
     }
 
     // Auto-save simulation
@@ -153,6 +170,52 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
         <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => handleSubmit(data))} className="space-y-6">
                 {/* Basic Information */}
+
+                <FormField
+                control={form.control}
+                name="free"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Pricing</FormLabel>
+                    <Select onValueChange={(value) => field.onChange(value === "true")} value={field.value.toString()}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="true">Free</SelectItem>
+                            <SelectItem value="false">Paid</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+
+                {!watchedFree && (
+                    <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Price ($)</FormLabel>
+                        <FormControl>
+                            <Input 
+                            type="number" 
+                            step="0.01" 
+                            placeholder="0.00"
+                            min="0" 
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                )}
+
                 <FormField 
                     control={form.control}
                     name="imageCover"
@@ -183,7 +246,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                                 {
                                     previewImage && previewImage.length > 0 && (
                                         <div className="w-full border rounded p-4 flex items-center justify-center">
-                                            <img className="rounded" src={`${previewImage}`} width="150" height="150"/>
+                                            <img className="rounded" src={`${previewImage}`} width="150" height="150" />
                                         </div>
                                     )
                                 }

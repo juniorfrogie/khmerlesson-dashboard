@@ -76,6 +76,7 @@ const createOrder = async (req: any, purchaseUnits: any) => {
             httpStatusCode: httpResponse.statusCode
         };
     } catch (error) {
+        console.log(error)
         if (error instanceof ApiError) {
             // const { statusCode, headers } = error;
             throw new Error(error.message);

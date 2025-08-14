@@ -8,13 +8,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Library } from "lucide-react";
-import { LessonData } from "@shared/schema";
+import { Lesson } from "@shared/schema";
 // import { IMAGE_MAP } from "@/lib/constants";
 
 interface LessonPreviewProps {
-  lesson: LessonData | null;
+  lesson: Lesson | null;
   isOpen: boolean;
-  onClose: (lesson: LessonData) => void;
+  onClose: (lesson: Lesson) => void;
   isFormPreview?: boolean;
 }
 
@@ -65,13 +65,13 @@ export default function LessonPreview({ lesson, isOpen, onClose, isFormPreview =
                         }>
                           {lesson.level}
                         </Badge>
-                        <Badge variant={lesson.free ? "default" : "secondary"}>
-                          {/* {lesson.free ? "Free" : `$${((lesson.price || 0) / 100).toFixed(2)}`} */}
+                        {/* <Badge variant={lesson.free ? "default" : "secondary"}>
+                          {lesson.free ? "Free" : `$${((lesson.price || 0) / 100).toFixed(2)}`}
                           {lesson.free ? "Free" : `${Intl.NumberFormat("en-US", {
                             style: "currency",
                             currency: "USD",
                           }).format((lesson.price || 0) / 100)}`}
-                        </Badge>
+                        </Badge> */}
                       </div>
                     </div>
                   </div>

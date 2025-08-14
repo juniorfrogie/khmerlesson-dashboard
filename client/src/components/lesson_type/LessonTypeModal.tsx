@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import LessonTypeForm from "./LessonTypeForm";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/use-auth";
 
 interface LessonTypeModalProps {
   isOpen: boolean;
@@ -16,7 +15,6 @@ interface LessonTypeModalProps {
 export default function LessonTypeModal({isOpen, onClose, lessonType}: LessonTypeModalProps){
     const [formData, setFormData] = useState<any>(null);
     const { toast } = useToast();
-    const { user } = useAuth()
 
     const createMutation = useMutation({
         mutationFn: async (data: LessonType) => await apiRequest("POST", "/api/lesson-type", data),

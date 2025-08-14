@@ -39,6 +39,7 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
         "Image cover",
         "Main Lesson",
         "Status",
+        "Price",
         "Update",
         "Actions"
     ]
@@ -250,6 +251,14 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps){
                                                     <Badge variant={getBadgeVariant(mainLesson.status)}>
                                                         {mainLesson.status.charAt(0).toUpperCase() + mainLesson.status.slice(1)}
                                                     </Badge>
+                                                </td>
+                                                 <td className="p-4">
+                                                    <span className="neutral-dark font-medium">
+                                                        {mainLesson.free ? "Free" : `${Intl.NumberFormat("en-US", {
+                                                            style: "currency",
+                                                            currency: "USD",
+                                                        }).format((mainLesson.price || 0) / 100)}`}
+                                                    </span>
                                                 </td>
                                                  <td className="p-4">
                                                     <span className="neutral-medium text-sm">

@@ -26,17 +26,27 @@ import { mailTemplate } from "./mail/mail_template";
 import cron from "node-cron"
 import path from "path";
 import fs from "fs";
-import AWS from "aws-sdk"
+// import AWS from "aws-sdk"
+import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3"
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
   const { TOKEN_SECRET } = process.env
   const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
-  const bucketEndpoint = `${process.env.BUCKET_NAME}.${process.env.BUCKET_END_POINT}`
-  const s3 = new AWS.S3({
-    endpoint: process.env.BUCKET_END_POINT, 
-    accessKeyId: process.env.BUCKET_ACCESS_KEY,
-    secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY
+  const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
+  // const s3 = new AWS.S3({
+  //   endpoint: process.env.BUCKET_END_POINT, 
+  //   accessKeyId: process.env.BUCKET_ACCESS_KEY,
+  //   secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY
+  // })
+
+  const s3 = new S3Client({
+    region: process.env.BUCKET_REGION,
+    endpoint: process.env.BUCKET_END_POINT,
+    credentials: {
+      accessKeyId: process.env.BUCKET_ACCESS_KEY ?? "",
+      secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY ?? ""
+    }
   })
 
   async function checkFileExists(key: string): Promise<string> {
@@ -47,9 +57,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           Bucket: process.env.BUCKET_NAME ?? "",
           Key: key
         }
-        const s3RequestHeadObject = s3.headObject(params)
-        await s3RequestHeadObject.promise()
-        const urlBucketEndpoint = `https://${bucketEndpoint}/${params.Key}`
+        //const s3RequestHeadObject = s3.headObject(params)
+        //await s3RequestHeadObject.promise()
+        const command = new HeadObjectCommand(params)
+        await s3.send(command)
+        const urlBucketEndpoint = `${bucketEndpoint}/${params.Key}`
         return urlBucketEndpoint
         // s3.headObject(params, (err, data) => {
         //   if (err) {
@@ -61,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         //       return defaultImageNotFoundPath
         //     }
         //   } else {
-        //     const urlBucketEndpoint = `https://${bucketEndpoint}/${params.Key}`
+        //     const urlBucketEndpoint = `${bucketEndpoint}/${params.Key}`
         //     return urlBucketEndpoint
         //   }
         // });
@@ -152,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for(let e of result){
         if(e.lessonType?.iconMode === "file"){
           if(process.env.NODE_ENV === "production"){
-            const urlBucketEndpoint = `https://${bucketEndpoint}/${e.lessonType?.icon}`
+            const urlBucketEndpoint = `${bucketEndpoint}/${e.lessonType?.icon}`
             e.lessonType.iconUrl = urlBucketEndpoint
           }else{
             const url = `/uploads/${e.lessonType?.icon}`
@@ -245,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (type && type !== "all") {
-        lessons = lessons.filter(lesson => lesson.lessonType.title.toLowerCase() === type);
+        lessons = lessons.filter(lesson => lesson.lessonType?.title.toLowerCase() === type);
       }
       
       if (status && status !== "all") {
@@ -255,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for(let lesson of lessons){
         if(lesson.lessonType?.iconMode === "file"){
           if(process.env.NODE_ENV === "production"){
-            const urlBucketEndpoint = `https://${bucketEndpoint}/${lesson.lessonType?.icon}`
+            const urlBucketEndpoint = `${bucketEndpoint}/${lesson.lessonType?.icon}`
             lesson.lessonType.iconUrl = urlBucketEndpoint
           }else{
             const url = `/uploads/${lesson.lessonType?.icon}`
@@ -352,7 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for(let lessonType of lessonTypes){
         if(lessonType?.iconMode === "file"){
           if(process.env.NODE_ENV === "production"){
-            const urlBucketEndpoint = `https://${bucketEndpoint}/${lessonType?.icon}`
+            const urlBucketEndpoint = `${bucketEndpoint}/${lessonType?.icon}`
             lessonType.iconUrl = urlBucketEndpoint
           }else{
             const url = `/uploads/${lessonType?.icon}`
@@ -403,7 +415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if(lessonType?.iconMode === "file"){
         if(process.env.NODE_ENV === "production"){
-          const urlBucketEndpoint = `https://${bucketEndpoint}/${lessonType?.icon}`
+          const urlBucketEndpoint = `${bucketEndpoint}/${lessonType?.icon}`
           lessonType.iconUrl = urlBucketEndpoint
         }else{
           const url = `/uploads/${lessonType?.icon}`
@@ -1220,7 +1232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedPurchaseHistory
       });
     } catch (error) {
-      console.log(error)
+      console.error(error)
       res.status(500).json({ message: "Failed to update purchase history!", errors: error });
     }
   })

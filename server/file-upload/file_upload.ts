@@ -1,6 +1,7 @@
 import { Router } from "express"
 import multer from "multer"
-import AWS from "aws-sdk"
+// import AWS from "aws-sdk"
+import { S3Client, PutObjectCommand, ObjectCannedACL } from "@aws-sdk/client-s3"
 
 const router = Router()
 
@@ -12,10 +13,19 @@ const router = Router()
 // })
 
 // Configure AWS SDK for DigitalOcean Spaces
-const s3 = new AWS.S3({
-  endpoint: process.env.BUCKET_END_POINT, 
-  accessKeyId: process.env.BUCKET_ACCESS_KEY,
-  secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY
+// const s3 = new AWS.S3({
+//   endpoint: process.env.BUCKET_END_POINT, 
+//   accessKeyId: process.env.BUCKET_ACCESS_KEY,
+//   secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY
+// })
+
+const s3 = new S3Client({
+    region: process.env.BUCKET_REGION,
+    endpoint: process.env.BUCKET_END_POINT, 
+    credentials: {
+        accessKeyId: process.env.BUCKET_ACCESS_KEY ?? "",
+        secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY ?? ""
+    }
 })
 
 const storage = multer.diskStorage({
@@ -54,20 +64,22 @@ router.post("/upload", upload.single('file'), async (req, res) => {
             Bucket: process.env.BUCKET_NAME ?? "",
             Key: process.env.NODE_EXTRA_CA_CERTS ? Date.now() + '-' + req.file.originalname : `${Date.now() + '-dev-' + req.file.originalname}`, // Unique file name
             Body: req.file.buffer, // The file buffer from Multer
-            ACL: 'public-read', // Makes the file publicly accessible (adjust as needed)
+            ACL: 'public-read' as ObjectCannedACL, // Makes the file publicly accessible (adjust as needed)
             ContentType: req.file.mimetype
         }
         if(process.env.NODE_ENV === "production"){  
-            await s3.upload(params).promise()
+            //await s3.upload(params).promise()
+            const command = new PutObjectCommand(params);
+            await s3.send(command)
         }
 
-        const bucketEndpoint = `${process.env.BUCKET_NAME}.${process.env.BUCKET_END_POINT}`
+        const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
 
         res.status(201).json({
             message: "File uploaded successfully!",
             data: {
                 filename: process.env.NODE_ENV === "production" ? params.Key : req.file?.filename,
-                url: process.env.NODE_ENV === "production" ? `https://${bucketEndpoint}/${params.Key}` : `/uploads/${req.file?.filename}`,
+                url: process.env.NODE_ENV === "production" ? `${bucketEndpoint}/${params.Key}` : `/uploads/${req.file?.filename}`,
                 mimeType: req.file?.mimetype,
                 size: req.file?.size,
                 path: req.file?.path

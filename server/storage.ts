@@ -27,7 +27,7 @@ import {
   LessonType,
   InsertLessonType,
   UpdateLessonType,
-  LessonData,
+  // LessonData,
   lessonType,
   MainLesson,
   InsertMainLesson,
@@ -65,18 +65,20 @@ export interface IStorage {
   updateMainLesson(id: number, mainLesson: UpdateMainLesson): Promise<MainLesson | undefined>
   deleteMainLesson(id: number): Promise<boolean>
   getMainLessonCount(): Promise<number>;
+  getMainLessonsJoin(user: User): Promise<any>
+  getAllLessonsByMainLesson(id: number): Promise<any>;
   
   // Lessons
   // getLessons(): Promise<Lesson[]>;
-  getAllLessons(): Promise<LessonData[]>;
-  getLessons(limit: number, offset: number): Promise<LessonData[]>;
+  getAllLessons(): Promise<Lesson[]>;
+  getLessons(limit: number, offset: number): Promise<Lesson[]>;
   getLesson(id: number): Promise<Lesson | undefined>;
   createLesson(insertLesson: InsertLesson): Promise<Lesson>;
   updateLesson(id: number, lesson: UpdateLesson): Promise<Lesson | undefined>;
   deleteLesson(id: number): Promise<boolean>;
-  getLessonsJoin(user: User, mainLessonId: number): Promise<any>
+  // getLessonsJoin(user: User, mainLessonId: number): Promise<any>
   getLessonDetailByLessonTypeId(id: number): Promise<Lesson[]>
-  getLessonDetailByMainLessonId(id: number): Promise<LessonData[]>
+  getLessonDetailByMainLessonId(id: number): Promise<Lesson[]>
   getLessonCount(): Promise<number>;
 
   // Lesson Type
@@ -98,7 +100,7 @@ export interface IStorage {
   getAnalytics(): Promise<Analytics[]>;
   
   // Import/Export
-  exportLessons(): Promise<Lesson[] | LessonData[]>;
+  exportLessons(): Promise<Lesson[]>;
   exportQuizzes(): Promise<Quiz[]>;
   importLessons(lessons: InsertLesson[]): Promise<Lesson[]>;
   importQuizzes(quizzes: InsertQuiz[]): Promise<Quiz[]>;
@@ -268,6 +270,81 @@ export class DatabaseStorage implements IStorage {
     return result
   }
 
+  async getMainLessonsJoin(user: User): Promise<any> {
+    const result = await db.select().from(mainLessons)
+      .orderBy(mainLessons.createdAt);
+    const mainLessonsUserPurchased = await db.select().from(mainLessons)
+      .fullJoin(purchase_history, eq(mainLessons.id, purchase_history.mainLessonId))
+      .innerJoin(users, eq(users.id, purchase_history.userId))
+      .where(eq(users.id, user.id))
+      .orderBy(mainLessons.createdAt);
+
+    const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
+    const publishedLessons = result.filter(e => e.status === "published").map(e => ({
+      id: e.id,
+      title: e.title,
+      description: e.description,
+      imageCover: e.imageCover,
+      imageFile: {
+        name: e.imageCover,
+        // url: `${bucketEndpoint}/${e.imageCover}`,
+        //extension: extname(`/uploads/${e.lesson_type.icon}`)
+        extension: extname(`${bucketEndpoint}/${e.imageCover}`)
+      },
+      free: e.free,
+      price: e.price,
+      priceCurrency: `${Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD"
+      }).format((e.price || 0) / 100)}`,
+      hasPurchased: false,
+      createdAt: e.createdAt,
+      updatedAt: e.updatedAt
+    }))
+
+    for(let mainLessonPurchased of mainLessonsUserPurchased){
+        const indexFound = publishedLessons.findIndex(e => e.id === mainLessonPurchased.main_lessons?.id)
+        let hasPurchased = mainLessonPurchased.main_lessons?.id === mainLessonPurchased.purchase_history?.mainLessonId
+            && mainLessonPurchased.purchase_history?.userId === user.id 
+            && mainLessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
+        if(indexFound === -1) break
+        publishedLessons[indexFound].hasPurchased = hasPurchased
+    }
+    return publishedLessons;
+  }
+
+  async getAllLessonsByMainLesson(id: number): Promise<any> {
+    const result = await db.select().from(lessons)
+      .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
+      .innerJoin(mainLessons, eq(mainLessons.id, lessons.mainLessonId))
+      .where(eq(mainLessons.id, id))
+      .orderBy(lessons.createdAt);
+
+    const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`  
+    const publishedLessons = result.filter(e => e.lessons.status === "published").map(e => ({
+      id: e.lessons.id,
+      mainLessonId: e.lessons.mainLessonId,
+      title: e.lessons.title,
+      description: e.lessons.description,
+      level: e.lessons.level,
+      lessonType: e.lesson_type,
+      image: e.lessons.image,
+      imageFile: e.lesson_type.iconMode === "raw" ? null : {
+        name: e.lesson_type.icon,
+        //url: `${bucketEndpoint}/${e.lesson_type.icon}`,
+        //extension: extname(`/uploads/${e.lesson_type.icon}`)
+        extension: extname(`${bucketEndpoint}/${e.lesson_type.icon}`)
+      },
+      // free: e.lessons.free,
+      // price: e.lessons.price,
+      // sections: e.lessons.sections,
+      // status: e.lessons.status,
+      createdAt: e.lessons.createdAt,
+      updatedAt: e.lessons.updatedAt
+    }))
+    return publishedLessons
+  }
+
   async createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson> {
     const [result] = await db.insert(mainLessons).values(
       {
@@ -296,13 +373,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Lesson operations
-  async getAllLessons(): Promise<LessonData[]> {
+  async getAllLessons(): Promise<Lesson[]> {
     // const result = await db.select().from(lessons).orderBy(lessons.createdAt);
     const result = await db.select().from(lessons)
       .leftJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
       .orderBy(lessons.createdAt)
   
-    const lessonList = result.map(e => (<LessonData>{
+    const lessonList = result.map(e => (<Lesson>{
       id: e.lessons.id,
       mainLessonId: e.lessons.mainLessonId,
       lessonTypeId: e.lessons.lessonTypeId,
@@ -310,9 +387,9 @@ export class DatabaseStorage implements IStorage {
       title: e.lessons.title,
       description: e.lessons.description,
       level: e.lessons.level,
-      free: e.lessons.free,
       image: e.lessons.image,
-      price: e.lessons.price,
+      // free: e.lessons.free,
+      // price: e.lessons.price,
       status: e.lessons.status,
       sections: e.lessons.sections,
       createdAt: e.lessons.createdAt,
@@ -321,14 +398,14 @@ export class DatabaseStorage implements IStorage {
     return lessonList;
   }
 
-  async getLessons(limit: number, offset: number): Promise<LessonData[]> {
+  async getLessons(limit: number, offset: number): Promise<Lesson[]> {
     const result = await db.select().from(lessons)
       .leftJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
       .limit(limit)
       .offset(offset)
       .orderBy(lessons.createdAt)
   
-    const lessonList = result.map(e => (<LessonData>{
+    const lessonList = result.map(e => (<Lesson>{
       id: e.lessons.id,
       mainLessonId: e.lessons.mainLessonId,
       lessonTypeId: e.lessons.lessonTypeId,
@@ -336,9 +413,9 @@ export class DatabaseStorage implements IStorage {
       title: e.lessons.title,
       description: e.lessons.description,
       level: e.lessons.level,
-      free: e.lessons.free,
       image: e.lessons.image,
-      price: e.lessons.price,
+      // free: e.lessons.free,
+      // price: e.lessons.price,
       status: e.lessons.status,
       sections: e.lessons.sections,
       createdAt: e.lessons.createdAt,
@@ -347,114 +424,64 @@ export class DatabaseStorage implements IStorage {
     return lessonList
   }
 
-  async getLessonsJoin(user: User, mainLessonId: number): Promise<any> {
-    // const result = await db.select().from(users)
-    // .innerJoin(purchase_history, eq(users.id, purchase_history.userId))
-    // .fullJoin(lessons, eq(lessons.id, purchase_history.lessonId))
-    // .orderBy(lessons.id);
-    // const publishedLessons = result.filter(e => e.lessons?.status == "published").map(e => ({
-    //   id: e.lessons?.id,
-    //   title: e.lessons?.title,
-    //   description: e.lessons?.description,
-    //   level: e.lessons?.level,
-    //   image: e.lessons?.image,
-    //   free: e.lessons?.free,
-    //   price: e.lessons?.price,
-    //   hasPurchased: e.purchase_history?.lessonId === e.lessons?.id && e.purchase_history?.userId === user.id
-    //     && e.purchase_history?.paymentStatus?.toLowerCase() === "completed",
-    //   createdAt: e.lessons?.createdAt,
-    //   updatedAt: e.lessons?.updatedAt
-    // }))
-    // return publishedLessons;
+  // async getLessonsJoin(user: User, mainLessonId: number): Promise<any> {
+  //   const result = await db.select().from(lessons)
+  //     .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
+  //     .innerJoin(mainLessons, eq(mainLessons.id, lessons.mainLessonId))
+  //     .where(eq(mainLessons.id, mainLessonId))
+  //     .orderBy(lessons.createdAt);
+  //   const lessonsUserPurchased = await db.select().from(lessons)
+  //     .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
+  //     .innerJoin(users, eq(users.id, purchase_history.userId))
+  //     .where(eq(users.id, user.id))
+  //     .orderBy(lessons.createdAt);
 
-    // const result = await db.select().from(lessons)
-    // .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
-    // .fullJoin(users, eq(users.id, purchase_history.userId))
-    // .orderBy(lessons.id);
-    // const publishedLessons = result.filter(e => e.lessons?.status === "published").map(e => ({
-    //   id: e.lessons?.id,
-    //   title: e.lessons?.title,
-    //   description: e.lessons?.description,
-    //   level: e.lessons?.level,
-    //   image: e.lessons?.image,
-    //   free: e.lessons?.free,
-    //   price: e.lessons?.price,
-    //   hasPurchased: e.purchase_history?.lessonId === e.lessons?.id && e.purchase_history?.userId === user.id
-    //     && e.purchase_history?.paymentStatus?.toLowerCase() === "completed",
-    //   createdAt: e.lessons?.createdAt,
-    //   updatedAt: e.lessons?.updatedAt
-    // }))
+  //   const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
+  //   const publishedLessons = result.filter(e => e.lessons.status === "published").map(e => ({
+  //     id: e.lessons.id,
+  //     mainLessonId: e.lessons.mainLessonId,
+  //     title: e.lessons.title,
+  //     description: e.lessons.description,
+  //     level: e.lessons.level,
+  //     lessonType: e.lesson_type,
+  //     image: e.lessons.image,
+  //     imageFile: e.lesson_type.iconMode === "raw" ? null : {
+  //       name: e.lesson_type.icon,
+  //       // url: `${bucketEndpoint}/${e.lesson_type.icon}`,
+  //       //extension: extname(`/uploads/${e.lesson_type.icon}`)
+  //       extension: extname(`${bucketEndpoint}/${e.lesson_type.icon}`)
+  //     },
+  //     free: e.lessons.free,
+  //     price: e.lessons.price,
+  //     priceCurrency: `${Intl.NumberFormat("en-US", {
+  //       style: "currency",
+  //       currency: "USD"
+  //     }).format((e.lessons.price || 0) / 100)}`,
+  //     hasPurchased: false,
+  //     createdAt: e.lessons.createdAt,
+  //     updatedAt: e.lessons.updatedAt
+  //   }))
 
-    // for(let i = 0; i < publishedLessons.length - 1; i++){
-    //   if(publishedLessons[i].id === publishedLessons[i + 1].id){
-    //       if(!publishedLessons[i].hasPurchased){
-    //         publishedLessons.splice(i, 1)
-    //       }else if(!publishedLessons[i + 1].hasPurchased){
-    //         publishedLessons.splice(i + 1, 1)
-    //       }
-    //   }
-    // }
+  //   // for(let e1 of publishedLessons){
+  //   //   for(let e2 of lessonUserPurchased){
+  //   //     let hasPurchased = e1.id === e2.purchase_history?.lessonId && e2.purchase_history?.userId === user.id 
+  //   //         && e2.purchase_history?.paymentStatus?.toLowerCase() === "completed"
+  //   //     if(hasPurchased){
+  //   //       e1.hasPurchased = hasPurchased
+  //   //     }
+  //   //   }
+  //   // }
 
-    // const uniqueArray = publishedLessons.filter((obj, index, self) =>
-    //   index === self.findIndex((o) => o.id === obj.id)
-    // );
-    
-    // return publishedLessons;
-
-    const result = await db.select().from(lessons)
-      .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
-      .innerJoin(mainLessons, eq(mainLessons.id, lessons.mainLessonId))
-      .where(eq(mainLessons.id, mainLessonId))
-      .orderBy(lessons.createdAt);
-    const lessonsUserPurchased = await db.select().from(lessons)
-      .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
-      .innerJoin(users, eq(users.id, purchase_history.userId))
-      .where(eq(users.id, user.id))
-      .orderBy(lessons.createdAt);
-
-    const publishedLessons = result.filter(e => e.lessons.status === "published").map(e => ({
-      id: e.lessons.id,
-      mainLessonId: e.lessons.mainLessonId,
-      title: e.lessons.title,
-      description: e.lessons.description,
-      level: e.lessons.level,
-      lessonType: e.lesson_type,
-      image: e.lessons.image,
-      imageFile: e.lesson_type.iconMode === "raw" ? null : {
-        name: e.lesson_type.icon,
-        extension: extname(`/uploads/${e.lesson_type.icon}`)
-      },
-      free: e.lessons.free,
-      price: e.lessons.price,
-      priceCurrency: `${Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD"
-      }).format((e.lessons.price || 0) / 100)}`,
-      hasPurchased: false,
-      createdAt: e.lessons.createdAt,
-      updatedAt: e.lessons.updatedAt
-    }))
-
-    // for(let e1 of publishedLessons){
-    //   for(let e2 of lessonUserPurchased){
-    //     let hasPurchased = e1.id === e2.purchase_history?.lessonId && e2.purchase_history?.userId === user.id 
-    //         && e2.purchase_history?.paymentStatus?.toLowerCase() === "completed"
-    //     if(hasPurchased){
-    //       e1.hasPurchased = hasPurchased
-    //     }
-    //   }
-    // }
-
-    for(let lessonPurchased of lessonsUserPurchased){
-        const indexFound = publishedLessons.findIndex(e => e.id === lessonPurchased.lessons?.id)
-        let hasPurchased = lessonPurchased.lessons?.id === lessonPurchased.purchase_history?.lessonId
-            && lessonPurchased.purchase_history?.userId === user.id 
-            && lessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
-        if(indexFound === -1) break
-        publishedLessons[indexFound].hasPurchased = hasPurchased
-    }
-    return publishedLessons;
-  }
+  //   for(let lessonPurchased of lessonsUserPurchased){
+  //       const indexFound = publishedLessons.findIndex(e => e.id === lessonPurchased.lessons?.id)
+  //       let hasPurchased = lessonPurchased.lessons?.id === lessonPurchased.purchase_history?.mainLessonId
+  //           && lessonPurchased.purchase_history?.userId === user.id 
+  //           && lessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
+  //       if(indexFound === -1) break
+  //       publishedLessons[indexFound].hasPurchased = hasPurchased
+  //   }
+  //   return publishedLessons;
+  // }
 
   async getLesson(id: number): Promise<Lesson | undefined> {
     const [lesson] = await db.select().from(lessons).where(eq(lessons.id, id));
@@ -467,8 +494,8 @@ export class DatabaseStorage implements IStorage {
       .values({
         ...insertLesson,
         status: insertLesson.status || "draft",
-        free: insertLesson.free ?? true,
-        price: insertLesson.price || null,
+        // free: insertLesson.free ?? true,
+        // price: insertLesson.price || null,
         sections: insertLesson.sections || []
       })
       .returning();
@@ -499,13 +526,13 @@ export class DatabaseStorage implements IStorage {
     return result
   }
 
-  async getLessonDetailByMainLessonId(id: number): Promise<LessonData[]> {
+  async getLessonDetailByMainLessonId(id: number): Promise<Lesson[]> {
     const result = await db.select().from(lessons)
       .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
       .where(eq(lessons.mainLessonId, id))
       .orderBy(lessons.createdAt)
 
-    const lessonList = result.map(e => (<LessonData>{
+    const lessonList = result.map(e => (<Lesson>{
       id: e.lessons.id,
       mainLessonId: e.lessons.mainLessonId,
       lessonTypeId: e.lessons.lessonTypeId,
@@ -513,9 +540,9 @@ export class DatabaseStorage implements IStorage {
       title: e.lessons.title,
       description: e.lessons.description,
       level: e.lessons.level,
-      free: e.lessons.free,
       image: e.lessons.image,
-      price: e.lessons.price,
+      // free: e.lessons.free,
+      // price: e.lessons.price,
       status: e.lessons.status,
       sections: e.lessons.sections,
       createdAt: e.lessons.createdAt,
@@ -588,8 +615,10 @@ export class DatabaseStorage implements IStorage {
     const totalPurchaseHistoryComplete = allPurchaseHistory
       .filter(f => f.paymentStatus?.toLowerCase() === "completed")
       .reduce((sum, f) => sum + ((f.purchaseAmount) / 100), 0)
-    const freeLessons = allLessons.filter(l => l.free).length;
-    const premiumLessons = allLessons.filter(l => !l.free).length;
+    // const freeLessons = allLessons.filter(l => l.free).length;
+    // const premiumLessons = allLessons.filter(l => !l.free).length;
+    const freeMainLessons = allMainLessons.filter(l => l.free).length;
+    const premiumMainLessons = allMainLessons.filter(l => !l.free).length;
     
     // Calculate growth (mock data)
     //const lessonsGrowth = 12; // 12% growth
@@ -650,10 +679,16 @@ export class DatabaseStorage implements IStorage {
       && f.createdAt.getFullYear() === currentYear)
     const purchasesGrowth = priorMonthPurchases.length === 0 ? 0 : ((currentMonthPurchases.length / priorMonthPurchases.length) - 1)
     
-    // Calculate average price
-    const premiumLessonsWithPrice = allLessons.filter(l => !l.free && l.price);
-    const avgPrice = premiumLessonsWithPrice.length > 0 
-      ? premiumLessonsWithPrice.reduce((sum, l) => sum + ((l.price || 0) / 100), 0) / premiumLessonsWithPrice.length
+    // // Calculate average price for lessons
+    // const premiumLessonsWithPrice = allLessons.filter(l => !l.free && l.price);
+    // const avgPrice = premiumLessonsWithPrice.length > 0 
+    //   ? premiumLessonsWithPrice.reduce((sum, l) => sum + ((l.price || 0) / 100), 0) / premiumLessonsWithPrice.length
+    //   : 0;
+
+    // Calculate average price for main lessons
+    const premiumMainLessonsWithPrice = allMainLessons.filter(l => !l.free && l.price);
+    const avgPrice = premiumMainLessonsWithPrice.length > 0 
+      ? premiumMainLessonsWithPrice.reduce((sum, l) => sum + ((l.price || 0) / 100), 0) / premiumMainLessonsWithPrice.length
       : 0;
 
     return {
@@ -663,8 +698,10 @@ export class DatabaseStorage implements IStorage {
       totalUsers,
       totalActiveUsers,
       totalPurchaseHistoryComplete,
-      freeLessons,
-      premiumLessons,
+      // freeLessons,
+      // premiumLessons,
+      freeMainLessons,
+      premiumMainLessons,
       mainLessonsGrowth,
       lessonsGrowth,
       quizzesGrowth,
@@ -680,7 +717,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async exportLessons(): Promise<Lesson[] | LessonData[]> {
+  async exportLessons(): Promise<Lesson[]> {
     return this.getAllLessons();
   }
 
@@ -713,7 +750,8 @@ export class DatabaseStorage implements IStorage {
         purchaseId: insertPurchaseHistory.purchaseId,
         userId: insertPurchaseHistory.userId,
         userEmail: insertPurchaseHistory.userEmail,
-        lessonId: insertPurchaseHistory.lessonId,
+        // lessonId: insertPurchaseHistory.lessonId,
+        mainLessonId: insertPurchaseHistory.mainLessonId,
         purchaseDate: insertPurchaseHistory.purchaseDate,
         paymentMethod: insertPurchaseHistory.paymentMethod,
         paymentStatus: insertPurchaseHistory.paymentStatus,
@@ -743,7 +781,8 @@ export class DatabaseStorage implements IStorage {
   async getPurchaseHistory(limit: number, offset: number): Promise<PurchaseHistoryData[]> {
     const result = await db.select().from(purchase_history)
       .innerJoin(users, eq(users.id, purchase_history.userId))
-      .innerJoin(lessons, eq(lessons.id, purchase_history.lessonId))
+      // .innerJoin(lessons, eq(lessons.id, purchase_history.lessonId))
+      .innerJoin(mainLessons, eq(mainLessons.id, purchase_history.mainLessonId))
       .limit(limit)
       .offset(offset)
       .orderBy(purchase_history.createdAt)
@@ -752,7 +791,8 @@ export class DatabaseStorage implements IStorage {
       id: e.purchase_history.id,
       purchaseId: e.purchase_history.purchaseId,
       email: e.users.email,
-      lessonId: e.purchase_history.lessonId,
+      // lessonId: e.purchase_history.lessonId,
+      mainLessonId: e.purchase_history.mainLessonId,
       purchaseDate: e.purchase_history.purchaseDate,
       purchaseAmount: e.purchase_history.purchaseAmount,
       platformType: e.purchase_history.platformType,

@@ -58,28 +58,35 @@ router.use(authenticateToken);
 // ===== MAIN LESSONS API =====
 
 // GET /api/v1/main-lessons - List all published main lessons
-router.get("/main-lessons", async (req, res) => {
+router.get("/main-lessons", async (req: any, res) => {
   try {
-    const mainLessons = await storage.getAllMainLessons();
-    const bucketEndpoint = `${process.env.BUCKET_NAME}.${process.env.BUCKET_END_POINT}`
-    const publishedMainLessons = mainLessons.filter(f => f.status === "published")
-      .map(mainLesson => ({
-        id: mainLesson.id,
-        title: mainLesson.title,
-        description: mainLesson.description,
-        imageCover: mainLesson.imageCover,
-        imageFile: {
-          name: mainLesson.imageCover,
-          url: process.env.NODE_ENV === "production" ? `https://${bucketEndpoint}/${mainLesson.imageCover}` : `${req.protocol + '://' + req.get('host') + `/uploads/${mainLesson.imageCover}`}`,
-          extension: path.extname(process.env.NODE_ENV === "production" ? `https://${bucketEndpoint}/${mainLesson.imageCover}` : `/uploads/${mainLesson.imageCover}`)
-        },
-        createdAt: mainLesson.createdAt,
-        updatedAt: mainLesson.updatedAt
-    }))
+    // const mainLessons = await storage.getAllMainLessons();
+    // const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
+    // const publishedMainLessons = mainLessons.filter(f => f.status === "published")
+    //   .map(mainLesson => ({
+    //     id: mainLesson.id,
+    //     title: mainLesson.title,
+    //     description: mainLesson.description,
+    //     imageCover: mainLesson.imageCover,
+    //     imageFile: {
+    //       name: mainLesson.imageCover,
+    //       url: process.env.NODE_ENV === "production" ? `${bucketEndpoint}/${mainLesson.imageCover}` : `${req.protocol + '://' + req.get('host') + `/uploads/${mainLesson.imageCover}`}`,
+    //       extension: path.extname(process.env.NODE_ENV === "production" ? `${bucketEndpoint}/${mainLesson.imageCover}` : `/uploads/${mainLesson.imageCover}`)
+    //     },
+    //     createdAt: mainLesson.createdAt,
+    //     updatedAt: mainLesson.updatedAt
+    // }))
+    // res.json({
+    //   success: true,
+    //   data: publishedMainLessons,
+    //   total: publishedMainLessons.length
+    // });
+
+    const mainLessons = await storage.getMainLessonsJoin(req.user);
     res.json({
       success: true,
-      data: publishedMainLessons,
-      total: publishedMainLessons.length
+      data: mainLessons,
+      total: mainLessons.length
     });
   } catch (error) {
     res.status(500).json({ 
@@ -134,7 +141,8 @@ router.get("/main-lessons", async (req, res) => {
 router.get("/lessons/main-lessons/:id", async (req: any, res: any) => {
   try {  
     const id = parseInt(req.params.id)
-    const lessons = await storage.getLessonsJoin(req.user, id);
+    // const lessons = await storage.getLessonsJoin(req.user, id);
+    const lessons = await storage.getAllLessonsByMainLesson(id);
     res.json({
       success: true,
       data: lessons,
@@ -190,8 +198,8 @@ router.get("/lessons/:id", async (req, res) => {
         description: lesson.description,
         level: lesson.level,
         image: lesson.image,
-        free: lesson.free,
-        price: lesson.price,
+        // free: lesson.free,
+        // price: lesson.price,
         sections: sections,
         createdAt: lesson.createdAt,
         updatedAt: lesson.updatedAt
@@ -219,8 +227,8 @@ router.get("/lessons/level/:level", async (req, res) => {
         description: lesson.description,
         level: lesson.level,
         image: lesson.image,
-        free: lesson.free,
-        price: lesson.price,
+        // free: lesson.free,
+        // price: lesson.price,
         createdAt: lesson.createdAt,
         updatedAt: lesson.updatedAt
       }));
@@ -239,35 +247,35 @@ router.get("/lessons/level/:level", async (req, res) => {
 });
 
 // GET /api/v1/lessons/free - Get all free lessons
-router.get("/lessons/free", async (req, res) => {
-  try {
-    const lessons = await storage.getAllLessons();
+// router.get("/lessons/free", async (req, res) => {
+//   try {
+//     const lessons = await storage.getAllLessons();
     
-    const freeLessons = lessons
-      .filter(lesson => lesson.status === 'published' && lesson.free)
-      .map(lesson => ({
-        id: lesson.id,
-        title: lesson.title,
-        description: lesson.description,
-        level: lesson.level,
-        image: lesson.image,
-        free: lesson.free,
-        createdAt: lesson.createdAt,
-        updatedAt: lesson.updatedAt
-      }));
+//     const freeLessons = lessons
+//       .filter(lesson => lesson.status === 'published' && lesson.free)
+//       .map(lesson => ({
+//         id: lesson.id,
+//         title: lesson.title,
+//         description: lesson.description,
+//         level: lesson.level,
+//         image: lesson.image,
+//         free: lesson.free,
+//         createdAt: lesson.createdAt,
+//         updatedAt: lesson.updatedAt
+//       }));
     
-    res.json({
-      success: true,
-      data: freeLessons,
-      total: freeLessons.length
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch free lessons' 
-    });
-  }
-});
+//     res.json({
+//       success: true,
+//       data: freeLessons,
+//       total: freeLessons.length
+//     });
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false, 
+//       error: 'Failed to fetch free lessons' 
+//     });
+//   }
+// });
 
 // ===== QUIZZES API =====
 
@@ -428,8 +436,8 @@ router.get("/stats", async (req, res) => {
       data: {
         totalLessons: stats.totalLessons,
         totalQuizzes: stats.totalQuizzes,
-        freeLessons: stats.freeLessons,
-        premiumLessons: stats.premiumLessons
+        freeMainLessons: stats.freeMainLessons,
+        premiumMainLessons: stats.premiumMainLessons
       }
     });
   } catch (error) {
@@ -469,7 +477,7 @@ router.get("/search", async (req, res) => {
           title: lesson.title,
           description: lesson.description,
           level: lesson.level,
-          free: lesson.free
+          // free: lesson.free
         }));
       results.push(...lessonResults);
     }

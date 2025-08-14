@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LessonData, MainLesson, Quiz } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
 // import { IMAGE_MAP } from "@/lib/constants";
 
 export default function RecentContent() {
@@ -55,7 +56,7 @@ export default function RecentContent() {
       id: mainLesson.id,
       title: mainLesson.title,
       imageCover: mainLesson.imageCoverUrl,
-      type: `Main lesson`,
+      type: `Main lesson • ${mainLesson.free ? "Free" : `${Intl.NumberFormat("en-US", {style: "currency", currency: "USD", }).format((mainLesson.price || 0) / 100)}`}`,
       icon: null,
       iconMode: null,
       updated: formatDistanceToNow(new Date(mainLesson.updatedAt), { addSuffix: true }),

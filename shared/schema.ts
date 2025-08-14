@@ -7,6 +7,8 @@ export const mainLessons = pgTable("main_lessons", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   imageCover: text("image_cover").notNull(),
+  free: boolean("free").notNull().default(true),
+  price: integer("price"), // price in cents
   status: text("status").notNull().default("draft"), // "draft" | "published"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -15,13 +17,13 @@ export const mainLessons = pgTable("main_lessons", {
 export const lessons = pgTable("lessons", {
   id: serial("id").primaryKey(),
   mainLessonId: integer("main_lesson_id")
-    .references(() => mainLessons.id, {onDelete: "cascade", onUpdate: "cascade"}), // association with main lesson
+    .references(() => mainLessons.id, {onDelete: "cascade", onUpdate: "cascade"}).notNull(), // association with main lesson
   lessonTypeId: integer("lesson_type_id")
-    .references(() => lessonType.id, {onDelete: "cascade", onUpdate: "cascade"}), // association with lesson type
+    .references(() => lessonType.id, {onDelete: "cascade", onUpdate: "cascade"}).notNull(), // association with lesson type
   title: text("title").notNull(),
   description: text("description").notNull(),
-  free: boolean("free").notNull().default(true),
-  price: integer("price"), // price in cents
+  // free: boolean("free").notNull().default(true),
+  // price: integer("price"), // price in cents
   level: text("level").notNull(), // "Beginner" | "Intermediate" | "Advanced"
   image: text("image").notNull(), // image type identifier
   sections: jsonb("sections").notNull().default([]), // array of {title: string, content: string}
@@ -78,7 +80,8 @@ export const purchase_history = pgTable("purchase_history", {
   purchaseId: varchar("purchase_id").notNull(),
   userId: integer("user_id").references(() => users.id, {onDelete: 'cascade'}).notNull(),
   userEmail: varchar("user_email").references(() => users.email, {onDelete: 'cascade'}).notNull(),
-  lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: 'cascade'}).notNull(),
+  mainLessonId: integer("main_lesson_id").references(() => mainLessons.id, {onDelete: 'cascade'}).notNull(),
+  // lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: 'cascade'}).notNull(),
   purchaseAmount: integer("purchase_amount").notNull(),
   paymentMethod: varchar("payment_method"),
   platformType: varchar("platform_type"),
@@ -214,14 +217,30 @@ export type MainLesson = {
   updatedAt: Date;
   status: string;
   title: string;
+  free: boolean;
+  price: number | null;
   description: string;
   imageCover: string;
-  imageCoverUrl: string
+  imageCoverUrl?: string | null;
 }
 export type InsertMainLesson = z.infer<typeof insertMainLessonSchema>
 export type UpdateMainLesson = z.infer<typeof updateMainLessonSchema>
 
-export type Lesson = typeof lessons.$inferSelect;
+//export type Lesson = typeof lessons.$inferSelect;
+export type Lesson = {
+  id: number
+  title: string
+  mainLessonId: number
+  lessonTypeId: number
+  lessonType?: LessonType
+  description: string
+  level: string
+  image: string
+  status: string
+  sections: unknown
+  createdAt: Date
+  updatedAt: Date
+}
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type UpdateLesson = z.infer<typeof updateLessonSchema>;
 
@@ -232,7 +251,7 @@ export type LessonType = {
   updatedAt: Date;
   title: string;
   icon: string;
-  iconUrl: string;
+  iconUrl?: string | null;
   iconMode: string;
 }
 export type InsertLessonType = z.infer<typeof insertLessonTypeSchema>;
@@ -252,21 +271,21 @@ export type Blacklist = typeof blacklist.$inferSelect
 export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
 
 // Lesson
-export type LessonData = {
-  id: number
-  title: string
-  mainLessonId: number
-  lessonType: LessonType
-  description: string
-  level: string
-  free: boolean
-  image: string
-  price: number
-  status: string
-  sections: unknown
-  createdAt: Date
-  updatedAt: Date
-}
+// export type LessonData = {
+//   id: number
+//   title: string
+//   mainLessonId: number
+//   lessonType: LessonType
+//   description: string
+//   level: string
+//   image: string
+//   // free: boolean
+//   // price: number
+//   status: string
+//   sections: unknown
+//   createdAt: Date
+//   updatedAt: Date
+// }
 
 // Lesson section type
 export type LessonSection = {
@@ -290,8 +309,10 @@ export type DashboardStats = {
   totalUsers: number;
   totalActiveUsers: number;
   totalPurchaseHistoryComplete: number;
-  freeLessons: number;
-  premiumLessons: number;
+  // freeLessons: number;
+  // premiumLessons: number;
+  freeMainLessons: number;
+  premiumMainLessons: number;
   mainLessonsGrowth: number;
   lessonsGrowth: number;
   quizzesGrowth: number;
@@ -306,7 +327,8 @@ export type PurchaseHistoryData = {
   id: number
   purchaseId: string
   email: string
-  lessonId: number
+  // lessonId: number
+  mainLessonId: number
   purchaseDate: string
   purchaseAmount: number
   platformType: string | null

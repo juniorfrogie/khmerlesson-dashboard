@@ -184,7 +184,6 @@ export default function LessonTypeView({ onDelete }: LessonTypeViewProps) {
                                                     />
                                                 </td>
                                                 <td className="p-4">
-                                                    {/* <p className="font-medium neutral-dark">{lessonType.icon}</p> */}
                                                     <IconMode lessonType={lessonType}/>
                                                 </td>
                                                 <td className="p-4">

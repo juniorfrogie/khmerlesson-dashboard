@@ -26,7 +26,7 @@ interface LessonTypeFormProps {
 
 export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: LessonTypeFormProps){
     const [iconMode, setIconMode] = useState<'raw' | 'file'>(lessonType?.iconMode === "file" ? "file" : "raw")
-    const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    //const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [previewImage, setPreviewImage] = useState(lessonType?.iconMode === "file" ? `${lessonType.iconUrl}` : "")
     const { toast } = useToast()
 
@@ -94,7 +94,7 @@ export default function LessonTypeForm({ lessonType, onSubmit, isLoading }: Less
             const result = await uploadFile(file)
             if(result){
                 if(result.data){
-                    setSelectedFile(file)
+                    //setSelectedFile(file)
                     setPreviewImage(`${result.data.url}`)
                     form.setValue("icon", `${result.data.filename}`)
                     //

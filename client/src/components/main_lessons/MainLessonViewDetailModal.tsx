@@ -69,12 +69,12 @@ export default function MainLessonViewDetailModal({ mainLesson, isOpen, onClose 
                                                                 }>
                                                                 {lesson.level}
                                                             </Badge>
-                                                            <Badge variant={lesson.free ? "default" : "secondary"}>
+                                                            {/* <Badge variant={lesson.free ? "default" : "secondary"}>
                                                                 {lesson.free ? "Free" : `${Intl.NumberFormat("en-US", {
                                                                     style: "currency",
                                                                     currency: "USD",
                                                                 }).format((lesson.price || 0) / 100)}`}
-                                                            </Badge>
+                                                            </Badge> */}
                                                         </div>
                                                     </div>
                                                 </div>

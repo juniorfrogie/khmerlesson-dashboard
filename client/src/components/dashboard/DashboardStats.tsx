@@ -47,6 +47,25 @@ export default function DashboardStats() {
       iconColor: "text-cyan-500",
     },
     {
+      title: "Premium Main Lessons",
+      value: numberCompactFormat(stats.premiumMainLessons),
+      subtitle: `Average price: ${Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD"
+      }).format(stats.avgPrice)}`,
+      icon: Crown,
+      iconBg: "bg-orange-100",
+      iconColor: "fluent-orange",
+    },
+    {
+      title: "Free Main Lessons",
+      value: numberCompactFormat(stats.freeMainLessons),
+      subtitle: `${Math.round((stats.freeMainLessons / stats.totalMainLessons) * 100)}% of total content`,
+      icon: Unlock,
+      iconBg: "bg-green-100",
+      iconColor: "fluent-green",
+    },
+    {
       title: "Total Lessons",
       value: numberCompactFormat(stats.totalLessons),
       growth: `${stats.lessonsGrowth}%`,
@@ -64,25 +83,17 @@ export default function DashboardStats() {
       iconBg: "bg-purple-100",
       iconColor: "fluent-purple",
     },
-    {
-      title: "Free Lessons",
-      value: numberCompactFormat(stats.freeLessons),
-      subtitle: `${Math.round((stats.freeLessons / stats.totalLessons) * 100)}% of total content`,
-      icon: Unlock,
-      iconBg: "bg-green-100",
-      iconColor: "fluent-green",
-    },
-    {
-      title: "Premium Lessons",
-      value: numberCompactFormat(stats.premiumLessons),
-      subtitle: `Average price: ${Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD"
-      }).format(stats.avgPrice)}`,
-      icon: Crown,
-      iconBg: "bg-orange-100",
-      iconColor: "fluent-orange",
-    },
+    // {
+    //   title: "Premium Lessons",
+    //   value: numberCompactFormat(stats.premiumLessons),
+    //   subtitle: `Average price: ${Intl.NumberFormat("en-US", {
+    //     style: "currency",
+    //     currency: "USD"
+    //   }).format(stats.avgPrice)}`,
+    //   icon: Crown,
+    //   iconBg: "bg-orange-100",
+    //   iconColor: "fluent-orange",
+    // },
     {
       title: "Total Users",
       value: numberCompactFormat(stats.totalUsers),
