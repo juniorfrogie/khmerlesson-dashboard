@@ -2,7 +2,6 @@ import { Router } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
 import jwt from "jsonwebtoken"
-import path from "path"
 
 const router = Router();
 
@@ -11,18 +10,27 @@ const authenticateAPI = (req: any, res: any, next: any) => {
   const apiKey = req.header('X-API-Key') || req.query.api_key;
   
   // For development, allow a default test key or no key
-  const validKeys = [
-    process.env.API_KEY,
-    'test_key_123',
-    'demo_key',
-  ].filter(Boolean);
+  // const validKeys = [
+  //   process.env.API_KEY,
+  //   'test_key_123',
+  //   'demo_key',
+  // ].filter(Boolean);
   
   // If no API key provided and we have valid keys configured, require authentication
-  if (validKeys.length > 0 && apiKey && !validKeys.includes(apiKey)) {
-    return res.status(401).json({ 
-      error: 'Unauthorized', 
-      message: 'Valid API key required' 
-    });
+  // if (validKeys.length > 0 && apiKey && !validKeys.includes(apiKey)) {
+  //   return res.status(401).json({ 
+  //     error: 'Unauthorized', 
+  //     message: 'Valid API key required' 
+  //   });
+  // }
+
+  if(process.env.NODE_ENV === "production"){
+    if (apiKey !== process.env.API_KEY) {
+      return res.status(401).json({ 
+        error: 'Unauthorized', 
+        message: 'Valid API key required' 
+      });
+    }
   }
   
   next();
@@ -60,28 +68,6 @@ router.use(authenticateToken);
 // GET /api/v1/main-lessons - List all published main lessons
 router.get("/main-lessons", async (req: any, res) => {
   try {
-    // const mainLessons = await storage.getAllMainLessons();
-    // const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
-    // const publishedMainLessons = mainLessons.filter(f => f.status === "published")
-    //   .map(mainLesson => ({
-    //     id: mainLesson.id,
-    //     title: mainLesson.title,
-    //     description: mainLesson.description,
-    //     imageCover: mainLesson.imageCover,
-    //     imageFile: {
-    //       name: mainLesson.imageCover,
-    //       url: process.env.NODE_ENV === "production" ? `${bucketEndpoint}/${mainLesson.imageCover}` : `${req.protocol + '://' + req.get('host') + `/uploads/${mainLesson.imageCover}`}`,
-    //       extension: path.extname(process.env.NODE_ENV === "production" ? `${bucketEndpoint}/${mainLesson.imageCover}` : `/uploads/${mainLesson.imageCover}`)
-    //     },
-    //     createdAt: mainLesson.createdAt,
-    //     updatedAt: mainLesson.updatedAt
-    // }))
-    // res.json({
-    //   success: true,
-    //   data: publishedMainLessons,
-    //   total: publishedMainLessons.length
-    // });
-
     const mainLessons = await storage.getMainLessonsJoin(req.user);
     res.json({
       success: true,
