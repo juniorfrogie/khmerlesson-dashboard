@@ -157,10 +157,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.get("/api/main-lessons/:id", async (req, res) => {
+  app.get("/api/main-lessons-details/:id", async (req, res) => {
     try {
       const { id } = req.params
-      const result = await storage.getLessonDetailByMainLessonId(parseInt(id))
+      // const result = await storage.getLessonDetailByMainLessonId(parseInt(id))
+      const result = await storage.getAllLessonsByMainLesson(parseInt(id))
       for(let e of result){
         if(e.lessonType?.iconMode === "file"){
           if(process.env.NODE_ENV === "production"){
@@ -175,6 +176,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result)
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch main lessons detail" });
+    }
+  })
+
+  app.get("/api/main-lessons/:id", async (req, res) => {
+    try {
+      const { id } = req.params
+      const mainLesson = await storage.getMainLesson(parseInt(id))
+      if(!mainLesson){
+        return res.status(404).json({ message: "Main Lesson not found" });
+      }
+
+      const result = await checkFileExists(`${mainLesson.imageCover}`)
+      mainLesson.imageCoverUrl = result
+
+      res.json(mainLesson)
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch main lesson" });
     }
   })
 

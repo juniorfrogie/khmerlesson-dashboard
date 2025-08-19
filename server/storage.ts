@@ -27,7 +27,6 @@ import {
   LessonType,
   InsertLessonType,
   UpdateLessonType,
-  // LessonData,
   lessonType,
   MainLesson,
   InsertMainLesson,
@@ -61,6 +60,7 @@ export interface IStorage {
   // Main Lessons
   getAllMainLessons(): Promise<MainLesson[]>
   getMainLessons(limit: number, offset: number): Promise<MainLesson[]>
+  getMainLesson(id: number): Promise<MainLesson | undefined>
   createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson>
   updateMainLesson(id: number, mainLesson: UpdateMainLesson): Promise<MainLesson | undefined>
   deleteMainLesson(id: number): Promise<boolean>
@@ -77,8 +77,8 @@ export interface IStorage {
   updateLesson(id: number, lesson: UpdateLesson): Promise<Lesson | undefined>;
   deleteLesson(id: number): Promise<boolean>;
   // getLessonsJoin(user: User, mainLessonId: number): Promise<any>
+  // getLessonDetailByMainLessonId(id: number): Promise<Lesson[]>
   getLessonDetailByLessonTypeId(id: number): Promise<Lesson[]>
-  getLessonDetailByMainLessonId(id: number): Promise<Lesson[]>
   getLessonCount(): Promise<number>;
 
   // Lesson Type
@@ -331,18 +331,17 @@ export class DatabaseStorage implements IStorage {
       image: e.lessons.image,
       imageFile: e.lesson_type.iconMode === "raw" ? null : {
         name: e.lesson_type.icon,
-        //url: `${bucketEndpoint}/${e.lesson_type.icon}`,
-        //extension: extname(`/uploads/${e.lesson_type.icon}`)
         extension: extname(`${bucketEndpoint}/${e.lesson_type.icon}`)
       },
-      // free: e.lessons.free,
-      // price: e.lessons.price,
-      // sections: e.lessons.sections,
-      // status: e.lessons.status,
       createdAt: e.lessons.createdAt,
       updatedAt: e.lessons.updatedAt
     }))
     return publishedLessons
+  }
+
+  async getMainLesson(id: number): Promise<MainLesson | undefined> {
+    const [result] = await db.select().from(mainLessons).where(eq(mainLessons.id, id))
+    return result || undefined;
   }
 
   async createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson> {
@@ -526,30 +525,30 @@ export class DatabaseStorage implements IStorage {
     return result
   }
 
-  async getLessonDetailByMainLessonId(id: number): Promise<Lesson[]> {
-    const result = await db.select().from(lessons)
-      .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
-      .where(eq(lessons.mainLessonId, id))
-      .orderBy(lessons.createdAt)
+  // async getLessonDetailByMainLessonId(id: number): Promise<Lesson[]> {
+  //   const result = await db.select().from(lessons)
+  //     .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
+  //     .where(eq(lessons.mainLessonId, id))
+  //     .orderBy(lessons.createdAt)
 
-    const lessonList = result.map(e => (<Lesson>{
-      id: e.lessons.id,
-      mainLessonId: e.lessons.mainLessonId,
-      lessonTypeId: e.lessons.lessonTypeId,
-      lessonType: e.lesson_type,
-      title: e.lessons.title,
-      description: e.lessons.description,
-      level: e.lessons.level,
-      image: e.lessons.image,
-      // free: e.lessons.free,
-      // price: e.lessons.price,
-      status: e.lessons.status,
-      sections: e.lessons.sections,
-      createdAt: e.lessons.createdAt,
-      updatedAt: e.lessons.updatedAt
-    })) 
-    return lessonList
-  }
+  //   const lessonList = result.map(e => (<Lesson>{
+  //     id: e.lessons.id,
+  //     mainLessonId: e.lessons.mainLessonId,
+  //     lessonTypeId: e.lessons.lessonTypeId,
+  //     lessonType: e.lesson_type,
+  //     title: e.lessons.title,
+  //     description: e.lessons.description,
+  //     level: e.lessons.level,
+  //     image: e.lessons.image,
+  //     // free: e.lessons.free,
+  //     // price: e.lessons.price,
+  //     status: e.lessons.status,
+  //     sections: e.lessons.sections,
+  //     createdAt: e.lessons.createdAt,
+  //     updatedAt: e.lessons.updatedAt
+  //   })) 
+  //   return lessonList
+  // }
 
   async getLessonCount(): Promise<number> {
     const result = await db.select({count: count()}).from(lessons)

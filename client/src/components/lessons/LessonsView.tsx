@@ -1,19 +1,19 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Edit, Eye, Trash2, ChevronLeft, ChevronRight, Library } from "lucide-react";
+import { Search, Plus, Edit, Eye, Trash2, Library } from "lucide-react";
 import { Lesson, LessonType } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 // import { IMAGE_MAP } from "@/lib/constants";
 import LessonModal from "./LessonModal";
 import LessonPreview from "./LessonPreview";
 import Pagination from "../common/Pagination";
+import useLesson from "@/hooks/use-lesson";
 
 interface LessonsViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -37,7 +37,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   var [offset, setOffset] = useState(0)
   const [pageNumber, setPageNumber] = useState(1)
 
-  const { toast } = useToast();
+  const { getLessons, getLevelBadgeColor, deleteMutation } = useLesson()
 
   // const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
   //   queryKey: ["/api/lessons", { 
@@ -47,21 +47,6 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   //     status: statusFilter === "all" ? "" : statusFilter 
   //   }],
   // });
-
-  // const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
-  //   queryKey: [
-  //     `api/lessons?level=${levelFilter}&type=${typeFilter}&status=${statusFilter}&search=${searchTerm}`
-  //   ],
-  // });
-
-  const getLessons = async ({ queryKey }: any) => {
-    const [_key, params] = queryKey
-    const response = await apiRequest(
-      "GET", 
-      `/api/lessons?level=${params.level}&type=${params.type}&search=${params.search}&status=${params.status}&limit=${params.limit}&offset=${params.offset}`
-    )
-    return await response.json()
-  }
   
   // const { data: lessons = [], isLoading } = useQuery<LessonData[]>(
   //   {
@@ -90,41 +75,22 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
     })
       
   const getAllLessonType = async ({ queryKey }: any) => {
-      const [_key, params] = queryKey
-      const response = await apiRequest("GET", 
-          `/api/lesson-type`
-      )
-      return await response.json()
-    }
+    const [_key, params] = queryKey
+    const response = await apiRequest("GET", 
+        `/api/lesson-type`
+    )
+    return await response.json()
+  }
     
   const { data: lessonTypeList = [] } = useQuery<LessonType[]>({
-      queryKey: ['lesson-type'],
-      refetchOnMount: false,
-      queryFn: getAllLessonType 
+    queryKey: ['lesson-type'],
+    refetchOnMount: false,
+    queryFn: getAllLessonType 
   })
-  
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/lessons/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["lessons"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      toast({
-        title: "Success",
-        description: "Lesson deleted successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete lesson",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleDelete = (lesson: Lesson) => {
-    onDelete("lesson", lesson.title, () => {
-      deleteMutation.mutate(lesson.id);
+    onDelete("lesson", lesson.title, async () => {
+      await deleteMutation.mutateAsync(lesson.id);
     });
   };
 
@@ -163,15 +129,6 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
       case "published": return "default";
       case "draft": return "secondary";
       default: return "outline";
-    }
-  };
-
-  const getLevelBadgeColor = (level: string) => {
-    switch (level) {
-      case "Beginner": return "bg-green-100 text-green-700";
-      case "Intermediate": return "bg-yellow-100 text-yellow-700";
-      case "Advanced": return "bg-red-100 text-red-700";
-      default: return "bg-gray-100 text-gray-700";
     }
   };
 

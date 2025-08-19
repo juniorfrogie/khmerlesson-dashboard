@@ -6,9 +6,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle } from "../ui/card";
-import { LessonData, MainLesson } from "@shared/schema";
+import { Lesson, MainLesson } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "../ui/badge";
+import useLesson from "@/hooks/use-lesson";
 
 interface MainLessonViewDetailModalProps {
   mainLesson: MainLesson | null;
@@ -19,8 +20,10 @@ interface MainLessonViewDetailModalProps {
 export default function MainLessonViewDetailModal({ mainLesson, isOpen, onClose }: MainLessonViewDetailModalProps){
     if (!mainLesson) return null;
 
-    const { data: lessons = [], isLoading } = useQuery<LessonData[]>({
-        queryKey: [`/api/main-lessons/${mainLesson.id}`]
+    const { getLevelBadgeColor } = useLesson()
+
+    const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
+        queryKey: [`/api/main-lessons-details/${mainLesson.id}`]
     })
 
     return (
@@ -62,11 +65,7 @@ export default function MainLessonViewDetailModal({ mainLesson, isOpen, onClose 
                                                                 lesson.lessonType.title?.charAt(0).toUpperCase() + lesson.lessonType.title?.slice(1)
                                                             )}
                                                             </Badge>
-                                                            <Badge className={
-                                                                lesson.level === "Beginner" ? "bg-green-100 text-green-700" :
-                                                                lesson.level === "Intermediate" ? "bg-yellow-100 text-yellow-700" :
-                                                                "bg-red-100 text-red-700"
-                                                                }>
+                                                            <Badge className={getLevelBadgeColor(lesson.level)}>
                                                                 {lesson.level}
                                                             </Badge>
                                                             {/* <Badge variant={lesson.free ? "default" : "secondary"}>
