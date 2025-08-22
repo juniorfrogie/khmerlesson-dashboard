@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LessonData, LessonType } from "@shared/schema";
+import { Lesson, LessonType } from "@shared/schema";
 // import { IMAGE_MAP } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -12,7 +12,7 @@ export default function ContentDistribution() {
     return await response.json()
   }
 
-  const { data: lessons = [] } = useQuery<LessonData[]>({
+  const { data: lessons = [] } = useQuery<Lesson[]>({
     queryKey: ["lessons"],
     queryFn: getLessons
   });
@@ -48,7 +48,7 @@ export default function ContentDistribution() {
     const icon = lessonType.icon
     const iconUrl = lessonType.iconUrl
     const iconMode = lessonType.iconMode
-    const count = lessons.filter(lesson => lesson.lessonType.title.toLowerCase() === title.toLowerCase()).length;
+    const count = lessons.filter(lesson => lesson.lessonType?.title.toLowerCase() === title.toLowerCase()).length;
     const percentage = lessons.length > 0 ? (count / lessons.length) * 100 : 0;
     
     return {

@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LessonData, MainLesson, Quiz } from "@shared/schema";
+import { Lesson, MainLesson, Quiz } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
-import { useState } from "react";
+// import { useState } from "react";
 // import { IMAGE_MAP } from "@/lib/constants";
 
 export default function RecentContent() {
@@ -34,7 +34,7 @@ export default function RecentContent() {
     return body["lessons"]
   }
   
-  const { data: lessons = [] } = useQuery<LessonData[]>({
+  const { data: lessons = [] } = useQuery<Lesson[]>({
     queryKey: ["lessons"],
     queryFn: getLessons
   });

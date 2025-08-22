@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { ActiveView } from "@/pages/dashboard";
-import { GraduationCap, BarChart3, BookOpen, HelpCircle, BarChart, Download, Code, History, BookType, Library, Users } from "lucide-react";
+import { GraduationCap, BarChart3, BookOpen, HelpCircle, History, BookType, Library, Users } from "lucide-react";
 
 interface SidebarProps {
   activeView: ActiveView;

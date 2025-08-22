@@ -12,6 +12,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UserModal from "./UserModal";
 import Pagination from "../common/Pagination";
+import { format } from "date-fns";
 
 interface UsersViewProps {
   onDelete: (type: string, name: string, onConfirm: () => void) => void;
@@ -42,6 +43,7 @@ export default function UsersView({ }: UsersViewProps) {
     "Email",
     "Role",
     "Status",
+    "Last Login",
     "Update",
     "Actions"
   ]
@@ -319,6 +321,15 @@ export default function UsersView({ }: UsersViewProps) {
                           <Badge className={getActiveBadgeColor(user.isActive)}>
                             { user.isActive ? "Active" : "Inactive"}
                           </Badge>
+                        </td>
+                        <td className="p-4">
+                          {
+                            user.lastLogin && (
+                              <span className="neutral-medium text-sm">
+                                { format(user.lastLogin, "PPpp") }
+                              </span>
+                            )
+                          }
                         </td>
                         <td className="p-4">
                           <span className="neutral-medium text-sm">

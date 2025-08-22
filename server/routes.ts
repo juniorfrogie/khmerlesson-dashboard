@@ -715,6 +715,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user: userResponse,
         token: token
       });
+      //
+      await storage.updateUserLastLogin(user.id)
     } catch (error) { 
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
@@ -758,6 +760,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user: userResponse,
         token: token
       });
+      //
+      await storage.updateUserLastLogin(user.id)
     } catch (error) { 
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 

@@ -62,6 +62,7 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").notNull().default(true),
   resetToken: varchar("reset_token"),
   registrationType: varchar("registration_type").notNull().default("authenication"), // "authenication" | "google_service"
+  lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });

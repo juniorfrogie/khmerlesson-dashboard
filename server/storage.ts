@@ -49,6 +49,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: UpdateUser): Promise<User | undefined>;
   updateUserResetToken(email: string, resetToken: string): Promise<User | undefined>;
+  updateUserLastLogin(id: number): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
   verifyPassword(email: string, password: string): Promise<User | null>;
   updatePassword(id: number, password: string): Promise<User | null>
@@ -201,6 +202,15 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUserLastLogin(id: number): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ lastLogin: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
   async deleteUser(id: number): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
     return (result.rowCount ?? 0) > 0;
@@ -287,7 +297,7 @@ export class DatabaseStorage implements IStorage {
       imageCover: e.imageCover,
       imageFile: {
         name: e.imageCover,
-        // url: `${bucketEndpoint}/${e.imageCover}`,
+        //url: `${bucketEndpoint}/${e.imageCover}`,
         //extension: extname(`/uploads/${e.lesson_type.icon}`)
         extension: extname(`${bucketEndpoint}/${e.imageCover}`)
       },
