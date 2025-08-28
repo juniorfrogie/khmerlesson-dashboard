@@ -40,6 +40,15 @@ const lessonSchema = z.object({
   sections: z.array(z.object({
     title: z.string().min(1, "Section title is required"),
     content: z.string().min(1, "Section content is required"),
+    html: z.string().nullable().default(null),
+    ops: z.array(z.object({
+      insert: z.string().optional(),
+      attributes: z.object({
+        bold: z.boolean().default(false),
+        italic: z.boolean().default(false),
+        underline: z.boolean().default(false)
+      }).optional()
+    })).nullable().default(null)
   })).min(1, "At least one section is required"),
 });
 
@@ -68,7 +77,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
       image: lesson?.image || "",
       // free: lesson?.free ?? true,
       // price: lesson?.price ? lesson.price / 100 : undefined,
-      sections: lesson?.sections as any || [{ title: "", content: "" }],
+      sections: lesson?.sections as any || [{ title: "", content: "" , html: null, ops: null}],
     },
   });
 
@@ -87,7 +96,7 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
 
   const addSection = () => {
     const currentSections = form.getValues("sections");
-    setValue("sections", [...currentSections, { title: "", content: "" }]);
+    setValue("sections", [...currentSections, { title: "", content: "" , html: null, ops: null}]);
   };
 
   const removeSection = (index: number) => {
@@ -407,7 +416,10 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
                         <FormControl>
                           <RichTextEditor
                             value={field.value}
+                            ops={watchedSections[index].ops}
                             onChange={field.onChange}
+                            onHtml={(e) => form.setValue(`sections.${index}.html`, e) }
+                            onOps={(e) => form.setValue(`sections.${index}.ops`, e)}
                             placeholder="Section content (supports Khmer script)"
                             sectionTitle={form.watch(`sections.${index}.title`) || ""}
                           />

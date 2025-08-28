@@ -26,7 +26,7 @@ export const lessons = pgTable("lessons", {
   // price: integer("price"), // price in cents
   level: text("level").notNull(), // "Beginner" | "Intermediate" | "Advanced"
   image: text("image").notNull(), // image type identifier
-  sections: jsonb("sections").notNull().default([]), // array of {title: string, content: string}
+  sections: jsonb("sections").notNull().default([]), // array of {title: string, content: string, html: string, ops: []}
   status: text("status").notNull().default("draft"), // "draft" | "published"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -292,6 +292,8 @@ export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
 export type LessonSection = {
   title: string;
   content: string;
+  html?: string | null;
+  ops?: unknown;
 };
 
 // Quiz question type

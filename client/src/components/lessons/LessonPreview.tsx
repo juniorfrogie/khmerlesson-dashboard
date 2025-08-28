@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Library } from "lucide-react";
 import { Lesson } from "@shared/schema";
 // import { IMAGE_MAP } from "@/lib/constants";
+import DOMPurify from 'isomorphic-dompurify';
 
 interface LessonPreviewProps {
   lesson: Lesson | null;
@@ -96,7 +97,14 @@ export default function LessonPreview({ lesson, isOpen, onClose, isFormPreview =
                     <CardContent>
                       <div className="prose prose-sm max-w-none">
                         <div className="whitespace-pre-wrap khmer-text neutral-dark">
-                          {section.content}
+                          {/* {section.content}*/}
+                          {
+                            section.html && section.html.length > 0 ? (
+                              <div dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(section.html)}} />
+                            ) : (
+                              section.content
+                            )
+                          }
                         </div>
                       </div>
                     </CardContent>
