@@ -109,19 +109,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/privacy-policy", async (req, res) => {
-    const filePath = path.join(import.meta.dirname, '/assets/khmer-privacy-policy.html')
+    const filePath = path.join(import.meta.dirname, '.', '../attached_assets/khmer-privacy-policy.html')
 
     // Read the HTML file
     fs.readFile(filePath, (err, data) => {
       if (err) {
           // Handle errors if the file cannot be read
-          res.writeHead(500, { 'Content-Type': 'text/plain' });
-          res.end('Error loading index.html');
-          return;
+          res.writeHead(500, { 'Content-Type': 'text/plain' })
+          res.end('Error loading file.')
+          return
       }
 
       // Set the content type to HTML and send the file content
-      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.writeHead(200, { 'Content-Type': 'text/html' })
       res.end(data)
     })
   })
