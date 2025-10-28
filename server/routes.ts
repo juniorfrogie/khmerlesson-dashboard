@@ -26,7 +26,6 @@ import { mailTemplate } from "./mail/mail_template";
 import cron from "node-cron"
 import path from "path";
 import fs from "fs";
-// import AWS from "aws-sdk"
 import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3"
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -34,11 +33,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { TOKEN_SECRET } = process.env
   const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
   const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
-  // const s3 = new AWS.S3({
-  //   endpoint: process.env.BUCKET_END_POINT, 
-  //   accessKeyId: process.env.BUCKET_ACCESS_KEY,
-  //   secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY
-  // })
 
   const s3 = new S3Client({
     region: process.env.BUCKET_REGION,
@@ -113,6 +107,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
+
+  app.get("/privacy-policy", async (req, res) => {
+    const filePath = path.join(import.meta.dirname, '/assets/khmer-privacy-policy.html')
+
+    // Read the HTML file
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+          // Handle errors if the file cannot be read
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          res.end('Error loading index.html');
+          return;
+      }
+
+      // Set the content type to HTML and send the file content
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(data)
+    })
+  })
 
   // Main Lessons CRUD
   app.get("/api/main-lessons", async (req, res) => {
