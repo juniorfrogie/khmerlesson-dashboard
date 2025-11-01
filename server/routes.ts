@@ -27,6 +27,7 @@ import cron from "node-cron"
 import path from "path";
 import fs from "fs";
 import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3"
+import appleAuthRoute from "./auth/apple_auth"
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -88,10 +89,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount public API routes
   app.use("/api/v1", apiRoutes);
   app.use("/api", paypalRoutes, fileUploadRoute);
+  app.use("/api/auth", appleAuthRoute);
 
   //app.disable('etag');
 
-  // const publicDir = path.join(import.meta.dirname, '..');
+  //const publicDir = path.join(import.meta.dirname, '..');
   const uploadDir = path.join(import.meta.dirname, '.', '../uploads');
   app.use("/uploads", express.static(uploadDir))
 
@@ -654,7 +656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register-auth-service", async (req, res) => {
     try {
       const userData = insertUserWithAuthServiceSchema.parse(req.body);
-      
+
       const existingUser = await storage.getUserByEmail(userData.email);
       if (existingUser) {
         if(existingUser.registrationType === "authenication"){
@@ -670,7 +672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           token: token
         });
       }
-  
+
       const user = await storage.createUserWithAuthService(userData);
       
       const { password, resetToken, registrationType, ...userResponse } = user;
