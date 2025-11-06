@@ -9,34 +9,35 @@ export function useAuth(){
 
   useEffect(() => {
     // Check localStorage for stored user data
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        localStorage.removeItem("user");
-      }
-    }
-    
-    //checkTokenIsValid()
-    setIsLoading(false);
+    // const storedUser = localStorage.getItem("user");
+    // if (storedUser) {
+    //   try {
+    //     setUser(JSON.parse(storedUser));
+    //   } catch (error) {
+    //     localStorage.removeItem("user");
+    //   }
+    // }
+  
+    // setIsLoading(false);
+    userSession()
   }, []);
 
-  // const checkTokenIsValid = async () => {
-  //   try {
-  //     const response = await apiRequest("POST", "/api/verifyToken")
-  //     if(response.status === 200){
-  //       const storedUser = localStorage.getItem("user")
-  //       if(storedUser){
-  //         setUser(JSON.parse(storedUser))
-  //       }
-  //       return
-  //     }
-  //     localStorage.removeItem("user")
-  //   } catch (error) {
-  //     localStorage.removeItem("user")
-  //   }
-  // }
+  const userSession = async () => {
+    try {
+      const response = await apiRequest("POST", "/api/verify-token")
+      if(response.status === 200){
+        const storedUser = localStorage.getItem("user")
+        if(storedUser){
+          setUser(JSON.parse(storedUser))
+        }
+        return
+      }
+      localStorage.removeItem("user")
+    } catch (error) {
+      localStorage.removeItem("user")
+    }
+    setIsLoading(false)
+  }
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginUser) => {
@@ -81,7 +82,7 @@ export function useAuth(){
     onSuccess: () => {
       setUser(null);
       localStorage.removeItem("user");
-    },
+    }
   });
 
   const getFullName = () => {

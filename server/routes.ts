@@ -31,6 +31,29 @@ import appleAuthRoute from "./auth/apple_auth"
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
+  const authenticateToken = async (req: any, res: any, next: any) => {
+    
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(' ')[1]
+  
+    if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+  
+    const isBlacklisted = await storage.getBlacklist(token)
+    if (isBlacklisted) {
+      return res.status(401).json({
+        message: "Token is no longer valid. Please log in again."
+      })
+    }
+  
+    jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
+      if (err) return res.status(403).json({message: "Forbidden"})
+  
+      req.user = user
+  
+      next()
+    })
+  }
+
   const { TOKEN_SECRET } = process.env
   const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
   const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
@@ -52,26 +75,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           Bucket: process.env.BUCKET_NAME ?? "",
           Key: key
         }
-        //const s3RequestHeadObject = s3.headObject(params)
-        //await s3RequestHeadObject.promise()
         const command = new HeadObjectCommand(params)
         await s3.send(command)
         const urlBucketEndpoint = `${bucketEndpoint}/${params.Key}`
         return urlBucketEndpoint
-        // s3.headObject(params, (err, data) => {
-        //   if (err) {
-        //     if (err.code === 'NotFound') {
-        //       console.log('File does not exist in S3 Bucket')
-        //       return defaultImageNotFoundPath
-        //     } else {
-        //       console.log('Error Occured While headObject():', err)
-        //       return defaultImageNotFoundPath
-        //     }
-        //   } else {
-        //     const urlBucketEndpoint = `${bucketEndpoint}/${params.Key}`
-        //     return urlBucketEndpoint
-        //   }
-        // });
       }else{
         await fs.promises.access(`uploads/${key}`, fs.constants.F_OK)
         return `/uploads/${key}`
@@ -87,9 +94,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }))
 
   // Mount public API routes
-  app.use("/api/v1", apiRoutes);
-  app.use("/api", paypalRoutes, fileUploadRoute);
+  app.use("/api/v1", authenticateToken, apiRoutes);
+  app.use("/api", paypalRoutes);
   app.use("/api/auth", appleAuthRoute);
+
+  app.use("/api/upload", authenticateToken, fileUploadRoute)
 
   //app.disable('etag');
 
@@ -101,7 +110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/storages", express.static(storagesDir))
 
   // Dashboard stats
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);
@@ -129,7 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   })
 
   // Main Lessons CRUD
-  app.get("/api/main-lessons", async (req, res) => {
+  app.get("/api/main-lessons", authenticateToken, async (req, res) => {
     try {
       const { search, status } = req.query
       let mainLessons = <MainLesson[]>[]
@@ -171,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.get("/api/main-lessons-details/:id", async (req, res) => {
+  app.get("/api/main-lessons-details/:id", authenticateToken, async (req, res) => {
     try {
       const { id } = req.params
       // const result = await storage.getLessonDetailByMainLessonId(parseInt(id))
@@ -193,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.get("/api/main-lessons/:id", async (req, res) => {
+  app.get("/api/main-lessons/:id", authenticateToken,  async (req, res) => {
     try {
       const { id } = req.params
       const mainLesson = await storage.getMainLesson(parseInt(id))
@@ -210,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.post("/api/main-lessons", async (req, res) => {
+  app.post("/api/main-lessons", authenticateToken, async (req, res) => {
     try {
       const validatedData = insertMainLessonSchema.parse(req.body);
       const mainLesson = await storage.createMainLesson(validatedData);
@@ -223,7 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.patch("/api/main-lessons/:id", async (req, res) => {
+  app.patch("/api/main-lessons/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id)
       const validatedData = updateMainLessonSchema.parse(req.body)
@@ -245,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.delete("/api/main-lesson/:id", async (req, res) => {{
+  app.delete("/api/main-lesson/:id", authenticateToken, async (req, res) => {{
     try {
       const id = parseInt(req.params.id)
       const deletedMainLesson = await storage.deleteMainLesson(id)
@@ -261,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }})
 
   // Lessons CRUD
-  app.get("/api/lessons", async (req, res) => {
+  app.get("/api/lessons", authenticateToken, async (req, res) => {
     try {
       const { search, level, type, status } = req.query;
       let lessons = []
@@ -318,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/lessons/:id", async (req, res) => {
+  app.get("/api/lessons/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const lesson = await storage.getLesson(id);
@@ -333,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/lessons", async (req, res) => {
+  app.post("/api/lessons", authenticateToken, async (req, res) => {
     try {
       const validatedData = insertLessonSchema.parse(req.body);
       const lesson = await storage.createLesson(validatedData);
@@ -346,7 +355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/lessons/:id", async (req, res) => {
+  app.patch("/api/lessons/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = updateLessonSchema.parse(req.body);
@@ -365,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/lessons/:id", async (req, res) => {
+  app.delete("/api/lessons/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const deleted = await storage.deleteLesson(id);
@@ -381,7 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Lesson Type CRUD
-  app.get("/api/lesson-type", async (req, res) => {
+  app.get("/api/lesson-type", authenticateToken, async (req, res) => {
     try{
       const { search } = req.query;
       let lessonTypes = await storage.getAllLessonType()
@@ -411,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.get("/api/lesson-type/:id", async (req, res) => {
+  app.get("/api/lesson-type/:id", authenticateToken, async (req, res) => {
     try{
       const { id } = req.params
       // const lessonTypeDetails = await storage.getLessonTypeDetail(parseInt(id))
@@ -422,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.post("/api/lesson-type", async (req, res) => {
+  app.post("/api/lesson-type", authenticateToken, async (req, res) => {
     try {
       const validatedData = insertLessonTypeSchema.parse(req.body);
       const lessonTypeList = await storage.createLessonType(validatedData);
@@ -435,7 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.patch("/api/lesson-type/:id", async (req, res) => {
+  app.patch("/api/lesson-type/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id)
       const validatedData = updateLessonTypeSchema.parse(req.body);
@@ -464,7 +473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.delete("/api/lesson-type/:id", async (req, res) => {
+  app.delete("/api/lesson-type/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id)
       const deleted = await storage.deleteLessonType(id)
@@ -479,7 +488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   })
 
   // Quizzes CRUD
-  app.get("/api/quizzes", async (req, res) => {
+  app.get("/api/quizzes", authenticateToken, async (req, res) => {
     try {
       const { search, lessonId, status } = req.query;
       let quizzes = await storage.getQuizzes();
@@ -507,7 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/quizzes/:id", async (req, res) => {
+  app.get("/api/quizzes/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const quiz = await storage.getQuiz(id);
@@ -522,7 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/quizzes", async (req, res) => {
+  app.post("/api/quizzes", authenticateToken, async (req, res) => {
     try {
       const validatedData = insertQuizSchema.parse(req.body);
       const quiz = await storage.createQuiz(validatedData);
@@ -535,7 +544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/quizzes/:id", async (req, res) => {
+  app.patch("/api/quizzes/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = updateQuizSchema.parse(req.body);
@@ -554,7 +563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/quizzes/:id", async (req, res) => {
+  app.delete("/api/quizzes/:id", authenticateToken, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const deleted = await storage.deleteQuiz(id);
@@ -570,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import/Export
-  app.get("/api/export/lessons", async (req, res) => {
+  app.get("/api/export/lessons", authenticateToken, async (req, res) => {
     try {
       const lessons = await storage.exportLessons();
       res.setHeader('Content-Type', 'application/json');
@@ -581,7 +590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/export/quizzes", async (req, res) => {
+  app.get("/api/export/quizzes", authenticateToken, async (req, res) => {
     try {
       const quizzes = await storage.exportQuizzes();
       res.setHeader('Content-Type', 'application/json');
@@ -592,7 +601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/import/lessons", async (req, res) => {
+  app.post("/api/import/lessons", authenticateToken, async (req, res) => {
     try {
       const lessons = z.array(insertLessonSchema).parse(req.body);
       const imported = await storage.importLessons(lessons);
@@ -605,7 +614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/import/quizzes", async (req, res) => {
+  app.post("/api/import/quizzes", authenticateToken, async (req, res) => {
     try {
       const quizzes = z.array(insertQuizSchema).parse(req.body);
       const imported = await storage.importQuizzes(quizzes);
@@ -721,7 +730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       expirationDate.setDate(expirationDate.getDate() + days);
       res.cookie("token", token, {
         expires: expirationDate,
-        httpOnly: true
+        httpOnly: false
       })
       //
       res.json({
@@ -767,7 +776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       expirationDate.setDate(expirationDate.getDate() + days);
       res.cookie("token", token, {
         expires: expirationDate,
-        httpOnly: true
+        httpOnly: false
       })
       //
       res.json({
@@ -804,7 +813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  app.post("/api/auth/logout", async (req, res) => {
+  app.post("/api/auth/logout", authenticateToken, async (req, res) => {
     try {
       const authHeader = req.headers['authorization']
       let token = authHeader && authHeader.split(' ')[1]
@@ -819,7 +828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.cookie("token", "none", {
         expires: new Date(Date.now() + 10 * 1000),
-        httpOnly: true
+        httpOnly: false
       })
 
       res.status(200).json({
@@ -895,12 +904,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Change Password
-  app.put('/api/auth/change-password', async (req: any, res: any) => {
+  app.put('/api/auth/change-password', authenticateToken, async (req: any, res: any) => {
     try{
       const { id, currentPassword, newPassword, confirmPassword } = req.body
   
       if(newPassword !== confirmPassword){
-        return res.status(403).send('Password does not match!')
+        return res.status(403).json({message: 'Password does not match!'})
       }
   
       // Find the user with the given id and update their password
@@ -914,9 +923,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.changePassword(id, currentPassword, newPassword)
       if (user) {
-        res.status(200).send('Password updated successfully');
+        res.status(200).json({message: 'Password updated successfully'});
       } else {
-        res.status(404).send('User not found')
+        res.status(404).json({message: 'User not found'})
       }
     }catch(error){
       console.error("Change pasword error:", error);
@@ -950,8 +959,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Users API routes
-  app.get("/api/users", async (req, res) => {
+  // Users CRUD
+  app.get("/api/users", authenticateToken, async (req, res) => {
     try {
       const { role, isActive, search } = req.query;
       //let users = await storage.getAllUsers();
@@ -992,7 +1001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/users/:id", async (req, res) => {
+  app.get("/api/users/:id", authenticateToken, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       if (isNaN(userId)) {
@@ -1012,7 +1021,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/users/:id", async (req, res) => {
+  app.put("/api/users/:id", authenticateToken, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       if (isNaN(userId)) {
@@ -1056,7 +1065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check if token is valid
-  app.post("/api/verifyToken", (req: any, res: any, next) => {
+  app.post("/api/verify-token", (req: any, res: any, next) => {
     try {
       const { cookie } = req.headers
       if(cookie){
@@ -1065,8 +1074,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (err) return res.status(403).json({message: "Forbidden"})
           next()
         })
+        // const decoded = jwt.verify(token, process.env.TOKEN_SECRET as string)
+        // res.status(200).json({user: decoded})
       }
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).send("Failed to verify token")
     }
   })
@@ -1081,26 +1092,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //   }
   // })
   
-  app.delete("/api/users/:id", async (req, res) => {
+  app.delete("/api/users/:id", authenticateToken, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
+        return res.status(400).json({success: false, message: "Invalid user ID" });
       }
   
       const success = await storage.deleteUser(userId);
       if (!success) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(404).json({success: success, message: "User not found" });
       }
   
-      res.json({ message: "User deleted successfully" });
+      res.json({success: true, message: "User deleted successfully" });
     } catch (error) {
       console.error("Delete user error:", error);
-      res.status(500).json({ message: "Failed to delete user" });
+      res.status(500).json({success: false, message: "Failed to delete user" });
     }
   });
   
-  app.patch("/api/users/:id/status", async (req, res) => {
+  app.patch("/api/users/:id/status", authenticateToken, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       if (isNaN(userId)) {
@@ -1129,7 +1140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchase History Route
-  app.get("/api/purchase_history", async (req, res) => {
+  app.get("/api/purchase_history", authenticateToken, async (req, res) => {
     try{
       const { payment_status, purchase_date, search } = req.query
       let limit = parseInt(req.query.limit?.toString() ?? "15") || 15
@@ -1337,7 +1348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   cron.schedule("*/10 * * * *", cleanExpiredTokens);
 
   //DELETE delete file
-  app.delete("/api/unlinkFile/:filename", (req, res) => {
+  app.delete("/api/unlinkFile/:filename", authenticateToken, (req, res) => {
     try {
       const { filename } = req.params
       const { role } = req.body

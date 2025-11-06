@@ -2,11 +2,20 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { HelpCircle, Unlock, Crown, TrendingUp, TrendingDown, CircleDollarSign, Users, UserCheck, Library, BookOpen } from "lucide-react";
 import { DashboardStats as StatsType } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function DashboardStats() {
+
+  const getDashboardStats = async ({ queryKey }: any) => {
+    const response = await apiRequest("GET", "/api/dashboard/stats")
+    return await response.json()
+  }
+
   const { data: stats, isLoading } = useQuery<StatsType>({
-    queryKey: ["/api/dashboard/stats"],
-  });
+    //queryKey: ["/api/dashboard/stats"]
+    queryKey: ["dashboard-stats"],
+    queryFn: getDashboardStats
+  })
 
   const numberCompactFormat = (value: number) => {
     return Intl.NumberFormat("en-US", {

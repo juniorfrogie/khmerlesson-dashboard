@@ -41,20 +41,20 @@ export default function ResetPassword() {
 
   const onSubmit = async (data: ResetPasswordUser) => {
     try {
-        setLoading(true)  
-        await resetPassword(data)
-        setLoading(false)
-        toast({
-            title: "Success",
-            description: "Password updated successfully",
-        });
+      setLoading(true)  
+      await resetPassword(data)
+      setLoading(false)
+      toast({
+        title: "Success",
+        description: "Password updated successfully"
+      });
     } catch (error: any) {
-        setLoading(false)
-        toast({
-            title: "Error",
-            description: error.message || "Failed to reset password",
-            variant: "destructive",
-        });
+      setLoading(false)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reset password",
+        variant: "destructive"
+      });
     }
   };
 

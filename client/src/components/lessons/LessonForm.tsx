@@ -168,15 +168,6 @@ export default function LessonForm({ lesson, onSubmit, onPreview, isLoading }: L
     form.setValue("image", lessonTypeData?.title?.toLowerCase() ?? "")
   }
 
-  // const getAllLessonType = async () => {
-  //   const response = await apiRequest("GET", "/api/lesson-type")
-  //   return await response.json()
-  // }
-
-  // useEffect(() => {
-  //   getAllLessonType().then(data => setLessonTypeList(data))
-  // }, [])
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((data) => handleSubmit(data))} className="space-y-6">

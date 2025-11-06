@@ -7,6 +7,7 @@ import { MainLesson, PurchaseHistoryData } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
+import { apiRequest } from "@/lib/queryClient";
 
 const purchaseHistorySchema = z.object({
   email: z.string()
@@ -38,8 +39,16 @@ export function PurchaseHistoryForm({ data, onRefundSubmit, isLoading }: Purchas
     //     onRefundSubmit({...d})
     // }
 
+    const getMainLessons = async ({ queryKey }: any) => {
+        const [_key, _] = queryKey
+        const response = await apiRequest("GET", `/api/main-lessons/${data?.mainLessonId}`)
+        return await response.json()
+    }
+
     const { data: mainLesson, isFetching } = useQuery<MainLesson>({
-        queryKey: [`/api/main-lessons/${data?.mainLessonId}`]
+        queryKey: ['main-lessons-id'],
+        queryFn: getMainLessons,
+        refetchOnMount: "always"
     })
 
     return (

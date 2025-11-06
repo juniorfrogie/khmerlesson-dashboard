@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
-import jwt from "jsonwebtoken"
+// import jwt from "jsonwebtoken"
 
 const router = Router();
 
@@ -36,32 +36,32 @@ const authenticateAPI = (req: any, res: any, next: any) => {
   next();
 };
 
-const authenticateToken = async (req: any, res: any, next: any) => {
+// const authenticateToken = async (req: any, res: any, next: any) => {
   
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
+//   const authHeader = req.headers['authorization']
+//   const token = authHeader && authHeader.split(' ')[1]
 
-  if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+//   if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
 
-  const isBlacklisted = await storage.getBlacklist(token)
-  if (isBlacklisted) {
-    return res.status(401).json({
-      message: "Token is no longer valid. Please log in again.",
-    });
-  }
+//   const isBlacklisted = await storage.getBlacklist(token)
+//   if (isBlacklisted) {
+//     return res.status(401).json({
+//       message: "Token is no longer valid. Please log in again."
+//     })
+//   }
 
-  jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
-    if (err) return res.status(403).json({message: "Forbidden"})
+//   jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
+//     if (err) return res.status(403).json({message: "Forbidden"})
 
-    req.user = user
+//     req.user = user
 
-    next()
-  })
-}
+//     next()
+//   })
+// }
 
 // Apply authentication to all API routes
 router.use(authenticateAPI);
-router.use(authenticateToken);
+//router.use(authenticateToken);
 
 // ===== MAIN LESSONS API =====
 

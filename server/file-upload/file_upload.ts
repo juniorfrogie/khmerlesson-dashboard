@@ -54,7 +54,7 @@ const upload = multer({
     fileFilter: fileFilter
 })
 
-router.post("/upload", upload.single('file'), async (req, res) => {
+router.post("/", upload.single('file'), async (req, res) => {
     try {
         if(!req.file){
             return res.status(400).json({ message: 'No file uploaded' });

@@ -1,44 +1,85 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
-import { CircleX } from "lucide-react";
-// import { useEffect } from "react";
+import { CircleX, Loader2 } from "lucide-react";
 
 export default function PaymentCancel() {
-  
-  // useEffect(() => {
-  //   const searchParams = new URLSearchParams(window.location.search);
-  //   console.log(searchParams.get("token"))
-  // }, [])
 
-  const captureOrder = async ({ queryKey }: any) => {
+  const deleteOrder = async ({ queryKey }: any) => {
     const [_key, _] = queryKey
     const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get("token")
     if(!token) return
     const response = await apiRequest("DELETE", `/api/lessons/purchase/${token}`)
-    const result = await response.json()
-    return result
+    return response.status === 204
   }
 
-  const { data: _, isLoading } = useQuery({
-    queryKey: [],
-    queryFn: captureOrder
+  const { data: hasDeleted, isLoading } = useQuery({
+    queryKey: ["delete-order"],
+    queryFn: deleteOrder
   })
+
+  if(hasDeleted && !isLoading){
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6">
+            <div className="flex flex-col mb-4 gap-2 items-center">
+              { !isLoading && <CircleX className="h-8 w-8 text-red-500"/>}
+              <h1 className="text-2xl font-bold text-gray-900">
+                { isLoading ? "Proceeding..." : "Payment Cancelled!"}
+              </h1>
+              {/* { isLoading && <small className="text-gray-500">Do not close!</small> } */}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  else if(!hasDeleted && !isLoading){
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6">
+            <div className="flex flex-col mb-4 gap-2 items-center">
+              An error has occurred, try again!
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md mx-4">
         <CardContent className="pt-6">
           <div className="flex flex-col mb-4 gap-2 items-center">
-            { !isLoading && <CircleX className="h-8 w-8 text-red-500"/>}
+            <Loader2 className="h-8 w-8 animate-spin"/>
             <h1 className="text-2xl font-bold text-gray-900">
-              { isLoading ? "Payment canceling..." : "Payment Cancelled!"}
+              Proceeding...
             </h1>
-            { isLoading && <small className="text-gray-500">Do not close!</small> }
+            <small className="text-gray-500">Do not close browser!</small>
           </div>
         </CardContent>
       </Card>
     </div>
   );
+
+  // return (
+  //   <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
+  //     <Card className="w-full max-w-md mx-4">
+  //       <CardContent className="pt-6">
+  //         <div className="flex flex-col mb-4 gap-2 items-center">
+  //           { !isLoading && <CircleX className="h-8 w-8 text-red-500"/>}
+  //           <h1 className="text-2xl font-bold text-gray-900">
+  //             { isLoading ? "Payment canceling..." : "Payment Cancelled!"}
+  //           </h1>
+  //           { isLoading && <small className="text-gray-500">Do not close!</small> }
+  //         </div>
+  //       </CardContent>
+  //     </Card>
+  //   </div>
+  // );
 }

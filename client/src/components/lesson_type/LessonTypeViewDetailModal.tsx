@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle } from "../ui/card";
 import { Lesson, LessonType } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "../ui/badge";
+import { apiRequest } from "@/lib/queryClient";
 
 interface LessonTypeViewDetailModalProps {
   lessonType: LessonType | null;
@@ -19,8 +20,17 @@ interface LessonTypeViewDetailModalProps {
 export default function LessonTypeViewDetailModal({ lessonType, isOpen, onClose }: LessonTypeViewDetailModalProps){
     if (!lessonType) return null;
 
-    const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
-        queryKey: [`/api/lesson-type/${lessonType.id}`]
+    const getLessons = async ({ queryKey }: any) => {
+        const [_key, _] = queryKey
+        const response = await apiRequest("GET", `/api/lesson-type/${lessonType.id}`)
+        return await response.json()
+    }
+
+    const { data: lessons = [], isFetching } = useQuery<Lesson[]>({
+        //queryKey: [`/api/lesson-type/${lessonType.id}`]
+        queryKey: ['lesson-type-detail'],
+        queryFn: getLessons,
+        refetchOnMount: "always"
     })
 
     return (
@@ -34,7 +44,7 @@ export default function LessonTypeViewDetailModal({ lessonType, isOpen, onClose 
                 </DialogHeader>
 
                 <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">
-                    { isLoading ? (<p className="neutral-light text-sm">Please wait...</p>) : (<div className="space-y-6">
+                    { isFetching ? (<p className="neutral-light text-sm">Please wait...</p>) : (<div className="space-y-6">
                         { 
                             lessons.length === 0 ? (
                                 <div className="text-gray-500">
