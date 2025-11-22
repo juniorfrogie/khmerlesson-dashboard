@@ -28,13 +28,15 @@ import path from "path";
 import fs from "fs";
 import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3"
 import appleAuthRoute from "./auth/apple_auth"
+import cookieParser from "cookie-parser"
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
   const authenticateToken = async (req: any, res: any, next: any) => {
     
-    const authHeader = req.headers['authorization']
-    const token = authHeader && authHeader.split(' ')[1]
+    // const authHeader = req.headers['authorization']
+    // const token = authHeader && authHeader.split(' ')[1]
+    const token = req.cookies.token
   
     if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
   
@@ -88,13 +90,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  app.use(cookieParser())
+
   // Middleware to set CORS headers for all routes
   app.use(cors({
     origin: app.get("env") === "development" ? "*" : "https://cambodianlesson.netlify.app"
   }))
 
   // Mount public API routes
-  app.use("/api/v1", authenticateToken, apiRoutes);
+  app.use("/api/v1", apiRoutes);
   app.use("/api", paypalRoutes);
   app.use("/api/auth", appleAuthRoute);
 
@@ -730,7 +734,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       expirationDate.setDate(expirationDate.getDate() + days);
       res.cookie("token", token, {
         expires: expirationDate,
-        httpOnly: false
+        httpOnly: true,
+        sameSite: "strict",
+        secure: true,
+        maxAge: 1000 * 60 * 60 * 24 * 7
       })
       //
       res.json({
@@ -776,7 +783,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       expirationDate.setDate(expirationDate.getDate() + days);
       res.cookie("token", token, {
         expires: expirationDate,
-        httpOnly: false
+        httpOnly: true,
+        sameSite: "strict",
+        secure: true,
+        maxAge: 1000 * 60 * 60 * 24 * 7
       })
       //
       res.json({
@@ -828,7 +838,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.cookie("token", "none", {
         expires: new Date(Date.now() + 10 * 1000),
-        httpOnly: false
+        httpOnly: true,
+        sameSite: "strict",
+        secure: true,
+        maxAge: 1000 * 60 * 60 * 24 * 7
       })
 
       res.status(200).json({
@@ -1067,16 +1080,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check if token is valid
   app.post("/api/verify-token", (req: any, res: any, next) => {
     try {
-      const { cookie } = req.headers
-      if(cookie){
-        const token = cookie.split("token=")[1].split(";")[0]
-         jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
-          if (err) return res.status(403).json({message: "Forbidden"})
-          next()
-        })
-        // const decoded = jwt.verify(token, process.env.TOKEN_SECRET as string)
-        // res.status(200).json({user: decoded})
-      }
+      // const { cookie } = req.headers
+      // if(cookie){
+      //   const token = cookie.split("token=")[1].split(";")[0]
+      //   jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
+      //     if (err) return res.status(403).json({message: "Forbidden"})
+      //     next()
+      //   })
+      //   // const decoded = jwt.verify(token, process.env.TOKEN_SECRET as string)
+      //   // res.status(200).json({user: decoded})
+      // }
+
+      const token = req.cookies.token
+      jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
+        if (err) return res.status(403).json({message: "Forbidden"})
+        next()
+      })
     } catch (error: any) {
       res.status(500).send("Failed to verify token")
     }
