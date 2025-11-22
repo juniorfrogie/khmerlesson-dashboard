@@ -840,8 +840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expires: new Date(Date.now() + 10 * 1000),
         httpOnly: true,
         sameSite: "strict",
-        secure: true,
-        maxAge: 1000 * 60 * 60 * 24 * 7
+        secure: true
       })
 
       res.status(200).json({
