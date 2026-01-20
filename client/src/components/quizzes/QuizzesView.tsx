@@ -3,7 +3,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Edit, Trash2, HelpCircle } from "lucide-react";
 import { Quiz } from "@shared/schema";
@@ -23,28 +29,25 @@ export default function QuizzesView({ onDelete }: QuizzesViewProps) {
 
   const { toast } = useToast();
 
-  // const { data: quizzes = [], isLoading } = useQuery<Quiz[]>({
-  //   queryKey: ["/api/quizzes", { search: searchTerm, status: statusFilter === "all" ? "" : statusFilter }],
-  // });
+  const getQuizzes = async ({ queryKey }: any) => {
+    const [_key, params] = queryKey;
+    const response = await apiRequest(
+      "GET",
+      `/api/quizzes?status=${params.status}&search=${params.search}`,
+    );
+    return await response.json();
+  };
 
-  // const { data: quizzes = [], isLoading } = useQuery<Quiz[]>({
-  //   queryKey: [`/api/quizzes?status=${statusFilter}&search=${searchTerm}`],
-  // });
-
-   const getQuizzes = async ({ queryKey }: any) => {
-      const [_key, params] = queryKey
-      const response = await apiRequest("GET", `/api/quizzes?status=${params.status}&search=${params.search}`)
-      return await response.json()
-    }
-  
-    const { data: quizzes = [], isLoading } = useQuery<Quiz[]>(
+  const { data: quizzes = [], isLoading } = useQuery<Quiz[]>({
+    queryKey: [
+      "quizzes",
       {
-        queryKey: ['quizzes', {
-          status: statusFilter,
-          search: searchTerm
-        }],
-        queryFn: getQuizzes
-      })
+        status: statusFilter,
+        search: searchTerm,
+      },
+    ],
+    queryFn: getQuizzes,
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/quizzes/${id}`),
@@ -83,9 +86,12 @@ export default function QuizzesView({ onDelete }: QuizzesViewProps) {
 
   const getBadgeVariant = (status: string) => {
     switch (status) {
-      case "active": return "default";
-      case "draft": return "secondary";
-      default: return "outline";
+      case "active":
+        return "default";
+      case "draft":
+        return "secondary";
+      default:
+        return "outline";
     }
   };
 
@@ -133,8 +139,11 @@ export default function QuizzesView({ onDelete }: QuizzesViewProps) {
                 </SelectContent>
               </Select>
             </div>
-            
-            <Button onClick={handleNewQuiz} className="bg-fluent-blue hover:bg-blue-600">
+
+            <Button
+              onClick={handleNewQuiz}
+              className="bg-fluent-blue hover:bg-blue-600"
+            >
               <Plus className="mr-2 h-4 w-4" />
               New Quiz
             </Button>
@@ -146,27 +155,32 @@ export default function QuizzesView({ onDelete }: QuizzesViewProps) {
               <div className="col-span-full text-center py-12">
                 <HelpCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <p className="text-gray-500 mb-2">No quizzes found</p>
-                <p className="text-sm text-gray-400">Create your first quiz to get started</p>
+                <p className="text-sm text-gray-400">
+                  Create your first quiz to get started
+                </p>
               </div>
             ) : (
               quizzes.map((quiz) => (
-                <Card key={quiz.id} className="border border-gray-200 hover:shadow-md transition-shadow">
+                <Card
+                  key={quiz.id}
+                  className="border border-gray-200 hover:shadow-md transition-shadow"
+                >
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                         <HelpCircle className="fluent-purple" size={24} />
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="icon"
                           onClick={() => handleEdit(quiz)}
                           className="neutral-medium hover:bg-gray-50"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(quiz)}
                           className="fluent-red hover:bg-red-50"
@@ -175,23 +189,38 @@ export default function QuizzesView({ onDelete }: QuizzesViewProps) {
                         </Button>
                       </div>
                     </div>
-                    
-                    <h3 className="font-semibold neutral-dark mb-2">{quiz.title}</h3>
-                    <p className="neutral-medium text-sm mb-4">{quiz.description}</p>
-                    
+
+                    <h3 className="font-semibold neutral-dark mb-2">
+                      {quiz.title}
+                    </h3>
+                    <p className="neutral-medium text-sm mb-4">
+                      {quiz.description}
+                    </p>
+
                     <div className="flex items-center justify-between text-sm mb-4">
                       <span className="neutral-medium">
-                        {Array.isArray(quiz.questions) ? quiz.questions.length : 0} questions
+                        {Array.isArray(quiz.questions)
+                          ? quiz.questions.length
+                          : 0}{" "}
+                        questions
                       </span>
                       <Badge variant={getBadgeVariant(quiz.status)}>
-                        {quiz.status.charAt(0).toUpperCase() + quiz.status.slice(1)}
+                        {quiz.status.charAt(0).toUpperCase() +
+                          quiz.status.slice(1)}
                       </Badge>
                     </div>
-                    
+
                     <div className="pt-4 border-t border-gray-200">
                       <div className="flex items-center justify-between text-xs neutral-light">
-                        <span>Updated {new Date(quiz.updatedAt).toLocaleDateString()}</span>
-                        <span>{quiz.status === 'active' ? '85% completion rate' : '-'}</span>
+                        <span>
+                          Updated{" "}
+                          {new Date(quiz.updatedAt).toLocaleDateString()}
+                        </span>
+                        <span>
+                          {quiz.status === "active"
+                            ? "85% completion rate"
+                            : "-"}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -202,7 +231,7 @@ export default function QuizzesView({ onDelete }: QuizzesViewProps) {
         </CardContent>
       </Card>
 
-      <QuizModal 
+      <QuizModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         quiz={editingQuiz}

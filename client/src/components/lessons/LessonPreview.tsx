@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Library } from "lucide-react";
 import { Lesson } from "@shared/schema";
-// import { IMAGE_MAP } from "@/lib/constants";
 import DOMPurify from 'isomorphic-dompurify';
 
 interface LessonPreviewProps {

@@ -13,7 +13,7 @@ export default function PaymentComplete() {
     const response = await apiRequest("POST", `/api/orders/${token}/capture`)
     const result = await response.json()
     const id = result.id
-    const responsePaymentStatus = await apiRequest("PATCH", `/api/lessons/purchase/${id}/payment-status`, {
+    const responsePaymentStatus = await apiRequest("PATCH", `/api/purchase-history/${id}/payment-status`, {
       paymentStatus: result.status.toString().toLowerCase()
     })
     const resultPayment = await responsePaymentStatus.json()

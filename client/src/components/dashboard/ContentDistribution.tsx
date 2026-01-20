@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lesson, LessonType } from "@shared/schema";
-// import { IMAGE_MAP } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function ContentDistribution() {
@@ -34,7 +33,8 @@ export default function ContentDistribution() {
   const getAllLessonType = async ({ queryKey }: any) => {
     const [_key, params] = queryKey
     const response = await apiRequest("GET", "/api/lesson-type")
-    return await response.json()
+    const body = await response.json()
+    return body["data"]
   }
 
   const { data: lessonTypeList = [] } = useQuery<LessonType[]>({

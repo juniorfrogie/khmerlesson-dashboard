@@ -1,4 +1,3 @@
-// import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocation } from "wouter";
@@ -25,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { GraduationCap } from "lucide-react";
 
 export default function Login() {
-  const [, setLocation] = useLocation();
+  const [_, navigate] = useLocation();
   const { login, isLoginLoading } = useAuth();
   const { toast } = useToast();
 
@@ -44,7 +43,7 @@ export default function Login() {
         title: "Success",
         description: "Logged in successfully",
       });
-      setLocation("/dashboard");
+      navigate("/dashboard");
       window.location.reload()
     } catch (error: any) {
       toast({

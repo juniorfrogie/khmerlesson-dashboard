@@ -3,17 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lesson, MainLesson, Quiz } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
-// import { useState } from "react";
-// import { IMAGE_MAP } from "@/lib/constants";
 
 export default function RecentContent() {
-  // const { data: lessons = [] } = useQuery<LessonData[]>({
-  //   queryKey: ["/api/lessons"],
-  // });
-
-  // const { data: quizzes = [] } = useQuery<Quiz[]>({
-  //   queryKey: ["/api/quizzes"],
-  // });
 
   const getMainLessons = async ({ queryKey }: any) => {
     const [_key, params] = queryKey

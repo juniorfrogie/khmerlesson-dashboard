@@ -3,13 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Plus, Edit, Eye, Trash2, Library } from "lucide-react";
 import { Lesson, LessonType } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
-// import { IMAGE_MAP } from "@/lib/constants";
 import LessonModal from "./LessonModal";
 import LessonPreview from "./LessonPreview";
 import Pagination from "../common/Pagination";
@@ -20,9 +25,9 @@ interface LessonsViewProps {
 }
 
 type LessonListData = {
-  lessons: Lesson[],
-  total: number
-}
+  lessons: Lesson[];
+  total: number;
+};
 
 export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,60 +38,39 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [previewLesson, setPreviewLesson] = useState<Lesson | null>(null);
-  const [limit, _] = useState(15)
-  var [offset, setOffset] = useState(0)
-  const [pageNumber, setPageNumber] = useState(1)
+  const [limit, _] = useState(15);
+  var [offset, setOffset] = useState(0);
+  const [pageNumber, setPageNumber] = useState(1);
 
-  const { getLessons, getLevelBadgeColor, deleteMutation } = useLesson()
+  const { getLessons, getLevelBadgeColor, deleteMutation } = useLesson();
 
-  // const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
-  //   queryKey: ["/api/lessons", { 
-  //     search: searchTerm, 
-  //     level: levelFilter === "all" ? "" : levelFilter, 
-  //     type: typeFilter === "all" ? "" : typeFilter, 
-  //     status: statusFilter === "all" ? "" : statusFilter 
-  //   }],
-  // });
-  
-  // const { data: lessons = [], isLoading } = useQuery<LessonData[]>(
-  //   {
-  //     queryKey: ['lessons', {
-  //       level: levelFilter,
-  //       type: typeFilter,
-  //       search: searchTerm,
-  //       status: statusFilter,
-  //       limit: limit,
-  //       offset: offset
-  //     }],
-  //     queryFn: getLessons
-  //   })
+  const { data: data = { lessons: [], total: 0 }, isLoading } =
+    useQuery<LessonListData>({
+      queryKey: [
+        "lessons",
+        {
+          level: levelFilter,
+          type: typeFilter,
+          search: searchTerm,
+          status: statusFilter,
+          limit: limit,
+          offset: offset,
+        },
+      ],
+      queryFn: getLessons,
+    });
 
-  const { data: data = { lessons: [], total: 0 }, isLoading } = useQuery<LessonListData>(
-    {
-      queryKey: ['lessons', {
-        level: levelFilter,
-        type: typeFilter,
-        search: searchTerm,
-        status: statusFilter,
-        limit: limit,
-        offset: offset
-      }],
-      queryFn: getLessons
-    })
-      
   const getAllLessonType = async ({ queryKey }: any) => {
-    const [_key, params] = queryKey
-    const response = await apiRequest("GET", 
-        `/api/lesson-type`
-    )
-    return await response.json()
-  }
-    
+    const [_key, params] = queryKey;
+    const response = await apiRequest("GET", `/api/lesson-type`);
+    return await response.json();
+  };
+
   const { data: lessonTypeList = [] } = useQuery<LessonType[]>({
-    queryKey: ['lesson-type'],
+    queryKey: ["lesson-type"],
     refetchOnMount: false,
-    queryFn: getAllLessonType 
-  })
+    queryFn: getAllLessonType,
+  });
 
   const handleDelete = (lesson: Lesson) => {
     onDelete("lesson", lesson.title, async () => {
@@ -109,10 +93,10 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   };
 
   const toggleLessonSelection = (lessonId: number) => {
-    setSelectedLessons(prev => 
-      prev.includes(lessonId) 
-        ? prev.filter(id => id !== lessonId)
-        : [...prev, lessonId]
+    setSelectedLessons((prev) =>
+      prev.includes(lessonId)
+        ? prev.filter((id) => id !== lessonId)
+        : [...prev, lessonId],
     );
   };
 
@@ -120,15 +104,18 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
     if (selectedLessons.length === data.lessons.length) {
       setSelectedLessons([]);
     } else {
-      setSelectedLessons(data.lessons.map(l => l.id));
+      setSelectedLessons(data.lessons.map((l) => l.id));
     }
   };
 
   const getBadgeVariant = (status: string) => {
     switch (status) {
-      case "published": return "default";
-      case "draft": return "secondary";
-      default: return "outline";
+      case "published":
+        return "default";
+      case "draft":
+        return "secondary";
+      default:
+        return "outline";
     }
   };
 
@@ -147,16 +134,16 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
   }
 
   const next = () => {
-    let min = offset + limit
-    setOffset(Math.min(min, data.total))
-    setPageNumber(pageNumber + 1)
-  }
+    let min = offset + limit;
+    setOffset(Math.min(min, data.total));
+    setPageNumber(pageNumber + 1);
+  };
 
   const previous = () => {
-    let max = offset - limit
-    setOffset(Math.max(0, max))
-    setPageNumber(pageNumber - 1)
-  }
+    let max = offset - limit;
+    setOffset(Math.max(0, max));
+    setPageNumber(pageNumber - 1);
+  };
 
   return (
     <>
@@ -174,7 +161,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              
+
               <Select value={levelFilter} onValueChange={setLevelFilter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="All Levels" />
@@ -186,7 +173,7 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                   <SelectItem value="Advanced">Advanced</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="All Types" />
@@ -198,13 +185,14 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                       {type.charAt(0).toUpperCase() + type.slice(1)}
                     </SelectItem>
                   ))} */}
-                  {
-                    lessonTypeList.map((item) => (
-                      <SelectItem key={item.id} value={`${item.title.toLowerCase()}`}>
-                        { item.title }
-                      </SelectItem>
-                    ))
-                  }
+                  {lessonTypeList.map((item) => (
+                    <SelectItem
+                      key={item.id}
+                      value={`${item.title.toLowerCase()}`}
+                    >
+                      {item.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -219,13 +207,16 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex items-center space-x-3">
               {/* <Button variant="outline">
                 <Filter className="mr-2 h-4 w-4" />
                 More Filters
               </Button> */}
-              <Button onClick={handleNewLesson} className="bg-fluent-blue hover:bg-blue-600">
+              <Button
+                onClick={handleNewLesson}
+                className="bg-fluent-blue hover:bg-blue-600"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 New Lesson
               </Button>
@@ -239,18 +230,33 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                 <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                   <tr>
                     <th className="text-left p-4 font-medium neutral-dark">
-                      <Checkbox 
-                        checked={data.lessons.length > 0 && selectedLessons.length === data.lessons.length}
+                      <Checkbox
+                        checked={
+                          data.lessons.length > 0 &&
+                          selectedLessons.length === data.lessons.length
+                        }
                         onCheckedChange={toggleSelectAll}
                       />
                     </th>
-                    <th className="text-left p-4 font-medium neutral-dark">Lesson</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Type</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Level</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Status</th>
+                    <th className="text-left p-4 font-medium neutral-dark">
+                      Lesson
+                    </th>
+                    <th className="text-left p-4 font-medium neutral-dark">
+                      Type
+                    </th>
+                    <th className="text-left p-4 font-medium neutral-dark">
+                      Level
+                    </th>
+                    <th className="text-left p-4 font-medium neutral-dark">
+                      Status
+                    </th>
                     {/* <th className="text-left p-4 font-medium neutral-dark">Price</th> */}
-                    <th className="text-left p-4 font-medium neutral-dark">Updated</th>
-                    <th className="text-left p-4 font-medium neutral-dark">Actions</th>
+                    <th className="text-left p-4 font-medium neutral-dark">
+                      Updated
+                    </th>
+                    <th className="text-left p-4 font-medium neutral-dark">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -260,7 +266,9 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                         <div className="text-gray-500">
                           <Library className="mx-auto h-12 w-12 mb-2 opacity-50" />
                           <p>No lessons found</p>
-                          <p className="text-sm">Create your first lesson to get started</p>
+                          <p className="text-sm">
+                            Create your first lesson to get started
+                          </p>
                         </div>
                       </td>
                     </tr>
@@ -268,9 +276,11 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                     data.lessons.map((lesson) => (
                       <tr key={lesson.id} className="hover:bg-gray-50">
                         <td className="p-4">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedLessons.includes(lesson.id)}
-                            onCheckedChange={() => toggleLessonSelection(lesson.id)}
+                            onCheckedChange={() =>
+                              toggleLessonSelection(lesson.id)
+                            }
                           />
                         </td>
                         <td className="p-4">
@@ -278,26 +288,41 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                             <div className="size-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
                               {/* <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span>
                               { <span className="text-lg">{ lesson.lessonType.icon || "📚"}</span> } */}
-                              {
-                                lesson.lessonType?.iconMode === "file" ? <img src={`${lesson.lessonType?.iconUrl}`} width="24" height="24" alt={lesson.lessonType?.title}/> 
-                                  : <span className="text-lg">{lesson.lessonType?.icon || "📚"}</span>
-                              }
+                              {lesson.lessonType?.iconMode === "file" ? (
+                                <img
+                                  src={`${lesson.lessonType?.iconUrl}`}
+                                  width="24"
+                                  height="24"
+                                  alt={lesson.lessonType?.title}
+                                />
+                              ) : (
+                                <span className="text-lg">
+                                  {lesson.lessonType?.icon || "📚"}
+                                </span>
+                              )}
                             </div>
                             <div>
-                              <p className="font-medium neutral-dark">{lesson.title}</p>
-                              <p className="text-sm neutral-medium">{lesson.description}</p>
+                              <p className="font-medium neutral-dark">
+                                {lesson.title}
+                              </p>
+                              <p className="text-sm neutral-medium">
+                                {lesson.description}
+                              </p>
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
-                          { lesson.image && lesson.image.length > 0 && (
-                            <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
+                          {lesson.image && lesson.image.length > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="bg-blue-100 text-blue-700 border-blue-200"
+                            >
                               {/* {lesson.image.charAt(0).toUpperCase() + lesson.image.slice(1)} */}
-                              {
-                                lesson.lessonType && (
-                                  lesson.lessonType.title.charAt(0).toUpperCase() + lesson.lessonType.title.slice(1)
-                                )
-                              }
+                              {lesson.lessonType &&
+                                lesson.lessonType.title
+                                  .charAt(0)
+                                  .toUpperCase() +
+                                  lesson.lessonType.title.slice(1)}
                             </Badge>
                           )}
                         </td>
@@ -308,7 +333,8 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                         </td>
                         <td className="p-4">
                           <Badge variant={getBadgeVariant(lesson.status)}>
-                            {lesson.status.charAt(0).toUpperCase() + lesson.status.slice(1)}
+                            {lesson.status.charAt(0).toUpperCase() +
+                              lesson.status.slice(1)}
                           </Badge>
                         </td>
                         {/* <td className="p-4">
@@ -327,24 +353,24 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center space-x-2">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => handleEdit(lesson)}
                               className="fluent-blue hover:bg-blue-50"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => handlePreview(lesson)}
                               className="neutral-medium hover:bg-gray-50"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(lesson)}
                               className="fluent-red hover:bg-red-50"
@@ -379,25 +405,27 @@ export default function LessonsView({ onDelete }: LessonsViewProps) {
                 </div>
               </div>
             )} */}
-            <Pagination 
-                currentLength={data.lessons?.length ?? 0}
-                limit={limit}
-                offset={offset}
-                pageNumber={pageNumber}
-                next={next}
-                previous={previous}
-                total={data.total} />
+            <Pagination
+              title="Lessons"
+              currentLength={data.lessons?.length ?? 0}
+              limit={limit}
+              offset={offset}
+              pageNumber={pageNumber}
+              next={next}
+              previous={previous}
+              total={data.total}
+            />
           </div>
         </CardContent>
       </Card>
 
-      <LessonModal 
+      <LessonModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         lesson={editingLesson}
       />
 
-      <LessonPreview 
+      <LessonPreview
         lesson={previewLesson}
         isOpen={!!previewLesson}
         onClose={() => setPreviewLesson(null)}

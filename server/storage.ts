@@ -34,7 +34,7 @@ import {
   mainLessons
 } from "@shared/schema";
 import { db } from "./db";
-import { and, count, eq, not, lte } from "drizzle-orm";
+import { and, count, eq, not, lte, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import generatorPassword from "generate-password"
 import { extname } from "path"
@@ -84,10 +84,12 @@ export interface IStorage {
 
   // Lesson Type
   getAllLessonType(): Promise<LessonType[]>;
+  getLessonTypePage(limit: number, offset: number): Promise<LessonType[]>;
   createLessonType(insertLessonType: InsertLessonType): Promise<LessonType>;
   updateLessonType(id: number, updateLessonType: UpdateLessonType): Promise<LessonType | undefined>;
   deleteLessonType(id: number): Promise<boolean>;
   getLessonTypeDetail(id: number): Promise<Lesson[]>
+  getLessonTypeCount(): Promise<number>
   
   // Quizzes
   getQuizzes(): Promise<Quiz[]>;
@@ -281,46 +283,111 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMainLessonsJoin(user: User): Promise<any> {
-    const result = await db.select().from(mainLessons)
-      .orderBy(mainLessons.createdAt);
-    const mainLessonsUserPurchased = await db.select().from(mainLessons)
-      .fullJoin(purchase_history, eq(mainLessons.id, purchase_history.mainLessonId))
-      .innerJoin(users, eq(users.id, purchase_history.userId))
-      .where(eq(users.id, user.id))
-      .orderBy(mainLessons.createdAt);
+    // const result = await db.select().from(mainLessons)
+    //   .orderBy(mainLessons.createdAt);
+    // const mainLessonsUserPurchased = await db.select().from(mainLessons)
+    //   .fullJoin(purchase_history, eq(mainLessons.id, purchase_history.mainLessonId))
+    //   .innerJoin(users, eq(users.id, purchase_history.userId))
+    //   .where(eq(users.id, user.id))
+    //   .orderBy(mainLessons.createdAt);
 
+    // const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
+    // const publishedLessons = result.filter(e => e.status === "published").map(e => ({
+    //   id: e.id,
+    //   title: e.title,
+    //   description: e.description,
+    //   imageCover: e.imageCover,
+    //   imageFile: {
+    //     name: e.imageCover,
+    //     extension: extname(`${bucketEndpoint}/${e.imageCover}`)
+    //   },
+    //   free: e.free,
+    //   price: e.price,
+    //   priceCurrency: `${Intl.NumberFormat("en-US", {
+    //     style: "currency",
+    //     currency: "USD"
+    //   }).format((e.price || 0) / 100)}`,
+    //   hasPurchased: false,
+    //   createdAt: e.createdAt,
+    //   updatedAt: e.updatedAt
+    // }))
+
+    // for(const mainLessonPurchased of mainLessonsUserPurchased){
+    //     const indexFound = publishedLessons.findIndex(e => e.id === mainLessonPurchased.main_lessons?.id)
+    //     const hasPurchased = mainLessonPurchased.main_lessons?.id === mainLessonPurchased.purchase_history?.mainLessonId
+    //         && mainLessonPurchased.purchase_history?.userId === user.id 
+    //         && mainLessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
+    //     if(indexFound === -1) break
+    //     publishedLessons[indexFound].hasPurchased = hasPurchased
+    // }
+    // return publishedLessons;
+      
     const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
-    const publishedLessons = result.filter(e => e.status === "published").map(e => ({
-      id: e.id,
-      title: e.title,
-      description: e.description,
-      imageCover: e.imageCover,
-      imageFile: {
-        name: e.imageCover,
-        //url: `${bucketEndpoint}/${e.imageCover}`,
-        //extension: extname(`/uploads/${e.lesson_type.icon}`)
-        extension: extname(`${bucketEndpoint}/${e.imageCover}`)
-      },
-      free: e.free,
-      price: e.price,
-      priceCurrency: `${Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD"
-      }).format((e.price || 0) / 100)}`,
-      hasPurchased: false,
-      createdAt: e.createdAt,
-      updatedAt: e.updatedAt
-    }))
 
-    for(let mainLessonPurchased of mainLessonsUserPurchased){
-        const indexFound = publishedLessons.findIndex(e => e.id === mainLessonPurchased.main_lessons?.id)
-        let hasPurchased = mainLessonPurchased.main_lessons?.id === mainLessonPurchased.purchase_history?.mainLessonId
-            && mainLessonPurchased.purchase_history?.userId === user.id 
-            && mainLessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
-        if(indexFound === -1) break
-        publishedLessons[indexFound].hasPurchased = hasPurchased
-    }
-    return publishedLessons;
+    const rawCommand = sql`SELECT *, 
+      (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
+      WHERE ${purchase_history.paymentStatus} = 'completed' 
+        AND ${purchase_history.userId} = ${user.id} AND ${purchase_history.mainLessonId} = ${mainLessons.id})
+      FROM ${mainLessons} ORDER BY (${mainLessons.createdAt})`
+    const queryResult = await db.execute(rawCommand)
+
+    return queryResult.rows.map((e: any) => (
+      {
+        id: e.id,
+        title: e.title,
+        description: e.description,
+        imageCover: e.imageCover,
+        imageFile: {
+          name: e.imageCover,
+          extension: extname(`${bucketEndpoint}/${e.imageCover}`)
+        },
+        free: e.free,
+        price: e.price,
+        priceCurrency: `${Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD"
+        }).format((e.price || 0) / 100)}`,
+        hasPurchased: e.count > 0,
+        createdAt: e.createdAt,
+        updatedAt: e.updatedAt
+      }
+    ))
+
+    // const result = await db.select()
+    //   .from(mainLessons)
+    //   .where(eq(mainLessons.status, "published"))
+    //   .orderBy(mainLessons.createdAt)
+
+    // const data = []
+    // for(const e of result){
+    //   const purchaseHistories = await db.select()
+    //     .from(purchase_history)
+    //     .where(and(eq(purchase_history.mainLessonId, e.id), 
+    //       eq(purchase_history.userId, user.id), 
+    //       eq(purchase_history.paymentStatus, "completed")))
+
+    //   data.push({
+    //     id: e.id,
+    //     title: e.title,
+    //     description: e.description,
+    //     imageCover: e.imageCover,
+    //     imageFile: {
+    //       name: e.imageCover,
+    //       extension: extname(`${bucketEndpoint}/${e.imageCover}`)
+    //     },
+    //     free: e.free,
+    //     price: e.price,
+    //     priceCurrency: `${Intl.NumberFormat("en-US", {
+    //       style: "currency",
+    //       currency: "USD"
+    //     }).format((e.price || 0) / 100)}`,
+    //     hasPurchased: purchaseHistories.length > 0,
+    //     createdAt: e.createdAt,
+    //     updatedAt: e.updatedAt
+    //   })  
+    // }
+
+    // return data
   }
 
   async getAllLessonsByMainLesson(id: number): Promise<any> {
@@ -790,7 +857,7 @@ export class DatabaseStorage implements IStorage {
   async getPurchaseHistory(limit: number, offset: number): Promise<PurchaseHistoryData[]> {
     const result = await db.select().from(purchase_history)
       .innerJoin(users, eq(users.id, purchase_history.userId))
-      // .innerJoin(lessons, eq(lessons.id, purchase_history.lessonId))
+      //.innerJoin(lessons, eq(lessons.id, purchase_history.lessonId))
       .innerJoin(mainLessons, eq(mainLessons.id, purchase_history.mainLessonId))
       .limit(limit)
       .offset(offset)
@@ -844,6 +911,20 @@ export class DatabaseStorage implements IStorage {
   async getAllLessonType(): Promise<LessonType[]> {
     const result = await db.select().from(lessonType).orderBy(lessonType.createdAt)
     return result
+  }
+
+  async getLessonTypePage(limit: number, offset: number): Promise<LessonType[]> {
+    const result = await db.select()
+      .from(lessonType)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(lessonType.createdAt)
+    return result
+  }
+
+  async getLessonTypeCount(): Promise<number> {
+    const result = await db.select({count: count()}).from(lessonType)
+    return result[0].count ?? 0
   }
 
   async createLessonType(insertLessonType: InsertLessonType): Promise<LessonType> {

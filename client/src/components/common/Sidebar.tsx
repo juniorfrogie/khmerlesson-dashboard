@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/use-auth";
+import { useUser } from "@/contexts/user-context";
 import { ActiveView } from "@/pages/dashboard";
 import { GraduationCap, BarChart3, BookOpen, HelpCircle, History, BookType, Library, Users } from "lucide-react";
 
@@ -22,7 +22,7 @@ const navigation = [
 
 export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
 
-  const { user, getFullName, getShortNameWith2Letter } = useAuth()
+  const { user, getFullName, getShortNameWith2Letter } = useUser()
 
   return (
     <aside className="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col fixed h-full z-20">

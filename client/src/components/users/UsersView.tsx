@@ -3,7 +3,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Plus, Edit, User2, RefreshCcw } from "lucide-react";
@@ -19,21 +25,21 @@ interface UsersViewProps {
 }
 
 type UserListData = {
-  users: User[]
-  total: number
-}
+  users: User[];
+  total: number;
+};
 
-export default function UsersView({ }: UsersViewProps) {
+export default function UsersView({}: UsersViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [limit, _] = useState(15)
-  var [offset, setOffset] = useState(0)
-  const [pageNumber, setPageNumber] = useState(1)
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [limit, _] = useState(15);
+  var [offset, setOffset] = useState(0);
+  const [pageNumber, setPageNumber] = useState(1);
 
   const { toast } = useToast();
 
@@ -45,28 +51,36 @@ export default function UsersView({ }: UsersViewProps) {
     "Status",
     "Last Login",
     "Update",
-    "Actions"
-  ]
+    "Actions",
+  ];
 
   const getUsers = async ({ queryKey }: any) => {
-    const [_key, params] = queryKey
-    const response = await apiRequest("GET", 
-      `/api/users?role=${params.role}&isActive=${params.isActive}&search=${params.search}&limit=${params.limit}&offset=${params.offset}`)
-    const result = await response.json()
-    return result
-  }
+    const [_key, params] = queryKey;
+    const response = await apiRequest(
+      "GET",
+      `/api/users?role=${params.role}&isActive=${params.isActive}&search=${params.search}&limit=${params.limit}&offset=${params.offset}`,
+    );
+    const result = await response.json();
+    return result;
+  };
 
-  const { data: data = { users: [], total: 0}, isLoading, refetch } = useQuery<UserListData>(
-    {
-      queryKey: ['users', {
+  const {
+    data: data = { users: [], total: 0 },
+    isLoading,
+    refetch,
+  } = useQuery<UserListData>({
+    queryKey: [
+      "users",
+      {
         role: roleFilter,
         isActive: statusFilter,
         search: searchTerm,
         limit: limit,
-        offset: offset
-      }],
-      queryFn: getUsers
-    })
+        offset: offset,
+      },
+    ],
+    queryFn: getUsers,
+  });
 
   // const { data: users = [], isLoading, refetch } = useQuery<User[]>(
   //   {
@@ -84,7 +98,9 @@ export default function UsersView({ }: UsersViewProps) {
     mutationFn: (id: number) => apiRequest("DELETE", `/api/users/${id}`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["users"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/dashboard/stats"],
+      });
       toast({
         title: "Success",
         description: "User deleted successfully",
@@ -120,10 +136,10 @@ export default function UsersView({ }: UsersViewProps) {
   };
 
   const toggleUserSelection = (userId: number) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
     );
   };
 
@@ -131,35 +147,35 @@ export default function UsersView({ }: UsersViewProps) {
     if (selectedUsers.length === data.users.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(data.users.map(l => l.id));
+      setSelectedUsers(data.users.map((l) => l.id));
     }
   };
 
   const refreshData = async () => {
-    try{
-      setIsRefreshing(true)
-      await refetch()
-      setIsRefreshing(false)
-    }catch(error){
-      setIsRefreshing(false)
-      console.log(error)
+    try {
+      setIsRefreshing(true);
+      await refetch();
+      setIsRefreshing(false);
+    } catch (error) {
+      setIsRefreshing(false);
+      console.log(error);
     }
-  }
+  };
 
   const next = () => {
-    let min = offset + limit
-    setOffset(Math.min(min, data.total))
-    setPageNumber(pageNumber + 1)
-  }
+    let min = offset + limit;
+    setOffset(Math.min(min, data.total));
+    setPageNumber(pageNumber + 1);
+  };
 
   const previous = () => {
-    let max = offset - limit
-    setOffset(Math.max(0, max))
-    setPageNumber(pageNumber - 1)
-  }
+    let max = offset - limit;
+    setOffset(Math.max(0, max));
+    setPageNumber(pageNumber - 1);
+  };
 
   const getActiveBadgeColor = (active: boolean) => {
-    return active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+    return active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700";
   };
 
   if (isLoading) {
@@ -192,7 +208,7 @@ export default function UsersView({ }: UsersViewProps) {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              
+
               {/* <Select value={levelFilter} onValueChange={setLevelFilter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="All Levels" />
@@ -204,7 +220,7 @@ export default function UsersView({ }: UsersViewProps) {
                   <SelectItem value="Advanced">Advanced</SelectItem>
                 </SelectContent>
               </Select> */}
-              
+
               <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="All Roles" />
@@ -228,17 +244,26 @@ export default function UsersView({ }: UsersViewProps) {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex items-center space-x-3">
               {/* <Button variant="outline">
                 <Filter className="mr-2 h-4 w-4" />
                 More Filters
               </Button> */}
-              <Button variant="outline" onClick={refreshData} disabled={isRefreshing}>
-                <RefreshCcw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                { isRefreshing ? "Refreshing..." : "Refresh"}
+              <Button
+                variant="outline"
+                onClick={refreshData}
+                disabled={isRefreshing}
+              >
+                <RefreshCcw
+                  className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                />
+                {isRefreshing ? "Refreshing..." : "Refresh"}
               </Button>
-              <Button onClick={handleNewUser} className="bg-fluent-blue hover:bg-blue-600">
+              <Button
+                onClick={handleNewUser}
+                className="bg-fluent-blue hover:bg-blue-600"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 New User
               </Button>
@@ -252,18 +277,22 @@ export default function UsersView({ }: UsersViewProps) {
                 <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                   <tr>
                     <th className="text-left p-4 font-medium neutral-dark">
-                      <Checkbox 
-                        checked={data.users.length > 0 && selectedUsers.length === data.users.length}
+                      <Checkbox
+                        checked={
+                          data.users.length > 0 &&
+                          selectedUsers.length === data.users.length
+                        }
                         onCheckedChange={toggleSelectAll}
                       />
                     </th>
-                    {
-                      userTableHeaders.map((e) => (
-                        <th key={e} className="text-left p-4 font-medium neutral-dark">
-                          { e }
-                        </th>
-                      ))
-                    }
+                    {userTableHeaders.map((e) => (
+                      <th
+                        key={e}
+                        className="text-left p-4 font-medium neutral-dark"
+                      >
+                        {e}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -281,7 +310,7 @@ export default function UsersView({ }: UsersViewProps) {
                     data.users.map((user) => (
                       <tr key={user.id} className="hover:bg-gray-50">
                         <td className="p-4">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedUsers.includes(user.id)}
                             onCheckedChange={() => toggleUserSelection(user.id)}
                           />
@@ -292,44 +321,50 @@ export default function UsersView({ }: UsersViewProps) {
                               <span className="text-lg">{IMAGE_MAP[lesson.image as keyof typeof IMAGE_MAP] || "📚"}</span>
                             </div> */}
                             <div>
-                              <p className="font-medium neutral-dark">{user.firstName}</p>
+                              <p className="font-medium neutral-dark">
+                                {user.firstName}
+                              </p>
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
-                        <div className="flex items-center">
+                          <div className="flex items-center">
                             <div>
-                              <p className="font-medium neutral-dark">{user.lastName}</p>
+                              <p className="font-medium neutral-dark">
+                                {user.lastName}
+                              </p>
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
-                        <div className="flex items-center">
+                          <div className="flex items-center">
                             <div>
-                              <p className="font-medium neutral-dark">{user.email}</p>
+                              <p className="font-medium neutral-dark">
+                                {user.email}
+                              </p>
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
-                        <div className="flex items-center">
+                          <div className="flex items-center">
                             <div>
-                              <p className="font-medium neutral-dark">{user.role}</p>
+                              <p className="font-medium neutral-dark">
+                                {user.role}
+                              </p>
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
                           <Badge className={getActiveBadgeColor(user.isActive)}>
-                            { user.isActive ? "Active" : "Inactive"}
+                            {user.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </td>
                         <td className="p-4">
-                          {
-                            user.lastLogin && (
-                              <span className="neutral-medium text-sm">
-                                { format(user.lastLogin, "PPpp") }
-                              </span>
-                            )
-                          }
+                          {user.lastLogin && (
+                            <span className="neutral-medium text-sm">
+                              {format(user.lastLogin, "PPpp")}
+                            </span>
+                          )}
                         </td>
                         <td className="p-4">
                           <span className="neutral-medium text-sm">
@@ -363,8 +398,8 @@ export default function UsersView({ }: UsersViewProps) {
                         </td> */}
                         <td className="p-4">
                           <div className="flex items-center space-x-2">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => handleEdit(user)}
                               className="fluent-blue hover:bg-blue-50"
@@ -397,19 +432,21 @@ export default function UsersView({ }: UsersViewProps) {
             </div>
 
             {/* Pagination */}
-            <Pagination 
-                currentLength={data.users?.length ?? 0}
-                limit={limit}
-                offset={offset}
-                pageNumber={pageNumber}
-                next={next}
-                previous={previous}
-                total={data.total} />
+            <Pagination
+              title="users"
+              currentLength={data.users?.length ?? 0}
+              limit={limit}
+              offset={offset}
+              pageNumber={pageNumber}
+              next={next}
+              previous={previous}
+              total={data.total}
+            />
           </div>
         </CardContent>
       </Card>
 
-      <UserModal 
+      <UserModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         user={editingUser}

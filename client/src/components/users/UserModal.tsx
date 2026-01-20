@@ -7,8 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-// import { Button } from "@/components/ui/button";
-// import { X } from "lucide-react";
 import { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +20,6 @@ interface UserModalProps {
 }
 
 export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
-  // const [showPreview, setShowPreview] = useState(false);
   const [showChangePassowrdView, setShowChangePassowrdView] = useState(false);
   const [formData, setFormData] = useState<any>(null);
   const { toast } = useToast();
@@ -70,8 +67,6 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
   const updateStatusMutation = useMutation({
     mutationFn: async (data: any) => await apiRequest("PATCH", `/api/users/${user?.id}/status`, data),
     onSuccess: async () => {
-      // queryClient.removeQueries()
-      // await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({

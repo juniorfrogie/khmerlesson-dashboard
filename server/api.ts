@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
-import jwt from "jsonwebtoken"
 
 const router = Router();
 
@@ -36,32 +35,32 @@ const authenticateAPI = (req: any, res: any, next: any) => {
   next();
 };
 
-const authenticateToken = async (req: any, res: any, next: any) => {
+// const authenticateToken = async (req: any, res: any, next: any) => {
   
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
+//   const authHeader = req.headers['authorization']
+//   const token = req.cookies.token || authHeader && authHeader.split(' ')[1]
+//   const refreshToken = req.cookies.refreshToken || authHeader && authHeader.split(' ')[1]
 
-  if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+//   if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
 
-  const isBlacklisted = await storage.getBlacklist(token)
-  if (isBlacklisted) {
-    return res.status(401).json({
-      message: "Token is no longer valid. Please log in again."
-    })
-  }
+//   const isBlacklisted = await storage.getBlacklist(token)
+//   if (isBlacklisted) {
+//     return res.status(401).json({
+//       message: "Token is no longer valid. Please log in again."
+//     })
+//   }
 
-  jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
-    if (err) return res.status(403).json({message: "Forbidden"})
+//   jwt.verify(token, process.env.TOKEN_SECRET as string, async (err: any, user: any) => {
+//     if (err) return res.status(403).json({message: "Forbidden"})
 
-    req.user = user
-
-    next()
-  })
-}
+//     req.user = user
+//     next()
+//   })
+// }
 
 // Apply authentication to all API routes
 router.use(authenticateAPI);
-router.use(authenticateToken);
+//router.use(authenticateToken);
 
 // ===== MAIN LESSONS API =====
 
@@ -75,6 +74,7 @@ router.get("/main-lessons", async (req: any, res) => {
       total: mainLessons.length
     });
   } catch (error) {
+    console.error(error)
     res.status(500).json({ 
       success: false, 
       error: 'Failed to fetch main lessons' 
@@ -500,15 +500,30 @@ router.get("/search", async (req, res) => {
   }
 });
 
-// POST /api/v1/lessons/purchase
-router.post("/lessons/purchase", async (req, res) => {
+// POST:: /api/v1/purchase-history
+router.post("/purchase-history", async (req, res) => {
   try {
     const validatedData = insertPurchaseHistorySchema.parse(req.body);
     const purchaseHistory = await storage.createPurchaseHistory(validatedData);
     res.status(201).json(purchaseHistory);
   } catch (error) {
-    console.log(error)
+    console.error(error)
     res.status(500).json({ message: "Failed to create purchase!", errors: error });
+  }
+})
+
+router.get("/me", async (req: any, res) => {
+  try{
+    const id = req.user.id as number
+    const user = await storage.getUserById(id)
+    if(!user){
+      return res.status(404).json({message: "User not found."})
+    }
+    const { password, resetToken, registrationType, ...safeUser } = user
+    return res.status(200).json(safeUser)
+  }catch(error){
+    console.error(error)
+    res.status(500).json({message: "Failed to get me."})
   }
 })
 

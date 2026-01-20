@@ -6,14 +6,24 @@ import RecentContent from "@/components/dashboard/RecentContent";
 import ContentDistribution from "@/components/dashboard/ContentDistribution";
 import LessonsView from "@/components/lessons/LessonsView";
 import QuizzesView from "@/components/quizzes/QuizzesView";
-import UsersView from "@/components/users/UsersView"
+import UsersView from "@/components/users/UsersView";
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal";
 import APISettings from "./api-settings";
 import PurchaseHistoryView from "@/components/purchase_history/PurchaseHistoryView";
 import LessonTypeView from "@/components/lesson_type/LessonTypeView";
 import MainLessonsView from "@/components/main_lessons/MainLessonsView";
 
-export type ActiveView = "dashboard" | "main_lessons" |  "lessons" | "lesson_type" | "quizzes"  | "users" | "purchase_history" | "analytics" | "import-export" | "api-settings";
+export type ActiveView =
+  | "dashboard"
+  | "main_lessons"
+  | "lessons"
+  | "lesson_type"
+  | "quizzes"
+  | "users"
+  | "purchase_history"
+  | "analytics"
+  | "import-export"
+  | "api-settings";
 
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
@@ -29,7 +39,11 @@ export default function Dashboard() {
     onConfirm: () => {},
   });
 
-  const openDeleteModal = (type: string, name: string, onConfirm: () => void) => {
+  const openDeleteModal = (
+    type: string,
+    name: string,
+    onConfirm: () => void,
+  ) => {
     setDeleteModal({
       isOpen: true,
       type,
@@ -64,25 +78,31 @@ export default function Dashboard() {
       case "lessons":
         return <LessonsView onDelete={openDeleteModal} />;
       case "lesson_type":
-        return <LessonTypeView onDelete={openDeleteModal}/>
+        return <LessonTypeView onDelete={openDeleteModal} />;
       case "quizzes":
         return <QuizzesView onDelete={openDeleteModal} />;
       case "users":
         return <UsersView onDelete={openDeleteModal} />;
       case "purchase_history":
-        return <PurchaseHistoryView />
+        return <PurchaseHistoryView />;
       case "analytics":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold neutral-dark mb-4">Analytics</h3>
+            <h3 className="text-lg font-semibold neutral-dark mb-4">
+              Analytics
+            </h3>
             <p className="neutral-medium">Analytics feature coming soon...</p>
           </div>
         );
       case "import-export":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold neutral-dark mb-4">Import/Export</h3>
-            <p className="neutral-medium">Import/Export feature coming soon...</p>
+            <h3 className="text-lg font-semibold neutral-dark mb-4">
+              Import/Export
+            </h3>
+            <p className="neutral-medium">
+              Import/Export feature coming soon...
+            </p>
           </div>
         );
       case "api-settings":
@@ -97,9 +117,7 @@ export default function Dashboard() {
       <Sidebar activeView={activeView} onViewChange={setActiveView} />
       <main className="flex-1 flex flex-col ml-64">
         <TopBar activeView={activeView} />
-        <div className="flex-1 p-6">
-          {renderView()}
-        </div>
+        <div className="flex-1 p-6">{renderView()}</div>
       </main>
       <DeleteConfirmationModal
         isOpen={deleteModal.isOpen}

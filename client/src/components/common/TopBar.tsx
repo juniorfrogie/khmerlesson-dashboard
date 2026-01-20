@@ -122,7 +122,7 @@ export default function TopBar({ activeView }: TopBarProps) {
               </PopoverContent>
             </PopoverPortal>
           </Popover> */}
-          <Button variant="secondary" onClick={handleLogout} disabled={isLogoutLoading} title="Logout">
+          <Button variant="destructive" onClick={handleLogout} disabled={isLogoutLoading} title="Logout">
             <LogOut size={16} />
             Logout
           </Button>

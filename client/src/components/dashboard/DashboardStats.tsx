@@ -12,7 +12,6 @@ export default function DashboardStats() {
   }
 
   const { data: stats, isLoading } = useQuery<StatsType>({
-    //queryKey: ["/api/dashboard/stats"]
     queryKey: ["dashboard-stats"],
     queryFn: getDashboardStats
   })

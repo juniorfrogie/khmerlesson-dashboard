@@ -18,47 +18,55 @@ interface PurchaseHistoryModalProps {
   data: PurchaseHistoryData | null;
 }
 
-export function PurchaseHistoryModal({ isOpen, onClose, data }: PurchaseHistoryModalProps){
-    const [formData, setFormData] = useState<any>(null);
-    const { toast } = useToast();
+export function PurchaseHistoryModal({
+  isOpen,
+  onClose,
+  data,
+}: PurchaseHistoryModalProps) {
+  const [_, setFormData] = useState<any>(null);
+  const { toast } = useToast();
 
-    const refundMutation = useMutation({
-        mutationFn: async (body: any) => await apiRequest("POST", `/api/payments/captures/${data?.purchaseId}/refund`),
-        onSuccess: async () => {
-            // await queryClient.invalidateQueries({ queryKey: ["users"] });
-            // await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-            toast({
-                title: "Success",
-                description: "Refund payment successfully"
-            });
-            onClose();
-        },
-        onError: () => {
-            toast({
-                title: "Error", 
-                description: "Failed to refund payment!",
-                variant: "destructive"
-            });
-        }
-    });
+  const refundMutation = useMutation({
+    mutationFn: async (body: any) =>
+      await apiRequest(
+        "POST",
+        `/api/payments/captures/${data?.purchaseId}/refund`,
+      ),
+    onSuccess: async () => {
+      // await queryClient.invalidateQueries({ queryKey: ["users"] });
+      // await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({
+        title: "Success",
+        description: "Refund payment successfully",
+      });
+      onClose();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to refund payment!",
+        variant: "destructive",
+      });
+    },
+  });
 
-    const handleRefundSubmit = async (d: any) => {
-        const payload = {
-            ...d
-        };
-
-        await refundMutation.mutateAsync(payload)
+  const handleRefundSubmit = async (d: any) => {
+    const payload = {
+      ...d,
     };
 
-    useEffect(() => {
-        if (!isOpen) {
-          setFormData(null);
-        }
-    }, [isOpen]);
+    await refundMutation.mutateAsync(payload);
+  };
 
-    return (
-        <>
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData(null);
+    }
+  }, [isOpen]);
+
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader className="pb-4">
             <DialogTitle>
@@ -67,17 +75,17 @@ export function PurchaseHistoryModal({ isOpen, onClose, data }: PurchaseHistoryM
             </DialogTitle>
             <DialogDescription />
           </DialogHeader>
-          
+
           <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar">
             <PurchaseHistoryForm
-                data={data}
-                onClose={onClose}
-                onRefundSubmit={handleRefundSubmit}
-                isLoading={refundMutation.isPending}
+              data={data}
+              onClose={onClose}
+              onRefundSubmit={handleRefundSubmit}
+              isLoading={refundMutation.isPending}
             />
           </div>
         </DialogContent>
-        </Dialog>
-        </>
-    )
+      </Dialog>
+    </>
+  );
 }

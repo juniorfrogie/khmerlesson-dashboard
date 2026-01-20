@@ -4,19 +4,19 @@ import { createServer, type Server } from "http";
 import { request } from "https";
 import { storage } from "./storage";
 import { forgotPasswordSchema, loginSchema, insertUserSchema,
-   insertLessonSchema, updateLessonSchema, 
-   insertQuizSchema, updateQuizSchema, 
-   insertBlacklistSchema, 
-   insertPurchaseHistorySchema,
-   insertUserWithAuthServiceSchema,
-   insertLessonTypeSchema,
-   updateLessonTypeSchema,
-   insertMainLessonSchema,
-   updateMainLessonSchema,
-   MainLesson} from "@shared/schema";
+   insertBlacklistSchema,
+   insertUserWithAuthServiceSchema} from "@shared/schema";
 import { z } from "zod";
 import apiRoutes from "./api";
 import paypalRoutes from "./paypal/orders"
+import mainLessonRoutes from "./routes/main-lessons/route"
+import lessonRoutes from "./routes/lessons/route"
+import lessonTypeRoutes from "./routes/lesson-type/route"
+import quizRoutes from "./routes/quizzes/route"
+import userRoutes from "./routes/users/route"
+import purchaseHistoryRoutes from "./routes/purchase-history/route"
+import exportRoutes from "./routes/export/route"
+import importRoutes from "./routes/import/route"
 import fileUploadRoute from "./file-upload/file_upload"
 import nodemailer from "nodemailer";
 import crypto from "crypto";
@@ -26,19 +26,69 @@ import { mailTemplate } from "./mail/mail_template";
 import cron from "node-cron"
 import path from "path";
 import fs from "fs";
-import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3"
-import appleAuthRoute from "./auth/apple_auth"
+import appleAuthRoute from "./auth/apple/route"
 import cookieParser from "cookie-parser"
+import { tokenGenerator } from "./utils/token-generator";
+
+export const setToken = async (res: any, user: any) => {
+  const { NODE_ENV, 
+    TOKEN_SECRET, 
+    REFRESH_TOKEN_SECRET
+  } = process.env
+  const payload = { id: user.id, email: user.email }
+  const newToken = jwt.sign(payload, TOKEN_SECRET as string, {
+    expiresIn: NODE_ENV === "development" ? "1m" : "1d"
+  })
+  const newRefreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET as string, {
+    expiresIn: NODE_ENV === "development" ? "5m" : "7d"
+  })
+  setCookies(res, newToken, newRefreshToken)
+}
+
+const setCookies = (res: any, token: string, refreshToken: string) => {
+  const { NODE_ENV } = process.env
+  res.cookie("token", token, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: NODE_ENV === "production",
+    maxAge: NODE_ENV === "development" ? 1000 * 60 * 1 : 1000 * 60 * 60 * 24 * 1
+  })
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: NODE_ENV === "production",
+    maxAge: NODE_ENV === "development" ? 1000 * 60 * 5 : 1000 * 60 * 60 * 24 * 7
+  })
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const { NODE_ENV, 
+    TOKEN_SECRET, 
+    REFRESH_TOKEN_SECRET
+  } = process.env
 
   const authenticateToken = async (req: any, res: any, next: any) => {
     
-    // const authHeader = req.headers['authorization']
-    // const token = authHeader && authHeader.split(' ')[1]
-    const token = req.cookies.token
+    const authHeader = req.headers['authorization']
+    const token = req.cookies.token || authHeader && authHeader.split(' ')[1]
+    const refreshToken = req.cookies.refreshToken || authHeader && authHeader.split(' ')[1]
   
-    if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+    //if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+
+    if(!token && !refreshToken){
+      //return res.redirect("/")
+      return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+    }
+    if(!token && refreshToken){
+      jwt.verify(refreshToken, REFRESH_TOKEN_SECRET as string, async (err: any, user: any) => {
+        if(err) return res.status(403).json({message: "Forbidden"})
+        setToken(res, user)  
+        req.user = user
+        next()
+      })
+      return
+    }
   
     const isBlacklisted = await storage.getBlacklist(token)
     if (isBlacklisted) {
@@ -47,61 +97,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })
     }
   
-    jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
-      if (err) return res.status(403).json({message: "Forbidden"})
-  
+    jwt.verify(token, TOKEN_SECRET as string, async (err: any, user: any) => {
+      if(err){
+        jwt.verify(refreshToken, REFRESH_TOKEN_SECRET as string, async (err: any, user: any) => {
+          if(err) return res.status(403).json({message: "Forbidden"})
+          setToken(res, user)  
+          req.user = user
+          next()
+        })
+        return
+      }
+
       req.user = user
-  
       next()
     })
   }
 
-  const { TOKEN_SECRET } = process.env
-  const expiresIn = app.get("env") === "development" ? "1800s" : "90d"
-  const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
-
-  const s3 = new S3Client({
-    region: process.env.BUCKET_REGION,
-    endpoint: process.env.BUCKET_END_POINT,
-    credentials: {
-      accessKeyId: process.env.BUCKET_ACCESS_KEY ?? "",
-      secretAccessKey: process.env.BUCKET_SECRET_ACCESS_KEY ?? ""
-    }
-  })
-
-  async function checkFileExists(key: string): Promise<string> {
-    const defaultImageNotFoundPath = "/uploads/no-image-placeholder.png"
-    try {
-      if(process.env.NODE_ENV === "production"){
-        const params = {
-          Bucket: process.env.BUCKET_NAME ?? "",
-          Key: key
-        }
-        const command = new HeadObjectCommand(params)
-        await s3.send(command)
-        const urlBucketEndpoint = `${bucketEndpoint}/${params.Key}`
-        return urlBucketEndpoint
-      }else{
-        await fs.promises.access(`uploads/${key}`, fs.constants.F_OK)
-        return `/uploads/${key}`
-      }
-    } catch (error) {
-      return defaultImageNotFoundPath
-    }
-  }
+  //const expiresIn = NODE_ENV === "development" ? "1800s" : "90d"
+  //const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
 
   app.use(cookieParser())
 
   // Middleware to set CORS headers for all routes
   app.use(cors({
-    origin: app.get("env") === "development" ? "*" : "https://cambodianlesson.netlify.app"
+    origin: NODE_ENV === "development" ? "*" : "https://cambodianlesson.netlify.app"
   }))
 
   // Mount public API routes
-  app.use("/api/v1", apiRoutes);
+  app.use("/api/v1", authenticateToken, apiRoutes);
   app.use("/api", paypalRoutes);
   app.use("/api/auth", appleAuthRoute);
-
   app.use("/api/upload", authenticateToken, fileUploadRoute)
 
   //app.disable('etag');
@@ -141,495 +166,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })
   })
 
-  // Main Lessons CRUD
-  app.get("/api/main-lessons", authenticateToken, async (req, res) => {
-    try {
-      const { search, status } = req.query
-      let mainLessons = <MainLesson[]>[]
-      let mainLessonCount = 0
-      if(req.query.limit && req.query.offset){
-        const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
-        const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
-        mainLessons = await storage.getMainLessons(limit, offset)
-        mainLessonCount = await storage.getMainLessonCount()
-      }else{
-        mainLessons = await storage.getAllMainLessons()
-      }
-      //let mainLessons = await storage.getAllMainLessons()
+  //**  Main Lessons CRUD Router */
+  app.use("/api/main-lessons", authenticateToken, mainLessonRoutes)
 
-      // Apply filters
-      if (search) {
-        const searchTerm = (search as string).toLowerCase();
-        mainLessons = mainLessons.filter(mainLesson => 
-          mainLesson.title.toLowerCase().includes(searchTerm) ||
-          mainLesson.description.toLowerCase().includes(searchTerm)
-        )
-      }
+  //** Lessons CRUD Router */
+  app.use("/api/lessons", authenticateToken, lessonRoutes)
 
-      if(status && status !== "all"){
-        mainLessons = mainLessons.filter(f => f.status === status)
-      }
+  //** Lesson Type CRUD Router */
+  app.use("/api/lesson-type", authenticateToken, lessonTypeRoutes)
 
-      //return res.json(mainLessons)
-      for(let mainLesson of mainLessons){
-        const result = await checkFileExists(`${mainLesson.imageCover}`)
-        mainLesson.imageCoverUrl = result
-      }
-      return res.json({
-        mainLessons: mainLessons,
-        total: status !== "all" ? mainLessons.length : mainLessonCount
-      })
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch main lessons" });
-    }
-  })
+  //** Quizzes CRUD Router */
+  app.use("/api/quizzes", authenticateToken, quizRoutes)
 
-  app.get("/api/main-lessons-details/:id", authenticateToken, async (req, res) => {
-    try {
-      const { id } = req.params
-      // const result = await storage.getLessonDetailByMainLessonId(parseInt(id))
-      const result = await storage.getAllLessonsByMainLesson(parseInt(id))
-      for(let e of result){
-        if(e.lessonType?.iconMode === "file"){
-          if(process.env.NODE_ENV === "production"){
-            const urlBucketEndpoint = `${bucketEndpoint}/${e.lessonType?.icon}`
-            e.lessonType.iconUrl = urlBucketEndpoint
-          }else{
-            const url = `/uploads/${e.lessonType?.icon}`
-            e.lessonType.iconUrl = url
-          }
-        }
-      }
-      res.json(result)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch main lessons detail" });
-    }
-  })
+  //** Users CRUD Router */
+  app.use("/api/users", authenticateToken, userRoutes)
 
-  app.get("/api/main-lessons/:id", authenticateToken,  async (req, res) => {
-    try {
-      const { id } = req.params
-      const mainLesson = await storage.getMainLesson(parseInt(id))
-      if(!mainLesson){
-        return res.status(404).json({ message: "Main Lesson not found" });
-      }
+  //** Purchase History CRUD Router */
+  app.use("/api/purchase-history", authenticateToken, purchaseHistoryRoutes)
 
-      const result = await checkFileExists(`${mainLesson.imageCover}`)
-      mainLesson.imageCoverUrl = result
+  //** Export CRUD Router */
+  app.use("/api/export", authenticateToken, exportRoutes)
 
-      res.json(mainLesson)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch main lesson" });
-    }
-  })
-
-  app.post("/api/main-lessons", authenticateToken, async (req, res) => {
-    try {
-      const validatedData = insertMainLessonSchema.parse(req.body);
-      const mainLesson = await storage.createMainLesson(validatedData);
-      res.status(201).json(mainLesson);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to create main lesson" });
-    }
-  })
-
-  app.patch("/api/main-lessons/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id)
-      const validatedData = updateMainLessonSchema.parse(req.body)
-      const mainLesson = await storage.updateMainLesson(id, validatedData)
-      
-      if(!mainLesson){
-        return res.status(404).json({message: "Main lesson not found"})
-      }
-
-      const result = await checkFileExists(`${mainLesson.imageCover}`)
-      mainLesson.imageCoverUrl = result
-
-      return res.json(mainLesson)
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to update main lesson" });
-    }
-  })
-
-  app.delete("/api/main-lesson/:id", authenticateToken, async (req, res) => {{
-    try {
-      const id = parseInt(req.params.id)
-      const deletedMainLesson = await storage.deleteMainLesson(id)
-
-      if(!deletedMainLesson){
-        return res.status(404).json({message: "Main lesson not found"})
-      }
-
-      res.status(204).send()
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete main lesson" });
-    }
-  }})
-
-  // Lessons CRUD
-  app.get("/api/lessons", authenticateToken, async (req, res) => {
-    try {
-      const { search, level, type, status } = req.query;
-      let lessons = []
-      let lessonCount = 0
-      if(req.query.limit && req.query.offset){
-        const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
-        const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
-        lessons = await storage.getLessons(limit, offset)
-        lessonCount = await storage.getLessonCount()
-      }else{
-        lessons = await storage.getAllLessons()
-      }
-      
-      // Apply filters
-      if (search) {
-        const searchTerm = (search as string).toLowerCase();
-        lessons = lessons.filter(lesson => 
-          lesson.title.toLowerCase().includes(searchTerm) ||
-          lesson.description.toLowerCase().includes(searchTerm)
-        );
-      }
-      
-      if (level && level !== "all") {
-        lessons = lessons.filter(lesson => lesson.level === level);
-      }
-      
-      if (type && type !== "all") {
-        lessons = lessons.filter(lesson => lesson.lessonType?.title.toLowerCase() === type);
-      }
-      
-      if (status && status !== "all") {
-        lessons = lessons.filter(lesson => lesson.status === status);
-      }
-
-      for(let lesson of lessons){
-        if(lesson.lessonType?.iconMode === "file"){
-          if(process.env.NODE_ENV === "production"){
-            const urlBucketEndpoint = `${bucketEndpoint}/${lesson.lessonType?.icon}`
-            lesson.lessonType.iconUrl = urlBucketEndpoint
-          }else{
-            const url = `/uploads/${lesson.lessonType?.icon}`
-            lesson.lessonType.iconUrl = url
-          }
-        }
-      }
-      
-      //res.json(lessons);
-      res.json({
-        lessons: lessons,
-        total: level !== "all" || type !== "all" || status !== "all" ? lessons.length : lessonCount
-      });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch lessons" });
-    }
-  });
-
-  app.get("/api/lessons/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const lesson = await storage.getLesson(id);
-      
-      if (!lesson) {
-        return res.status(404).json({ message: "Lesson not found" });
-      }
-      
-      res.json(lesson);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch lesson" });
-    }
-  });
-
-  app.post("/api/lessons", authenticateToken, async (req, res) => {
-    try {
-      const validatedData = insertLessonSchema.parse(req.body);
-      const lesson = await storage.createLesson(validatedData);
-      res.status(201).json(lesson);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to create lesson" });
-    }
-  });
-
-  app.patch("/api/lessons/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const validatedData = updateLessonSchema.parse(req.body);
-      const lesson = await storage.updateLesson(id, validatedData);
-      
-      if (!lesson) {
-        return res.status(404).json({ message: "Lesson not found" });
-      }
-      
-      res.json(lesson);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to update lesson" });
-    }
-  });
-
-  app.delete("/api/lessons/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const deleted = await storage.deleteLesson(id);
-      
-      if (!deleted) {
-        return res.status(404).json({ message: "Lesson not found" });
-      }
-      
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete lesson" });
-    }
-  });
-
-  // Lesson Type CRUD
-  app.get("/api/lesson-type", authenticateToken, async (req, res) => {
-    try{
-      const { search } = req.query;
-      let lessonTypes = await storage.getAllLessonType()
-
-      if(search){
-        const searchTerm = (search as string).toLowerCase();
-        lessonTypes = lessonTypes.filter(lessonType => 
-          lessonType.title.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      for(let lessonType of lessonTypes){
-        if(lessonType?.iconMode === "file"){
-          if(process.env.NODE_ENV === "production"){
-            const urlBucketEndpoint = `${bucketEndpoint}/${lessonType?.icon}`
-            lessonType.iconUrl = urlBucketEndpoint
-          }else{
-            const url = `/uploads/${lessonType?.icon}`
-            lessonType.iconUrl = url
-          }
-        }
-      }
-
-      res.json(lessonTypes)
-    } catch(error) {
-      res.status(500).json({ message: "Failed to fetch lesson type" });
-    }
-  })
-
-  app.get("/api/lesson-type/:id", authenticateToken, async (req, res) => {
-    try{
-      const { id } = req.params
-      // const lessonTypeDetails = await storage.getLessonTypeDetail(parseInt(id))
-      const lessonTypeDetails = await storage.getLessonDetailByLessonTypeId(parseInt(id))
-      res.json(lessonTypeDetails)
-    } catch(error) {
-      res.status(500).json({ message: "Failed to fetch lesson type detail" });
-    }
-  })
-
-  app.post("/api/lesson-type", authenticateToken, async (req, res) => {
-    try {
-      const validatedData = insertLessonTypeSchema.parse(req.body);
-      const lessonTypeList = await storage.createLessonType(validatedData);
-      res.status(201).json(lessonTypeList);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to create lesson type" });
-    }
-  })
-
-  app.patch("/api/lesson-type/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id)
-      const validatedData = updateLessonTypeSchema.parse(req.body);
-      const lessonType = await storage.updateLessonType(id, validatedData)
-
-      if(!lessonType){
-        return res.status(404).json({message: "Lesson type not found"})
-      }
-
-      if(lessonType?.iconMode === "file"){
-        if(process.env.NODE_ENV === "production"){
-          const urlBucketEndpoint = `${bucketEndpoint}/${lessonType?.icon}`
-          lessonType.iconUrl = urlBucketEndpoint
-        }else{
-          const url = `/uploads/${lessonType?.icon}`
-          lessonType.iconUrl = url
-        }
-      }
-
-      res.json(lessonType)
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to update lesson type" });
-    }
-  })
-
-  app.delete("/api/lesson-type/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id)
-      const deleted = await storage.deleteLessonType(id)
-
-      if(!deleted){
-        return res.status(404).json({message: "Lesson type not found"})
-      }
-      res.status(204).send()
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete lesson type" });
-    }
-  })
-
-  // Quizzes CRUD
-  app.get("/api/quizzes", authenticateToken, async (req, res) => {
-    try {
-      const { search, lessonId, status } = req.query;
-      let quizzes = await storage.getQuizzes();
-      
-      // Apply filters
-      if (search) {
-        const searchTerm = (search as string).toLowerCase();
-        quizzes = quizzes.filter(quiz => 
-          quiz.title.toLowerCase().includes(searchTerm) ||
-          quiz.description.toLowerCase().includes(searchTerm)
-        );
-      }
-      
-      if (lessonId) {
-        quizzes = quizzes.filter(quiz => quiz.lessonId === parseInt(lessonId as string));
-      }
-      
-      if (status && status !== "all") {
-        quizzes = quizzes.filter(quiz => quiz.status === status);
-      }
-      
-      res.json(quizzes);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch quizzes" });
-    }
-  });
-
-  app.get("/api/quizzes/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const quiz = await storage.getQuiz(id);
-      
-      if (!quiz) {
-        return res.status(404).json({ message: "Quiz not found" });
-      }
-      
-      res.json(quiz);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch quiz" });
-    }
-  });
-
-  app.post("/api/quizzes", authenticateToken, async (req, res) => {
-    try {
-      const validatedData = insertQuizSchema.parse(req.body);
-      const quiz = await storage.createQuiz(validatedData);
-      res.status(201).json(quiz);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to create quiz" });
-    }
-  });
-
-  app.patch("/api/quizzes/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const validatedData = updateQuizSchema.parse(req.body);
-      const quiz = await storage.updateQuiz(id, validatedData);
-      
-      if (!quiz) {
-        return res.status(404).json({ message: "Quiz not found" });
-      }
-      
-      res.json(quiz);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to update quiz" });
-    }
-  });
-
-  app.delete("/api/quizzes/:id", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const deleted = await storage.deleteQuiz(id);
-      
-      if (!deleted) {
-        return res.status(404).json({ message: "Quiz not found" });
-      }
-      
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete quiz" });
-    }
-  });
-
-  // Import/Export
-  app.get("/api/export/lessons", authenticateToken, async (req, res) => {
-    try {
-      const lessons = await storage.exportLessons();
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', 'attachment; filename="lessons.json"');
-      res.json(lessons);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to export lessons" });
-    }
-  });
-
-  app.get("/api/export/quizzes", authenticateToken, async (req, res) => {
-    try {
-      const quizzes = await storage.exportQuizzes();
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', 'attachment; filename="quizzes.json"');
-      res.json(quizzes);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to export quizzes" });
-    }
-  });
-
-  app.post("/api/import/lessons", authenticateToken, async (req, res) => {
-    try {
-      const lessons = z.array(insertLessonSchema).parse(req.body);
-      const imported = await storage.importLessons(lessons);
-      res.status(201).json({ message: `Imported ${imported.length} lessons`, lessons: imported });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to import lessons" });
-    }
-  });
-
-  app.post("/api/import/quizzes", authenticateToken, async (req, res) => {
-    try {
-      const quizzes = z.array(insertQuizSchema).parse(req.body);
-      const imported = await storage.importQuizzes(quizzes);
-      res.status(201).json({ message: `Imported ${imported.length} quizzes`, quizzes: imported });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to import quizzes" });
-    }
-  });
+  //** Import CRUD Router */
+  app.use("/api/import", authenticateToken, importRoutes)
 
   // Register user authentication routes directly to avoid Vite interference
   app.post("/api/auth/register", async (req, res) => {
@@ -645,14 +204,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { password, resetToken, registrationType, ...userResponse } = user;
       
-      const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
-        expiresIn: expiresIn
-      })
+      // const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+      //   expiresIn: expiresIn
+      // })
+      const { token, refreshToken } = tokenGenerator(userResponse)
   
       res.status(201).json({
         message: "User registered successfully",
         user: userResponse,
-        token: token
+        token: token,
+        refreshToken: refreshToken
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -677,12 +238,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         //
         const { password, resetToken, registrationType, ...userResponse } = existingUser;
-        const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
-          expiresIn: expiresIn
-        })
+        // const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+        //   expiresIn: expiresIn
+        // })
+        const { token, refreshToken } = tokenGenerator(userResponse)
         return res.status(200).json({
           user: userResponse,
-          token: token
+          token: token,
+          refreshToken: refreshToken
         });
       }
 
@@ -690,14 +253,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { password, resetToken, registrationType, ...userResponse } = user;
       
-      const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
-        expiresIn: expiresIn
-      })
+      // const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+      //   expiresIn: expiresIn
+      // })
+      const { token, refreshToken } = tokenGenerator(userResponse)
   
       res.status(201).json({
         message: "User registered successfully",
         user: userResponse,
-        token: token
+        token: token,
+        refreshToken: refreshToken
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -725,25 +290,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   
       const { password, resetToken, registrationType, ...userResponse } = user;
-      const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
-        expiresIn: expiresIn
-      })
+      const { token, refreshToken } = tokenGenerator(userResponse)
   
-      const days = 90;
-      const expirationDate = new Date();
-      expirationDate.setDate(expirationDate.getDate() + days);
-      res.cookie("token", token, {
-        expires: expirationDate,
-        httpOnly: true,
-        sameSite: "strict",
-        secure: true,
-        maxAge: 1000 * 60 * 60 * 24 * 7
-      })
+      // const days = 90;
+      // const expirationDate = new Date();
+      // expirationDate.setDate(expirationDate.getDate() + days);
+      // res.cookie("token", token, {
+      //   expires: expirationDate,
+      //   httpOnly: true,
+      //   sameSite: "strict",
+      //   secure: true,
+      //   maxAge: 1000 * 60 * 60 * 24 * 7
+      // })
       //
       res.json({
         message: "Login successful",
         user: userResponse,
-        token: token
+        token: token,
+        refreshToken: refreshToken
       });
       //
       await storage.updateUserLastLogin(user.id)
@@ -774,20 +338,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   
       const { password, ...userResponse } = user;
+      // const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
+      //   expiresIn: expiresIn
+      // })
+
       const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
-        expiresIn: expiresIn
+        expiresIn: NODE_ENV === "development" ? "1m" : "1d"
       })
-  
-      const days = 90;
-      const expirationDate = new Date();
-      expirationDate.setDate(expirationDate.getDate() + days);
-      res.cookie("token", token, {
-        expires: expirationDate,
-        httpOnly: true,
-        sameSite: "strict",
-        secure: true,
-        maxAge: 1000 * 60 * 60 * 24 * 7
+
+      const refreshToken = jwt.sign(userResponse, REFRESH_TOKEN_SECRET as string, {
+        expiresIn: NODE_ENV === "development" ? "5m" : "7d"
       })
+
+      setCookies(res, token, refreshToken)
       //
       res.json({
         user: userResponse,
@@ -836,12 +399,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await blacklistToken(token);
       }
 
-      res.cookie("token", "none", {
-        expires: new Date(Date.now() + 10 * 1000),
-        httpOnly: true,
-        sameSite: "strict",
-        secure: true
-      })
+      // res.cookie("token", "none", {
+      //   expires: new Date(Date.now() + 10 * 1000),
+      //   httpOnly: true,
+      //   sameSite: "strict",
+      //   secure: true
+      // })
+
+      res.clearCookie("token", { path: "/" })
+      res.clearCookie("refreshToken", { path: "/" })
 
       res.status(200).json({
         success: true,
@@ -971,320 +537,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Users CRUD
-  app.get("/api/users", authenticateToken, async (req, res) => {
-    try {
-      const { role, isActive, search } = req.query;
-      //let users = await storage.getAllUsers();
-      const limit = parseInt(req.query.limit?.toString() ?? "15") || 15
-      const offset = parseInt(req.query.offset?.toString() ?? "0") || 0
-      let users = await storage.getUsers(limit, offset);
-      const usercount = await storage.getUserCount()
-      
-      // Apply filters
-      if (role && role !== "all") {
-        users = users.filter(user => user.role === role);
-      }
-      
-      if (isActive !== undefined && isActive !== "all") {
-        const activeFilter = isActive === 'true';
-        users = users.filter(user => user.isActive === activeFilter);
-      }
-      
-      if (search) {
-        const searchTerm = (search as string).toLowerCase();
-        users = users.filter(user => 
-          user.email.toLowerCase().includes(searchTerm) ||
-          (user.firstName && user.firstName.toLowerCase().includes(searchTerm)) ||
-          (user.lastName && user.lastName.toLowerCase().includes(searchTerm))
-        );
-      }
-      
-      // Remove passwords from response
-      const usersResponse = users.map(({ password, ...user }) => user);
-      //res.json(usersResponse);
-      res.json({
-        users: usersResponse,
-        total: role !== "all" || isActive !== "all" ? users.length : usercount
-      });
-    } catch (error) {
-      console.error("Get users error:", error);
-      res.status(500).json({ message: "Failed to fetch users" });
-    }
-  });
-  
-  app.get("/api/users/:id", authenticateToken, async (req, res) => {
-    try {
-      const userId = parseInt(req.params.id);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-  
-      const user = await storage.getUserById(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      const { password, ...userResponse } = user;
-      res.json(userResponse);
-    } catch (error) {
-      console.error("Get user error:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-  
-  app.put("/api/users/:id", authenticateToken, async (req, res) => {
-    try {
-      const userId = parseInt(req.params.id);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-  
-      // Check if user exists
-      const existingUser = await storage.getUserById(userId);
-      if (!existingUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      // If email is being updated, check for uniqueness
-      if (req.body.email && req.body.email !== existingUser.email) {
-        const emailExists = await storage.getUserByEmail(req.body.email);
-        if (emailExists) {
-          return res.status(409).json({ message: "Email already exists" });
-        }
-      }
-  
-      const updatedUser = await storage.updateUser(userId, req.body);
-      if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      const { password, ...userResponse } = updatedUser;
-      res.json({
-        message: "User updated successfully",
-        user: userResponse
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Validation error",
-          errors: error.errors
-        });
-      }
-      console.error("Update user error:", error);
-      res.status(500).json({ message: "Failed to update user" });
-    }
-  });
-
-  // Check if token is valid
-  app.post("/api/verify-token", (req: any, res: any, next) => {
-    try {
-      // const { cookie } = req.headers
-      // if(cookie){
-      //   const token = cookie.split("token=")[1].split(";")[0]
-      //   jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
-      //     if (err) return res.status(403).json({message: "Forbidden"})
-      //     next()
-      //   })
-      //   // const decoded = jwt.verify(token, process.env.TOKEN_SECRET as string)
-      //   // res.status(200).json({user: decoded})
-      // }
-
-      const token = req.cookies.token
-      jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
-        if (err) return res.status(403).json({message: "Forbidden"})
-        next()
-      })
-    } catch (error: any) {
-      res.status(500).send("Failed to verify token")
-    }
-  })
-
-  // app.get("/api/usercount", async (req, res) => {
-  //   try{
-  //     const usercount = await storage.getUserCount()
-  //     res.status(200).json({total: usercount})
-  //   }catch(error){
-  //     console.error("Get user count error:", error);
-  //     res.status(500).json({ message: "Failed to get user count" });
-  //   }
-  // })
-  
-  app.delete("/api/users/:id", authenticateToken, async (req, res) => {
-    try {
-      const userId = parseInt(req.params.id);
-      if (isNaN(userId)) {
-        return res.status(400).json({success: false, message: "Invalid user ID" });
-      }
-  
-      const success = await storage.deleteUser(userId);
-      if (!success) {
-        return res.status(404).json({success: success, message: "User not found" });
-      }
-  
-      res.json({success: true, message: "User deleted successfully" });
-    } catch (error) {
-      console.error("Delete user error:", error);
-      res.status(500).json({success: false, message: "Failed to delete user" });
-    }
-  });
-  
-  app.patch("/api/users/:id/status", authenticateToken, async (req, res) => {
-    try {
-      const userId = parseInt(req.params.id);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-  
-      const { isActive } = req.body;
-      if (typeof isActive !== 'boolean') {
-        return res.status(400).json({ message: "isActive must be a boolean" });
-      }
-  
-      const updatedUser = await storage.updateUser(userId, { isActive });
-      if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      const { password, ...userResponse } = updatedUser;
-      res.json({
-        message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
-        user: userResponse
-      });
-    } catch (error) {
-      console.error("Update user status error:", error);
-      res.status(500).json({ message: "Failed to update user status" });
-    }
-  });
-
-  // Purchase History Route
-  app.get("/api/purchase_history", authenticateToken, async (req, res) => {
+  app.post("/api/auth/refresh-token", (req, res) => {
     try{
-      const { payment_status, purchase_date, search } = req.query
-      let limit = parseInt(req.query.limit?.toString() ?? "15") || 15
-      let offset = parseInt(req.query.offset?.toString() ?? "0") || 0
-      let purchaseHistoryResponse = await storage.getPurchaseHistory(limit, offset)
-      let purchaseHistoryCount = await storage.getPurchaseHistoryCount()
-
-      // Apply filters
-      if (payment_status && payment_status !== "all") {
-        purchaseHistoryResponse = purchaseHistoryResponse.filter(e => e.paymentStatus?.toLowerCase() === payment_status.toString().toLowerCase())
-      }
-
-      if(purchase_date && purchase_date !== "all"){
-        const currentDate = new Date()
-        const currentMonth = currentDate.getMonth()
-        const currentYear = currentDate.getFullYear()
-
-        switch(purchase_date){
-          case "today":
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => new Date(f.purchaseDate).toLocaleDateString() === currentDate.toLocaleDateString())
-            break
-          case "yesterday":
-            const yesterdayDate = new Date(currentDate)
-            yesterdayDate.setDate(currentDate.getDate() - 1)
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => yesterdayDate.toLocaleDateString() === new Date(f.purchaseDate).toLocaleDateString())
-            // purchaseHistoryResponse = purchaseHistoryResponse.filter(f => currentDate.getDate() > new Date(f.purchaseDate).getDate()
-            //   && new Date(f.purchaseDate).getDate() === currentDate.getDate() - 1
-            //   && currentYear === new Date(f.purchaseDate).getFullYear() && currentMonth === new Date(f.purchaseDate).getMonth())
-            break
-          case "last-week":
-            // const startLastWeekDate = new Date(new Date().setDate(new Date().getDate() - 8))
-            // const endLastWeekDate = new Date(new Date().setDate(startLastWeekDate.getDate() + 6))
-            const nowLastWeek = new Date()
-            const startLastWeekDate = new Date(nowLastWeek.setDate((nowLastWeek.getDate() - nowLastWeek.getDay()) - 6))
-            const endLastWeekDate = new Date(nowLastWeek.setDate(startLastWeekDate.getDate() + 6))
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => startLastWeekDate <= new Date(f.purchaseDate) 
-              && endLastWeekDate >= new Date(f.purchaseDate))
-            break
-          case "last-month":
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => (currentMonth + 1) > (new Date(f.purchaseDate).getMonth() + 1) 
-              && ((currentMonth + 1) - 2) < (new Date(f.purchaseDate).getMonth() + 1) 
-              && currentYear === new Date(f.purchaseDate).getFullYear())
-            break    
-          case "last-year":
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => currentDate.getFullYear() > new Date(f.purchaseDate).getFullYear() 
-              && new Date(f.purchaseDate).getFullYear() > currentDate.getFullYear() - 2)
-            break  
-          case "last-7-days":
-            // purchaseHistoryResponse = purchaseHistoryResponse.filter(f => currentDate.getDate() - 7 <= new Date(f.purchaseDate).getDate() 
-            //   && currentDate.getDate() > new Date(f.purchaseDate).getDate())
-            const startDate = new Date(new Date().setDate(currentDate.getDate() - 7))
-            const endDate = new Date(new Date().setDate(startDate.getDate() + 6))
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => startDate <= new Date(f.purchaseDate) 
-              && endDate >= new Date(f.purchaseDate))
-            break
-          case "last-30-days":
-            // purchaseHistoryResponse = purchaseHistoryResponse.filter(f => currentDate.getDate() - 30 <= new Date(f.purchaseDate).getDate() 
-            //   && currentDate.getDate() > new Date(f.purchaseDate).getDate())
-            const startLast30days = new Date(new Date().setDate(currentDate.getDate() - 30))
-            const endLast30days = new Date(new Date().setDate(startLast30days.getDate() - 1))
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => startLast30days <= new Date(f.purchaseDate) 
-              && endLast30days >= new Date(f.purchaseDate))
-            break
-          case "last-90-days":
-            const startLast90days = new Date(new Date().setDate(currentDate.getDate() - 90))
-            const endLast90days = new Date(new Date().setDate(startLast90days.getDate() - 2))
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => startLast90days <= new Date(f.purchaseDate) 
-              && endLast90days >= new Date(f.purchaseDate))
-            // purchaseHistoryResponse = purchaseHistoryResponse.filter(f => currentDate.getDate() - 90 <= new Date(f.purchaseDate).getDate() 
-            //   && currentDate.getDate() > new Date(f.purchaseDate).getDate())
-            break
-          case "this-week":
-            const now = new Date()
-            const previousDay = now.getDay() - 1
-            const startThisWeekDate = new Date(now.setDate(now.getDate() - previousDay))
-            const endThisWeekDate = new Date(now.setDate(startThisWeekDate.getDate() + 6))
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => startThisWeekDate <= new Date(f.purchaseDate) 
-              && endThisWeekDate >= new Date(f.purchaseDate))
-            break  
-          case "this-month":
-            const nowThisMonth = new Date()
-            const startThisMonthDate = new Date(nowThisMonth.getFullYear(), nowThisMonth.getMonth(), 1)
-            const endThisMonthDate = new Date(nowThisMonth.getFullYear(), nowThisMonth.getMonth() + 1, 0)
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => currentYear === new Date(f.purchaseDate).getFullYear() 
-              && currentMonth === new Date(f.purchaseDate).getMonth()
-              && startThisMonthDate <= new Date(f.purchaseDate) 
-              && endThisMonthDate >= new Date(f.purchaseDate))
-            break
-          case "this-year":
-            purchaseHistoryResponse = purchaseHistoryResponse.filter(f => currentYear === new Date(f.purchaseDate).getFullYear())
-            break
-          default:
-            break          
-        }
-      }
-
-      if (search) {
-        const searchTerm = (search as string).toLowerCase();
-        purchaseHistoryResponse = purchaseHistoryResponse.filter(e => 
-          e.email.toLowerCase().includes(searchTerm)
-        )
-      }
-
-      const sendReponse = {
-        data: purchaseHistoryResponse,
-        total: purchaseHistoryCount
-      }
-      return res.status(200).json(sendReponse)
+      const body = req.body;
+      const { refreshToken } = body;
+      jwt.verify(refreshToken, REFRESH_TOKEN_SECRET as string, (err: any, user: any) => {
+        if(err) return res.status(401).json({message: "Invalid token or expired."})
+        const payload = { id: user.id, email: user.email }
+        const result = tokenGenerator(payload)
+        return res.status(200).json({
+          token: result.token,
+          refreshToken: result.refreshToken
+        })
+      })
     }catch(error){
-      res.status(500).send("Failed to get purchase history")
+      console.error("Failed to refreshing token:", error);
+      if(error instanceof jwt.TokenExpiredError){
+        return res.status(401).json({message: "Invalid token or expired."})
+      }
+      res.status(500).send("Failed to refreshing token");
     }
   })
 
   // POST /api/lessons/purchase
-  app.post("/api/lessons/purchase", async (req, res) => {
-    try {
-      const validatedData = insertPurchaseHistorySchema.parse(req.body);
-      const purchaseHistory = await storage.createPurchaseHistory(validatedData);
-      res.status(201).json(purchaseHistory);
-    } catch (error) {
-      console.log(error)
-      res.status(500).json({ message: "Failed to create purchase!", errors: error });
-    }
-  })
+  // app.post("/api/lessons/purchase", async (req, res) => {
+  //   try {
+  //     const validatedData = insertPurchaseHistorySchema.parse(req.body);
+  //     const purchaseHistory = await storage.createPurchaseHistory(validatedData);
+  //     res.status(201).json(purchaseHistory);
+  //   } catch (error) {
+  //     console.log(error)
+  //     res.status(500).json({ message: "Failed to create purchase!", errors: error });
+  //   }
+  // })
 
-  app.patch("/api/lessons/purchase/:purchaseId/payment-status", async (req, res) => {
+  app.patch("/api/purchase-history/:purchaseId/payment-status", async (req, res) => {
     try {
       const { purchaseId } = req.params
       const { paymentStatus } = req.body
@@ -1302,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.delete("/api/lessons/purchase/:purchaseId", async (req, res) => {
+  app.delete("/api/purchase-history/:purchaseId", async (req, res) => {
     try {
       const { purchaseId } = req.params
       const deleted = await storage.deletePurchaseHistoryByPurchaseId(purchaseId);

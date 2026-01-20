@@ -17,7 +17,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Eye, Save } from "lucide-react";
 import { Lesson, LessonType, MainLesson } from "@shared/schema";
-// import { IMAGE_MAP } from "@/lib/constants";
 import RichTextEditor from "@/components/ui/rich-text-editor";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";

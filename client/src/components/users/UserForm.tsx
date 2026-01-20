@@ -11,13 +11,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-// import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { Card, CardContent } from "@/components/ui/card";
 import { Lock } from "lucide-react";
 import { User } from "@shared/schema";
-// import RichTextEditor from "@/components/ui/rich-text-editor";
 
 const userSchema = z.object({
   firstName: z.string().min(1, "Firstname is required"),
@@ -64,41 +61,6 @@ export default function UserForm({ user, onSubmit, onStatusSubmit,
       role: user?.role ?? "admin"
     }
   });
-
-  // const { watch, setValue } = form;
-  // const watchedStatus = watch("status");
-  // const watchedSections = watch("sections");
-
-  // Auto-save simulation
-  // useEffect(() => {
-  //   const timer = setInterval(() => {
-  //     setAutoSaveTime(new Date());
-  //   }, 30000);
-
-  //   return () => clearInterval(timer);
-  // }, []);
-
-  // const addSection = () => {
-  //   const currentSections = form.getValues("sections");
-  //   setValue("sections", [...currentSections, { title: "", content: "" }]);
-  // };
-
-  // const removeSection = (index: number) => {
-  //   const currentSections = form.getValues("sections");
-  //   if (currentSections.length > 1) {
-  //     setValue("sections", currentSections.filter((_, i) => i !== index));
-  //   }
-  // };
-
-  // const handlePreview = () => {
-  //   const data = form.getValues();
-  //   if (data.title && data.sections.length > 0) {
-  //     onPreview({
-  //       ...data,
-  //       price: data.free ? undefined : (data.price || 0) * 100,
-  //     });
-  //   }
-  // };
 
   const handleChangePasswordView = () => {
     const data = form.getValues();
@@ -209,29 +171,6 @@ export default function UserForm({ user, onSubmit, onStatusSubmit,
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* <FormField
-            control={form.control}
-            name="level"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Level *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Intermediate">Intermediate</SelectItem>
-                    <SelectItem value="Advanced">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          /> */}
-          
           <FormField
             control={form.control}
             name="isActive"
@@ -276,80 +215,12 @@ export default function UserForm({ user, onSubmit, onStatusSubmit,
               </FormItem>
             )}
           />
-          
-          {/* {!watchedFree && (
-            <FormField
-              control={form.control}
-              status="Status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Price ($)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="number" 
-                      step="0.01" 
-                      placeholder="0.00" 
-                      {...field}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )} */}
         </div>
-
-        {/* <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea 
-                  placeholder="Enter lesson description" 
-                  className="h-24 resize-none"
-                  {...field} 
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        /> */}
-
-        {/* Preview Section */}
-        {/* <div className="border-t border-gray-200 pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold neutral-dark">Preview</h3>
-            <Button type="button" variant="outline" onClick={handlePreview}>
-              <Eye className="mr-2 h-4 w-4" />
-              Show Preview
-            </Button>
-          </div>
-        </div> */}
 
         {/* Form Actions */}
         <div className="flex items-center justify-between border-t border-gray-200 pt-6">
           <div className="flex items-center space-x-3">
-            {/* { !user && (
-              <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => handleSubmit(form.getValues(), true)}
-              disabled={isLoading}
-              >
-              <Save className="mr-2 h-4 w-4" />
-              Save as Draft
-            </Button>
-            )}
-            {autoSaveTime && (
-              <div className="text-xs neutral-medium auto-save-indicator">
-                <Save className="inline mr-1 h-3 w-3" />
-                Auto-saved {autoSaveTime.toLocaleTimeString()}
-              </div>
-            )} */}
-
+      
             { user?.role === "admin" && (
               <Button 
               type="button" 
