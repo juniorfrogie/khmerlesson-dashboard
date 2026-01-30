@@ -38,6 +38,7 @@ import { and, count, eq, not, lte, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import generatorPassword from "generate-password"
 import { extname } from "path"
+import { getLastMonthGrowthValue } from "./utils/query-utils";
 
 export interface IStorage {
   // Users
@@ -324,12 +325,37 @@ export class DatabaseStorage implements IStorage {
       
     const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
 
-    const rawCommand = sql`SELECT *, 
-      (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
-      WHERE ${purchase_history.paymentStatus} = 'completed' 
-        AND ${purchase_history.userId} = ${user.id} AND ${purchase_history.mainLessonId} = ${mainLessons.id})
-      FROM ${mainLessons} ORDER BY (${mainLessons.createdAt})`
-    const queryResult = await db.execute(rawCommand)
+    // const rawCommand = sql`SELECT *, 
+    //   (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
+    //   WHERE ${purchase_history.paymentStatus} = 'completed' 
+    //     AND ${purchase_history.userId} = ${user.id} AND ${purchase_history.mainLessonId} = ${mainLessons.id})
+    //   FROM ${mainLessons} ORDER BY (${mainLessons.createdAt})`
+
+    //let rawCommand: string | SQLWrapper
+
+    // if(user){
+    //   rawCommand = sql`SELECT *, 
+    //     (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
+    //     WHERE ${purchase_history.paymentStatus} = 'completed' 
+    //       AND ${purchase_history.userId} = ${user?.id} 
+    //       AND ${purchase_history.mainLessonId} = ${mainLessons.id})
+    //     FROM ${mainLessons} ORDER BY ${mainLessons.price} DESC, ${mainLessons.createdAt} DESC`
+    // }else{
+    //   rawCommand = sql`SELECT *, 
+    //     (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
+    //     WHERE ${purchase_history.paymentStatus} = 'completed' 
+    //       AND ${purchase_history.mainLessonId} = ${mainLessons.id})
+    //     FROM ${mainLessons} ORDER BY ${mainLessons.price} DESC, ${mainLessons.createdAt} DESC`
+    // }
+
+    const command = sql`SELECT *, 
+        (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
+        WHERE ${purchase_history.paymentStatus} = 'completed' 
+          AND ${purchase_history.userId} > ${user?.id ?? 0}
+          AND ${purchase_history.mainLessonId} = ${mainLessons.id})
+        FROM ${mainLessons} ORDER BY ${mainLessons.price} DESC, ${mainLessons.createdAt} DESC`
+
+    const queryResult = await db.execute(command)
 
     return queryResult.rows.map((e: any) => (
       {
@@ -347,7 +373,7 @@ export class DatabaseStorage implements IStorage {
           style: "currency",
           currency: "USD"
         }).format((e.price || 0) / 100)}`,
-        hasPurchased: e.count > 0,
+        hasPurchased: e.count > 0 && user !== undefined && user !== null,
         createdAt: e.createdAt,
         updatedAt: e.updatedAt
       }
@@ -444,13 +470,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMainLessonCount(): Promise<number> {
-    const result = await db.select({count: count()}).from(mainLessons)
-    return result[0]["count"] ?? 0
+    const result = await db.$count(mainLessons)
+    return result
   }
 
   // Lesson operations
   async getAllLessons(): Promise<Lesson[]> {
-    // const result = await db.select().from(lessons).orderBy(lessons.createdAt);
     const result = await db.select().from(lessons)
       .leftJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
       .orderBy(lessons.createdAt)
@@ -464,8 +489,6 @@ export class DatabaseStorage implements IStorage {
       description: e.lessons.description,
       level: e.lessons.level,
       image: e.lessons.image,
-      // free: e.lessons.free,
-      // price: e.lessons.price,
       status: e.lessons.status,
       sections: e.lessons.sections,
       createdAt: e.lessons.createdAt,
@@ -490,8 +513,6 @@ export class DatabaseStorage implements IStorage {
       description: e.lessons.description,
       level: e.lessons.level,
       image: e.lessons.image,
-      // free: e.lessons.free,
-      // price: e.lessons.price,
       status: e.lessons.status,
       sections: e.lessons.sections,
       createdAt: e.lessons.createdAt,
@@ -499,65 +520,6 @@ export class DatabaseStorage implements IStorage {
     }))
     return lessonList
   }
-
-  // async getLessonsJoin(user: User, mainLessonId: number): Promise<any> {
-  //   const result = await db.select().from(lessons)
-  //     .innerJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
-  //     .innerJoin(mainLessons, eq(mainLessons.id, lessons.mainLessonId))
-  //     .where(eq(mainLessons.id, mainLessonId))
-  //     .orderBy(lessons.createdAt);
-  //   const lessonsUserPurchased = await db.select().from(lessons)
-  //     .fullJoin(purchase_history, eq(lessons.id, purchase_history.lessonId))
-  //     .innerJoin(users, eq(users.id, purchase_history.userId))
-  //     .where(eq(users.id, user.id))
-  //     .orderBy(lessons.createdAt);
-
-  //   const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
-  //   const publishedLessons = result.filter(e => e.lessons.status === "published").map(e => ({
-  //     id: e.lessons.id,
-  //     mainLessonId: e.lessons.mainLessonId,
-  //     title: e.lessons.title,
-  //     description: e.lessons.description,
-  //     level: e.lessons.level,
-  //     lessonType: e.lesson_type,
-  //     image: e.lessons.image,
-  //     imageFile: e.lesson_type.iconMode === "raw" ? null : {
-  //       name: e.lesson_type.icon,
-  //       // url: `${bucketEndpoint}/${e.lesson_type.icon}`,
-  //       //extension: extname(`/uploads/${e.lesson_type.icon}`)
-  //       extension: extname(`${bucketEndpoint}/${e.lesson_type.icon}`)
-  //     },
-  //     free: e.lessons.free,
-  //     price: e.lessons.price,
-  //     priceCurrency: `${Intl.NumberFormat("en-US", {
-  //       style: "currency",
-  //       currency: "USD"
-  //     }).format((e.lessons.price || 0) / 100)}`,
-  //     hasPurchased: false,
-  //     createdAt: e.lessons.createdAt,
-  //     updatedAt: e.lessons.updatedAt
-  //   }))
-
-  //   // for(let e1 of publishedLessons){
-  //   //   for(let e2 of lessonUserPurchased){
-  //   //     let hasPurchased = e1.id === e2.purchase_history?.lessonId && e2.purchase_history?.userId === user.id 
-  //   //         && e2.purchase_history?.paymentStatus?.toLowerCase() === "completed"
-  //   //     if(hasPurchased){
-  //   //       e1.hasPurchased = hasPurchased
-  //   //     }
-  //   //   }
-  //   // }
-
-  //   for(let lessonPurchased of lessonsUserPurchased){
-  //       const indexFound = publishedLessons.findIndex(e => e.id === lessonPurchased.lessons?.id)
-  //       let hasPurchased = lessonPurchased.lessons?.id === lessonPurchased.purchase_history?.mainLessonId
-  //           && lessonPurchased.purchase_history?.userId === user.id 
-  //           && lessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
-  //       if(indexFound === -1) break
-  //       publishedLessons[indexFound].hasPurchased = hasPurchased
-  //   }
-  //   return publishedLessons;
-  // }
 
   async getLesson(id: number): Promise<Lesson | undefined> {
     const [lesson] = await db.select().from(lessons).where(eq(lessons.id, id));
@@ -628,8 +590,8 @@ export class DatabaseStorage implements IStorage {
   // }
 
   async getLessonCount(): Promise<number> {
-    const result = await db.select({count: count()}).from(lessons)
-    return result[0]["count"] ?? 0
+    const result = await db.$count(lessons)
+    return result
   }
 
   // Quiz Operations
@@ -673,99 +635,102 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async getDashboardStats(): Promise<DashboardStats> {
-    const allMainLessons = await db.select().from(mainLessons);
-    const allLessons = await db.select().from(lessons);
-    const allQuizzes = await db.select().from(quizzes);
-    const allUsers = await db.select({email: users.email, 
-      isActive: users.isActive, 
-      role: users.role,
-      createdAt: users.createdAt}).from(users).where(eq(users.role, "student"))
-    const allPurchaseHistory = await db.select().from(purchase_history)
-    
-    const totalMainLessons = allMainLessons.length;
-    const totalLessons = allLessons.length;
-    const totalQuizzes = allQuizzes.length;
-    const totalUsers = allUsers.length;
-    const totalActiveUsers = allUsers.filter(f => f.isActive).length
-    const totalPurchaseHistoryComplete = allPurchaseHistory
-      .filter(f => f.paymentStatus?.toLowerCase() === "completed")
-      .reduce((sum, f) => sum + ((f.purchaseAmount) / 100), 0)
-    // const freeLessons = allLessons.filter(l => l.free).length;
-    // const premiumLessons = allLessons.filter(l => !l.free).length;
-    const freeMainLessons = allMainLessons.filter(l => l.free).length;
-    const premiumMainLessons = allMainLessons.filter(l => !l.free).length;
-    
-    // Calculate growth (mock data)
-    //const lessonsGrowth = 12; // 12% growth
-    //const quizzesGrowth = 8;  // 8% growth
-    //const usersGrowth = 12
+  private getPriorMonth = (date: Date) => {
+    const priorMonth = new Date(date)
+    priorMonth.setDate(1)
+    priorMonth.setMonth(priorMonth.getMonth() - 1)
+    return priorMonth
+  }
 
+  private getLastMonthGrowthValue = (data: any[]) => {
     const currentDate = new Date()
     const currentMonth = currentDate.getMonth() + 1
     const currentYear = currentDate.getFullYear()
+    const currentMonthValue = data.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
+      && f.createdAt.getFullYear() === currentYear).length
+    // const priorMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
+    //   && (f.createdAt.getMonth() + 1) < currentMonth - 2
+    //   && f.createdAt.getFullYear() === currentYear)
+    const priorMonthValue = data.filter(f => f.createdAt.getMonth() === this.getPriorMonth(currentDate).getMonth()).length
+    const growth = priorMonthValue === 0 ? 0 : ((currentMonthValue / priorMonthValue) - 1)
+    return growth
+  }
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    // const allMainLessons = await db.select({
+    //   free: mainLessons.free, 
+    //   price: mainLessons.price,
+    //   createdAt: mainLessons.createdAt}).from(mainLessons)
+
+    //const allLessons = await db.select({createdAt: lessons.createdAt}).from(lessons)
+
+    //const allQuizzes = await db.select({createdAt: quizzes.createdAt}).from(quizzes)
+
+    const allUsers = await db.select({
+      isActive: users.isActive, 
+      createdAt: users.createdAt
+    }).from(users)
+      .where(eq(users.role, "student"))
+
+    const allPurchaseHistory = await db.select({
+      createdAt: purchase_history.createdAt,
+      paymentStatus: purchase_history.paymentStatus,
+      purchaseAmount: purchase_history.purchaseAmount
+    }).from(purchase_history)
+      .where(eq(purchase_history.paymentStatus, "completed"))
+    
+    const totalMainLessons = await db.$count(mainLessons);
+    const totalLessons = await db.$count(lessons);
+    const totalQuizzes = await db.$count(quizzes);
+    const totalUsers = await db.$count(users);
+    const totalActiveUsers = await db.$count(users, eq(users.isActive, true));
+
+    const totalPurchaseHistoryComplete = allPurchaseHistory
+      .reduce((sum, f) => sum + ((f.purchaseAmount) / 100), 0)
+ 
+    //const totalFreeMainLessons = allMainLessons.filter(l => l.free).length;
+    //const totalPremiumMainLessons = allMainLessons.filter(l => !l.free).length;
+    const totalFreeMainLessons = await db.$count(mainLessons, eq(mainLessons.free, true));
+    const totalPremiumMainLessons = Math.max(totalMainLessons - totalFreeMainLessons, 0)
 
     // Calculate MoM (Month over Month) Users Growth Rate
-    const currentMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
-      && f.createdAt.getFullYear() === currentYear)
-    const priorMonthUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
-      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
-      && f.createdAt.getFullYear() === currentYear)
-    const usersGrowth = priorMonthUsers.length === 0 ? 0 : ((currentMonthUsers.length / priorMonthUsers.length) - 1)
+    const usersGrowth = this.getLastMonthGrowthValue(allUsers)
 
     // Calculate MoM (Month over Month) Active Users Growth Rate
-    const currentMonthActiveUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
-      && f.isActive && f.createdAt.getFullYear() === currentYear)
-    const priorMonthActiveUsers = allUsers.filter(f => (f.createdAt.getMonth() + 1) < currentMonth && f.isActive 
-      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
-      && f.createdAt.getFullYear() === currentYear)
-    const activeUsersGrowth = priorMonthActiveUsers.length === 0 ? 0 : ((currentMonthActiveUsers.length / priorMonthActiveUsers.length) - 1)
+    const activeUsersGrowth = this.getLastMonthGrowthValue(allUsers.filter(f => f.isActive))
 
     // Calculate MoM (Month over Month) Main Lessons Growth Rate
-    const currentMonthMainLessons = allMainLessons.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
-      && f.createdAt.getFullYear() === currentYear)
-    const priorMonthMainLessons = allMainLessons.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
-      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
-      && f.createdAt.getFullYear() === currentYear)
-    const mainLessonsGrowth = priorMonthMainLessons.length === 0 ? 0 : ((currentMonthMainLessons.length / priorMonthMainLessons.length) - 1)
+    const mainLessonsGrowth = await getLastMonthGrowthValue(mainLessons)
 
     // Calculate MoM (Month over Month) Lessons Growth Rate
-    const currentMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
-      && f.createdAt.getFullYear() === currentYear)
-    const priorMonthLessons = allLessons.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
-      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
-      && f.createdAt.getFullYear() === currentYear)
-    const lessonsGrowth = priorMonthLessons.length === 0 ? 0 : ((currentMonthLessons.length / priorMonthLessons.length) - 1)
+    const lessonsGrowth = await getLastMonthGrowthValue(lessons)
 
     // Calculate MoM (Month over Month) Quizzes Growth Rate
-    const currentMonthQuizzes = allQuizzes.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
-      && f.createdAt.getFullYear() === currentYear)
-    const priorMonthQuizzes = allQuizzes.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
-      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
-      && f.createdAt.getFullYear() === currentYear)
-    const quizzesGrowth = priorMonthQuizzes.length === 0 ? 0 : ((currentMonthQuizzes.length / priorMonthQuizzes.length) - 1)
+    const quizzesGrowth = await getLastMonthGrowthValue(quizzes)
 
     // Calculate complete purchase amount Growth Rate
-    const currentMonthPurchases = allPurchaseHistory.filter(f => (f.createdAt.getMonth() + 1) === currentMonth 
-      && f.paymentStatus?.toLowerCase() === "completed" 
-      && f.createdAt.getFullYear() === currentYear)
-    const priorMonthPurchases = allPurchaseHistory.filter(f => (f.createdAt.getMonth() + 1) < currentMonth 
-      && f.paymentStatus?.toLowerCase() === "completed" 
-      && (f.createdAt.getMonth() + 1) < currentMonth - 2 
-      && f.createdAt.getFullYear() === currentYear)
-    const purchasesGrowth = priorMonthPurchases.length === 0 ? 0 : ((currentMonthPurchases.length / priorMonthPurchases.length) - 1)
+    const purchasesGrowth = this.getLastMonthGrowthValue(allPurchaseHistory)
     
-    // // Calculate average price for lessons
-    // const premiumLessonsWithPrice = allLessons.filter(l => !l.free && l.price);
-    // const avgPrice = premiumLessonsWithPrice.length > 0 
-    //   ? premiumLessonsWithPrice.reduce((sum, l) => sum + ((l.price || 0) / 100), 0) / premiumLessonsWithPrice.length
+    // Calculate average price for main lessons
+    // const premiumMainLessonsWithPrice = allMainLessons.filter(l => !l.free && l.price);
+    // const avgPrice = premiumMainLessonsWithPrice.length > 0 
+    //   ? premiumMainLessonsWithPrice.reduce((sum, l) => sum + ((l.price || 0) / 100), 0) / premiumMainLessonsWithPrice.length
     //   : 0;
 
-    // Calculate average price for main lessons
-    const premiumMainLessonsWithPrice = allMainLessons.filter(l => !l.free && l.price);
-    const avgPrice = premiumMainLessonsWithPrice.length > 0 
-      ? premiumMainLessonsWithPrice.reduce((sum, l) => sum + ((l.price || 0) / 100), 0) / premiumMainLessonsWithPrice.length
-      : 0;
+    const commandAvgPrice = sql`
+      WITH AvgPrice AS (
+        SELECT 
+          (SELECT CAST(COUNT(${mainLessons.id}) AS INT) AS count),
+          (SELECT CAST(ROUND(SUM(${mainLessons.price})::DECIMAL / 100::NUMERIC, 2) AS NUMERIC) AS sum)
+        FROM ${mainLessons}     
+        WHERE ${mainLessons.free} IS FALSE
+            AND ${mainLessons.price} IS NOT NULL 
+            AND ${mainLessons.price} > 0 
+      )
+      SELECT CAST(ROUND((sum / count)::NUMERIC, 2) AS NUMERIC) AS value FROM AvgPrice    
+    `
+    const result = await db.execute(commandAvgPrice)
+    const avgPrice = result.rowCount && result.rowCount > 0 ? (result.rows[0].value as number) : 0
 
     return {
       totalMainLessons,
@@ -774,17 +739,15 @@ export class DatabaseStorage implements IStorage {
       totalUsers,
       totalActiveUsers,
       totalPurchaseHistoryComplete,
-      // freeLessons,
-      // premiumLessons,
-      freeMainLessons,
-      premiumMainLessons,
+      totalFreeMainLessons,
+      totalPremiumMainLessons,
       mainLessonsGrowth,
       lessonsGrowth,
       quizzesGrowth,
       usersGrowth,
       activeUsersGrowth,
       purchasesGrowth,
-      avgPrice: Math.round(avgPrice)
+      avgPrice: avgPrice
     };
   }
 
@@ -826,7 +789,6 @@ export class DatabaseStorage implements IStorage {
         purchaseId: insertPurchaseHistory.purchaseId,
         userId: insertPurchaseHistory.userId,
         userEmail: insertPurchaseHistory.userEmail,
-        // lessonId: insertPurchaseHistory.lessonId,
         mainLessonId: insertPurchaseHistory.mainLessonId,
         purchaseDate: insertPurchaseHistory.purchaseDate,
         paymentMethod: insertPurchaseHistory.paymentMethod,
@@ -857,7 +819,6 @@ export class DatabaseStorage implements IStorage {
   async getPurchaseHistory(limit: number, offset: number): Promise<PurchaseHistoryData[]> {
     const result = await db.select().from(purchase_history)
       .innerJoin(users, eq(users.id, purchase_history.userId))
-      //.innerJoin(lessons, eq(lessons.id, purchase_history.lessonId))
       .innerJoin(mainLessons, eq(mainLessons.id, purchase_history.mainLessonId))
       .limit(limit)
       .offset(offset)
@@ -867,7 +828,6 @@ export class DatabaseStorage implements IStorage {
       id: e.purchase_history.id,
       purchaseId: e.purchase_history.purchaseId,
       email: e.users.email,
-      // lessonId: e.purchase_history.lessonId,
       mainLessonId: e.purchase_history.mainLessonId,
       purchaseDate: e.purchase_history.purchaseDate,
       purchaseAmount: e.purchase_history.purchaseAmount,

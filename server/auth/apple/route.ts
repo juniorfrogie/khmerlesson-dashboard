@@ -4,7 +4,7 @@ import crypto from "crypto"
 
 const router = Router()
 
-async function getAppleSigningKeys() {
+export async function getAppleSigningKeys() {
     const response = await fetch('https://appleid.apple.com/auth/keys')
     if (!response.ok) {
         throw new Error('Failed to fetch Apple signing keys.')

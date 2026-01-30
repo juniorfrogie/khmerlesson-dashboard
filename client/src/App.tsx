@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { apiRequest, queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -14,6 +14,7 @@ import UserProvider from "./contexts/user-context";
 import { GraduationCapIcon, Loader2Icon } from "lucide-react";
 
 function Router() {
+
   const getMe = async ({ queryKey }: any) => {
     const [_, params] = queryKey;
     const response = await apiRequest("GET", "/api/v1/me");
@@ -23,14 +24,14 @@ function Router() {
   const { data: user, isFetching } = useQuery<User>({
     queryKey: ["get-me"],
     queryFn: getMe,
-    enabled: window.location.pathname === "/dashboard",
+    // enabled: window.location.pathname === "/dashboard",
   });
 
   if (isFetching) {
     return (
       <>
         <div className="flex flex-col gap-2 justify-center items-center h-screen">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-6 border-gray-200">
             <h1 className="text-xl font-semibold neutral-dark flex items-center">
               <GraduationCapIcon className="fluent-blue mr-3" size={24} />
               Khmer Learning Admin

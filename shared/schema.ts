@@ -82,12 +82,12 @@ export const purchase_history = pgTable("purchase_history", {
   userId: integer("user_id").references(() => users.id, {onDelete: 'cascade'}).notNull(),
   userEmail: varchar("user_email").references(() => users.email, {onDelete: 'cascade'}).notNull(),
   mainLessonId: integer("main_lesson_id").references(() => mainLessons.id, {onDelete: 'cascade'}).notNull(),
-  // lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: 'cascade'}).notNull(),
   purchaseAmount: integer("purchase_amount").notNull(),
   paymentMethod: varchar("payment_method"),
   platformType: varchar("platform_type"),
   paymentStatus: varchar("payment_status"), // Complete, Refund, Pending, Cancel
   purchaseDate: varchar("purchase_date").notNull(),
+  receipt: jsonb("receipt"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -312,10 +312,8 @@ export type DashboardStats = {
   totalUsers: number;
   totalActiveUsers: number;
   totalPurchaseHistoryComplete: number;
-  // freeLessons: number;
-  // premiumLessons: number;
-  freeMainLessons: number;
-  premiumMainLessons: number;
+  totalFreeMainLessons: number;
+  totalPremiumMainLessons: number;
   mainLessonsGrowth: number;
   lessonsGrowth: number;
   quizzesGrowth: number;

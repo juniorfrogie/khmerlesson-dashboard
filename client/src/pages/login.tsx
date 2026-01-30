@@ -39,10 +39,6 @@ export default function Login() {
   const onSubmit = async (data: LoginUser) => {
     try {
       await login(data);
-      toast({
-        title: "Success",
-        description: "Logged in successfully",
-      });
       navigate("/dashboard");
       window.location.reload()
     } catch (error: any) {

@@ -26,9 +26,12 @@ export function useUser() {
     return `${firstName.at(0)?.toUpperCase()}${lastName.at(0)?.toUpperCase()}`;
   };
 
+  const isAuthenticated = () => user !== null && user !== undefined
+
   return {
     user,
     getFullName,
-    getShortNameWith2Letter
+    getShortNameWith2Letter,
+    isAuthenticated
   };
 }

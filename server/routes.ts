@@ -63,7 +63,7 @@ const setCookies = (res: any, token: string, refreshToken: string) => {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const { NODE_ENV, 
+  const { NODE_ENV,
     TOKEN_SECRET, 
     REFRESH_TOKEN_SECRET
   } = process.env
@@ -76,8 +76,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
     //if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
 
+    console.log(process.env.APPLE_STORE_AUTH)
+
     if(!token && !refreshToken){
       //return res.redirect("/")
+
+      const url = req.originalUrl
+      if(url.includes("/api/v1/main-lessons") || url.includes("/api/v1/lessons")){
+        next()
+        return
+      }
       return res.status(401).json({message: "You are not logged in! Please log in to get access."})
     }
     if(!token && refreshToken){
@@ -124,13 +132,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }))
 
   // Mount public API routes
-  app.use("/api/v1", authenticateToken, apiRoutes);
   app.use("/api", paypalRoutes);
   app.use("/api/auth", appleAuthRoute);
+
+  // Apply authentication
+  app.use("/api/v1", authenticateToken, apiRoutes);
   app.use("/api/upload", authenticateToken, fileUploadRoute)
 
   //app.disable('etag');
-
   //const publicDir = path.join(import.meta.dirname, '..');
   const uploadDir = path.join(import.meta.dirname, '.', '../uploads');
   app.use("/uploads", express.static(uploadDir))
@@ -389,7 +398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/logout", authenticateToken, async (req, res) => {
     try {
       const authHeader = req.headers['authorization']
-      let token = authHeader && authHeader.split(' ')[1]
+      let token = req.cookies.token || authHeader && authHeader.split(' ')[1]
 
       if (!token && req.body.token) {
         token = req.body.token;
@@ -398,13 +407,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (token) {
         await blacklistToken(token);
       }
-
-      // res.cookie("token", "none", {
-      //   expires: new Date(Date.now() + 10 * 1000),
-      //   httpOnly: true,
-      //   sameSite: "strict",
-      //   secure: true
-      // })
 
       res.clearCookie("token", { path: "/" })
       res.clearCookie("refreshToken", { path: "/" })
@@ -643,11 +645,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   //Clean up expired token From Blacklist in every 10 minutes
   const cleanExpiredTokens = async () => {
-    const result = await storage.deleteBlacklist();
-    if (result) {
-      console.log(
-        `Expired tokens cleaned from blacklist. Count: ${result}`
-      );
+    try{
+      const result = await storage.deleteBlacklist();
+      if (result) {
+        console.log(
+          `Expired tokens cleaned from blacklist. Count: ${result}`
+        );
+      }
+    }catch(err){
+      console.error("Error during schedule cron-job:", err)
     }
   }
   cron.schedule("*/10 * * * *", cleanExpiredTokens);

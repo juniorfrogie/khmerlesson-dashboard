@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
+import { verifyPurchase } from "./services/iap/ios/storekit2/service";
 
 const router = Router();
 
@@ -123,11 +124,10 @@ router.get("/main-lessons", async (req: any, res) => {
 //   }
 // });
 
-// GET /api/v1/lessons - List all published lessons associate with users and main-lessons
-router.get("/lessons/main-lessons/:id", async (req: any, res: any) => {
+// GET /api/v1/main-lessons/:id/lessons - List all published lessons associate with users and main-lessons
+router.get("/main-lessons/:id/lessons", async (req: any, res: any) => {
   try {  
     const id = parseInt(req.params.id)
-    // const lessons = await storage.getLessonsJoin(req.user, id);
     const lessons = await storage.getAllLessonsByMainLesson(id);
     res.json({
       success: true,
@@ -422,8 +422,8 @@ router.get("/stats", async (req, res) => {
       data: {
         totalLessons: stats.totalLessons,
         totalQuizzes: stats.totalQuizzes,
-        freeMainLessons: stats.freeMainLessons,
-        premiumMainLessons: stats.premiumMainLessons
+        totalFreeMainLessons: stats.totalFreeMainLessons,
+        totalPremiumMainLessons: stats.totalPremiumMainLessons
       }
     });
   } catch (error) {
@@ -503,12 +503,31 @@ router.get("/search", async (req, res) => {
 // POST:: /api/v1/purchase-history
 router.post("/purchase-history", async (req, res) => {
   try {
-    const validatedData = insertPurchaseHistorySchema.parse(req.body);
-    const purchaseHistory = await storage.createPurchaseHistory(validatedData);
-    res.status(201).json(purchaseHistory);
+    const { jws } = req.body
+    const isVerified = await verifyPurchase(jws)
+    if(isVerified){
+      const validatedData = insertPurchaseHistorySchema.parse(req.body)
+      const purchaseHistory = await storage.createPurchaseHistory(validatedData)
+      return res.status(201).json(purchaseHistory)
+    }
+    return res.status(400).json({message: "Transaction failed."})
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: "Failed to create purchase!", errors: error });
+    res.status(500).json({ message: "Failed to create purchase history.", errors: error })
+  }
+})
+
+router.post("/verify-purchase", async (req, res) => {
+  try {
+    const { jws } = req.body
+    const isVerified = await verifyPurchase(jws)
+    if(isVerified){
+      return res.status(200).json({message: "Transaction verified."})
+    }
+    return res.status(400).json({message: "Transaction failed."})
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ message: "Failed to verify purchase.", errors: error })
   }
 })
 

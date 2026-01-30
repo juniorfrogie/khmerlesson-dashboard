@@ -1,20 +1,30 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { HelpCircle, Unlock, Crown, TrendingUp, TrendingDown, CircleDollarSign, Users, UserCheck, Library, BookOpen } from "lucide-react";
+import {
+  HelpCircle,
+  Unlock,
+  Crown,
+  TrendingUp,
+  TrendingDown,
+  CircleDollarSign,
+  Users,
+  UserCheck,
+  Library,
+  BookOpen,
+} from "lucide-react";
 import { DashboardStats as StatsType } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function DashboardStats() {
-
   const getDashboardStats = async ({ queryKey }: any) => {
-    const response = await apiRequest("GET", "/api/dashboard/stats")
-    return await response.json()
-  }
+    const response = await apiRequest("GET", "/api/dashboard/stats");
+    return await response.json();
+  };
 
   const { data: stats, isLoading } = useQuery<StatsType>({
     queryKey: ["dashboard-stats"],
-    queryFn: getDashboardStats
-  })
+    queryFn: getDashboardStats,
+  });
 
   const numberCompactFormat = (value: number) => {
     return Intl.NumberFormat("en-US", {
@@ -22,9 +32,9 @@ export default function DashboardStats() {
       notation: "compact",
       compactDisplay: "short",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(value)
-  }
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
 
   if (isLoading) {
     return (
@@ -56,10 +66,10 @@ export default function DashboardStats() {
     },
     {
       title: "Premium Main Lessons",
-      value: numberCompactFormat(stats.premiumMainLessons),
+      value: numberCompactFormat(stats.totalPremiumMainLessons),
       subtitle: `Average price: ${Intl.NumberFormat("en-US", {
         style: "currency",
-        currency: "USD"
+        currency: "USD",
       }).format(stats.avgPrice)}`,
       icon: Crown,
       iconBg: "bg-orange-100",
@@ -67,8 +77,8 @@ export default function DashboardStats() {
     },
     {
       title: "Free Main Lessons",
-      value: numberCompactFormat(stats.freeMainLessons),
-      subtitle: `${Math.round((stats.freeMainLessons / stats.totalMainLessons) * 100)}% of total content`,
+      value: numberCompactFormat(stats.totalFreeMainLessons),
+      subtitle: `${Math.round((stats.totalFreeMainLessons / stats.totalMainLessons) * 100)}% of total content`,
       icon: Unlock,
       iconBg: "bg-green-100",
       iconColor: "fluent-green",
@@ -141,10 +151,14 @@ export default function DashboardStats() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="neutral-medium text-sm font-medium">{stat.title}</p>
+                <p className="neutral-medium text-sm font-medium">
+                  {stat.title}
+                </p>
                 <p className="text-2xl font-bold neutral-dark">{stat.value}</p>
               </div>
-              <div className={`w-12 h-12 ${stat.iconBg} rounded-lg flex items-center justify-center`}>
+              <div
+                className={`w-12 h-12 ${stat.iconBg} rounded-lg flex items-center justify-center`}
+              >
                 <stat.icon className={stat.iconColor} size={20} />
               </div>
             </div>
@@ -161,21 +175,22 @@ export default function DashboardStats() {
                 </p>
               )
             )} */}
-            {stat.growth && (
-              stat.growthValue === 0 ? (<p className="neutral-light text-sm font-medium">{stat.growth} from last month</p>) : (
-                stat.growthValue > 0 ? (
-                <p className="fluent-green text-sm mt-2">
-                  <TrendingUp className="inline mr-1" size={14} />
-                  +{stat.growth} from last month
+            {stat.growth &&
+              (stat.growthValue === 0 ? (
+                <p className="neutral-light text-sm font-medium">
+                  {stat.growth} from last month
                 </p>
-                ) : (
-                  <p className="fluent-red text-sm mt-2">
-                    <TrendingDown className="inline mr-1" size={14} />
-                    {stat.growth} from last month
-                  </p>
-                )
-              )
-            )}
+              ) : stat.growthValue > 0 ? (
+                <p className="fluent-green text-sm mt-2">
+                  <TrendingUp className="inline mr-1" size={14} />+{stat.growth}{" "}
+                  from last month
+                </p>
+              ) : (
+                <p className="fluent-red text-sm mt-2">
+                  <TrendingDown className="inline mr-1" size={14} />
+                  {stat.growth} from last month
+                </p>
+              ))}
             {stat.subtitle && (
               <p className="neutral-medium text-sm mt-2">{stat.subtitle}</p>
             )}
