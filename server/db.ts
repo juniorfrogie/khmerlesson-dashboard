@@ -16,10 +16,13 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const certPath = process.env.NODE_EXTRA_CA_CERTS ?? ""
+// const certPath = process.env.NODE_EXTRA_CA_CERTS ?? ""
+
+const ca = Buffer.from(process.env.NODE_EXTRA_CA_CERTS ?? "", "base64").toString("utf-8")
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" && process.env.NODE_EXTRA_CA_CERTS ? {
   rejectUnauthorized: true,
-  ca: fs.readFileSync(certPath).toString()
+  //ca: fs.readFileSync(certPath).toString()
+  ca: ca
 } : true });
 export const db = drizzle({ client: pool, schema });
