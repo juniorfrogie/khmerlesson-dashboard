@@ -76,8 +76,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
     //if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
 
-    console.log(process.env.APPLE_STORE_AUTH)
-
     if(!token && !refreshToken){
       //return res.redirect("/")
 
