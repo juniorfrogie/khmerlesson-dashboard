@@ -10,7 +10,7 @@ const { NODE_ENV,
     APPLE_PRIVATE_KEY_BASE64,
     APP_APPLE_ID } = process.env
 const ENVIRONMENT = NODE_ENV === "development" ? Environment.SANDBOX : Environment.PRODUCTION
-const PRIVATE_KEY = Buffer.from(APPLE_PRIVATE_KEY_BASE64 as string, "base64").toString("utf-8")
+const PRIVATE_KEY = Buffer.from(APPLE_PRIVATE_KEY_BASE64 ?? "", "base64").toString("utf-8")
 
 const client = new AppStoreServerAPIClient(PRIVATE_KEY, 
     APPLE_KEY_ID as string, 
