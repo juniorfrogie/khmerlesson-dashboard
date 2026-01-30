@@ -31,3 +31,4 @@ jobs:
         env:
           APPLE_STORE_AUTH: ${{ secrets.APPLE_STORE_AUTH }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PORT: ${{ secrets.PORT }}
