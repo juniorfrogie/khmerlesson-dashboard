@@ -27,4 +27,4 @@ jobs:
       - name: Run Dev
         run: npm run dev
         env:
-          APPLE_AUTH_TOKEN: ${{ secrets.APPLE_AUTH_TOKEN }}
+          APPLE_STORE_AUTH: ${{ secrets.APPLE_STORE_AUTH }}
