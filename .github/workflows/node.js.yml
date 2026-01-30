@@ -28,8 +28,8 @@ jobs:
       - name: Install Dependencies
         run: npm ci
       - name: Run application in development mode
-        run: npm run dev
         env:
           APPLE_STORE_AUTH: ${{ secrets.APPLE_STORE_AUTH }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PORT: ${{ secrets.PORT }}
+        run: npm run dev  
