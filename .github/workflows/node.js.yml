@@ -25,10 +25,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24.x'
-      - name: Install Dependencies and Run Dev
-        run: |
-          npm install
-          npm run dev
+      - name: Install Dependencies
+        run: npm install
         env:
           APPLE_STORE_AUTH: ${{ secrets.APPLE_STORE_AUTH }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
