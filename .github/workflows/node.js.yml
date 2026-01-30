@@ -26,7 +26,10 @@ jobs:
         with:
           node-version: '24.x'
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
         env:
           APPLE_STORE_AUTH: ${{ secrets.APPLE_STORE_AUTH }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
