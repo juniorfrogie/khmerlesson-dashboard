@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route } from "wouter";
 import { apiRequest, queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,8 +7,8 @@ import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import ResetPassword from "./pages/reset-password";
 import Login from "./pages/login";
-import PaymentComplete from "./pages/payment-complete";
-import PaymentCancel from "./pages/payment-cancel";
+// import PaymentComplete from "./pages/payment-complete";
+// import PaymentCancel from "./pages/payment-cancel";
 import { User } from "@shared/schema";
 import UserProvider from "./contexts/user-context";
 import { GraduationCapIcon, Loader2Icon } from "lucide-react";
@@ -53,8 +53,8 @@ function Router() {
         <Route path="/dashboard" component={user ? Dashboard : Login} />
       </UserProvider>
       <Route path="/reset-password/:token" component={ResetPassword} />
-      <Route path="/complete" component={PaymentComplete} />
-      <Route path="/cancel" component={PaymentCancel} />
+      {/* <Route path="/complete" component={PaymentComplete} />
+      <Route path="/cancel" component={PaymentCancel} /> */}
       <Route component={NotFound} />
     </Switch>
   );
