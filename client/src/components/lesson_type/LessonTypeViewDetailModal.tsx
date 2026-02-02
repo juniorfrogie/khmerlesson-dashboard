@@ -28,7 +28,7 @@ export default function LessonTypeViewDetailModal({
     const [_key, params] = queryKey;
     const response = await apiRequest(
       "GET",
-      `/api/lesson-type/${params}`,
+      `/api/lesson-type/${params}/lessons`,
     );
     return await response.json();
   };

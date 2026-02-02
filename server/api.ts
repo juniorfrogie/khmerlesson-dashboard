@@ -2,8 +2,18 @@ import { Router } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
 import { verifyPurchase } from "./services/iap/ios/storekit2/service";
+import { UserController } from "./features/users/controller/controller";
+import { MainLessonController } from "./features/main-lessons/controller/controller";
+import { LessonController } from "./features/lessons/controller/controller";
+import { PurchaseHistoryController } from "./features/purchase-history/controller/controller";
+import { QuizController } from "./features/quizzes/controller/controller";
 
 const router = Router();
+const userController = new UserController()
+const mainLessonController = new MainLessonController()
+const lessonController = new LessonController()
+const purchaseHistoryController = new PurchaseHistoryController()
+const quizController = new QuizController()
 
 // API Authentication middleware (simple API key for now)
 const authenticateAPI = (req: any, res: any, next: any) => {
@@ -68,7 +78,7 @@ router.use(authenticateAPI);
 // GET /api/v1/main-lessons - List all published main lessons
 router.get("/main-lessons", async (req: any, res) => {
   try {
-    const mainLessons = await storage.getMainLessonsJoin(req.user);
+    const mainLessons = await mainLessonController.getMainLessonsJoin(req.user);
     res.json({
       success: true,
       data: mainLessons,
@@ -128,7 +138,7 @@ router.get("/main-lessons", async (req: any, res) => {
 router.get("/main-lessons/:id/lessons", async (req: any, res: any) => {
   try {  
     const id = parseInt(req.params.id)
-    const lessons = await storage.getAllLessonsByMainLesson(id);
+    const lessons = await mainLessonController.getAllLessonsByMainLesson(id);
     res.json({
       success: true,
       data: lessons,
@@ -146,7 +156,7 @@ router.get("/main-lessons/:id/lessons", async (req: any, res: any) => {
 router.get("/lessons/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const lesson = await storage.getLesson(id);
+    const lesson = await lessonController.getLesson(id);
     
     if (!lesson || lesson.status !== 'published') {
       return res.status(404).json({ 
@@ -203,7 +213,7 @@ router.get("/lessons/:id", async (req, res) => {
 router.get("/lessons/level/:level", async (req, res) => {
   try {
     const level = req.params.level;
-    const lessons = await storage.getAllLessons();
+    const lessons = await lessonController.getAllLessons();
     
     const filteredLessons = lessons
       .filter(lesson => lesson.status === 'published' && lesson.level.toLowerCase() === level.toLowerCase())
@@ -268,7 +278,7 @@ router.get("/lessons/level/:level", async (req, res) => {
 // GET /api/v1/quizzes - List all active quizzes
 router.get("/quizzes", async (req, res) => {
   try {
-    const quizzes = await storage.getQuizzes();
+    const quizzes = await quizController.getQuizzes();
     // Only return active quizzes for public API
     const activeQuizzes = quizzes
       .filter(quiz => quiz.status === 'active')
@@ -298,7 +308,7 @@ router.get("/quizzes", async (req, res) => {
 router.get("/quizzes/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const quiz = await storage.getQuiz(id);
+    const quiz = await quizController.getQuiz(id);
     
     if (!quiz || quiz.status !== 'active') {
       return res.status(404).json({ 
@@ -331,7 +341,7 @@ router.get("/quizzes/:id", async (req, res) => {
 router.get("/quizzes/lesson/:lessonId", async (req, res) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
-    const quizzes = await storage.getQuizzes();
+    const quizzes = await quizController.getQuizzes();
     
     const lessonQuizzes = quizzes
       .filter(quiz => quiz.status === 'active' && quiz.lessonId === lessonId)
@@ -364,7 +374,7 @@ router.post("/quizzes/:id/submit", async (req, res) => {
     const id = parseInt(req.params.id);
     const { answers } = req.body; // Array of { questionId, selectedAnswer }
     
-    const quiz = await storage.getQuiz(id);
+    const quiz = await quizController.getQuiz(id);
     if (!quiz || quiz.status !== 'active') {
       return res.status(404).json({ 
         success: false, 
@@ -450,7 +460,7 @@ router.get("/search", async (req, res) => {
     let results: any[] = [];
     
     if (type === 'all' || type === 'lessons') {
-      const lessons = await storage.getAllLessons();
+      const lessons = await lessonController.getAllLessons();
       const lessonResults = lessons
         .filter(lesson => 
           lesson.status === 'published' && 
@@ -469,7 +479,7 @@ router.get("/search", async (req, res) => {
     }
     
     if (type === 'all' || type === 'quizzes') {
-      const quizzes = await storage.getQuizzes();
+      const quizzes = await quizController.getQuizzes();
       const quizResults = quizzes
         .filter(quiz => 
           quiz.status === 'active' && 
@@ -507,7 +517,7 @@ router.post("/purchase-history", async (req, res) => {
     const isVerified = await verifyPurchase(jws)
     if(isVerified){
       const validatedData = insertPurchaseHistorySchema.parse(req.body)
-      const purchaseHistory = await storage.createPurchaseHistory(validatedData)
+      const purchaseHistory = await purchaseHistoryController.createPurchaseHistory(validatedData)
       return res.status(201).json(purchaseHistory)
     }
     return res.status(400).json({message: "Transaction failed."})
@@ -534,7 +544,7 @@ router.post("/verify-purchase", async (req, res) => {
 router.get("/me", async (req: any, res) => {
   try{
     const id = req.user.id as number
-    const user = await storage.getUserById(id)
+    const user = await userController.getUserById(id)
     if(!user){
       return res.status(404).json({message: "User not found."})
     }

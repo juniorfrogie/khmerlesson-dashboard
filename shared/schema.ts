@@ -22,8 +22,6 @@ export const lessons = pgTable("lessons", {
     .references(() => lessonType.id, {onDelete: "cascade", onUpdate: "cascade"}).notNull(), // association with lesson type
   title: text("title").notNull(),
   description: text("description").notNull(),
-  // free: boolean("free").notNull().default(true),
-  // price: integer("price"), // price in cents
   level: text("level").notNull(), // "Beginner" | "Intermediate" | "Advanced"
   image: text("image").notNull(), // image type identifier
   sections: jsonb("sections").notNull().default([]), // array of {title: string, content: string, html: string, ops: []}
@@ -208,7 +206,6 @@ export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type LoginUser = z.infer<typeof loginSchema>;
 export type ResetPasswordUser = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordUser = z.infer<typeof changePasswordSchema>;
-// export type UserCount = z.infer<typeof userCount>
 export type InsertUserWithAuthService = z.infer<typeof insertUserWithAuthServiceSchema>;
 
 //export type MainLesson = typeof mainLessons.$inferSelect
