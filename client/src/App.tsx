@@ -17,7 +17,7 @@ function Router() {
 
   const getMe = async ({ queryKey }: any) => {
     const [_, params] = queryKey;
-    const response = await apiRequest("GET", "/api/v1/me");
+    const response = await apiRequest("GET", "/api/me");
     return await response.json();
   };
 

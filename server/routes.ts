@@ -29,6 +29,7 @@ import refreshTokenRoutes from "./auth/refresh-token/route"
 import cookieParser from "cookie-parser"
 import { PurchaseHistoryController } from "./features/purchase-history/controller/controller";
 import { verifyAppleToken } from "./services/auth/apple/service";
+import { UserController } from "./features/users/controller/controller";
 
 export const setToken = async (res: any, user: any) => {
   const { NODE_ENV, 
@@ -188,6 +189,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
+
+  app.get("/api/me", authenticateToken, async (req: any, res) => {
+    try{
+      if(!req.user?.id) {
+        return res.status(400).json({message: "Invalid user."})
+      }
+      const id = req.user.id as number
+      const user = await new UserController().getUserById(id)
+      if(!user){
+        return res.status(404).json({message: "User not found."})
+      }
+      const { password, resetToken, registrationType, ...safeUser } = user
+      return res.status(200).json(safeUser)
+    }catch(error){
+      console.error(error)
+      res.status(500).json({message: "Failed to get me."})
+    }
+  })
 
   // Privacy Policy
   app.get("/privacy-policy", async (req, res) => {
