@@ -10,10 +10,10 @@ import fs from 'fs'
 dotEnv.config()
 //neonConfig.webSocketConstructor = ws;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL && process.env.NODE_ENV !== "production") {
+  console.warn("DATABASE_URL missing");
 }
 
 const certPath = process.env.NODE_EXTRA_CA_CERTS ?? ""
