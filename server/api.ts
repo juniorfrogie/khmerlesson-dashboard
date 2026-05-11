@@ -69,13 +69,11 @@ const authenticateAPI = (req: any, res: any, next: any) => {
 //   })
 // }
 
-// Apply authentication to all API routes
-router.use(authenticateAPI);
-//router.use(authenticateToken);
+// Apply authentication to lesson-related routes only
 
 // ===== MAIN LESSONS API =====
 
-// GET /api/v1/main-lessons - List all published main lessons
+// GET /api/v1/main-lessons - List all published main lessons (public)
 router.get("/main-lessons", async (req: any, res) => {
   try {
     const mainLessons = await mainLessonController.getMainLessonsJoin(req.user);
@@ -134,8 +132,8 @@ router.get("/main-lessons", async (req: any, res) => {
 //   }
 // });
 
-// GET /api/v1/main-lessons/:id/lessons - List all published lessons associate with users and main-lessons
-router.get("/main-lessons/:id/lessons", async (req: any, res: any) => {
+// GET /api/v1/main-lessons/:id/lessons - List all published lessons associate with users and main-lessons (protected)
+router.get("/main-lessons/:id/lessons", authenticateAPI, async (req: any, res: any) => {
   try {  
     const id = parseInt(req.params.id)
     const lessons = await mainLessonController.getAllLessonsByMainLesson(id);
@@ -152,8 +150,8 @@ router.get("/main-lessons/:id/lessons", async (req: any, res: any) => {
   }
 });
 
-// GET /api/v1/lessons/:id - Get a specific lesson with content
-router.get("/lessons/:id", async (req, res) => {
+// GET /api/v1/lessons/:id - Get a specific lesson with content (protected)
+router.get("/lessons/:id", authenticateAPI, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const lesson = await lessonController.getLesson(id);
@@ -209,8 +207,8 @@ router.get("/lessons/:id", async (req, res) => {
   }
 });
 
-// GET /api/v1/lessons/level/:level - Get lessons by level
-router.get("/lessons/level/:level", async (req, res) => {
+// GET /api/v1/lessons/level/:level - Get lessons by level (protected)
+router.get("/lessons/level/:level", authenticateAPI, async (req, res) => {
   try {
     const level = req.params.level;
     const lessons = await lessonController.getAllLessons();
@@ -337,8 +335,8 @@ router.get("/quizzes/:id", async (req, res) => {
   }
 });
 
-// GET /api/v1/quizzes/lesson/:lessonId - Get quizzes for a specific lesson
-router.get("/quizzes/lesson/:lessonId", async (req, res) => {
+// GET /api/v1/quizzes/lesson/:lessonId - Get quizzes for a specific lesson (protected)
+router.get("/quizzes/lesson/:lessonId", authenticateAPI, async (req, res) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
     const quizzes = await quizController.getQuizzes();
@@ -368,8 +366,8 @@ router.get("/quizzes/lesson/:lessonId", async (req, res) => {
   }
 });
 
-// POST /api/v1/quizzes/:id/submit - Submit quiz answers (for scoring)
-router.post("/quizzes/:id/submit", async (req, res) => {
+// POST /api/v1/quizzes/:id/submit - Submit quiz answers (for scoring) (protected)
+router.post("/quizzes/:id/submit", authenticateAPI, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { answers } = req.body; // Array of { questionId, selectedAnswer }

@@ -98,11 +98,14 @@ export class MainLessonController{
         //     FROM ${mainLessons} ORDER BY ${mainLessons.price} DESC, ${mainLessons.createdAt} DESC`
         // }
     
-        const command = sql`SELECT *, 
+        const command = sql`SELECT ${mainLessons.id}, ${mainLessons.title}, ${mainLessons.description}, 
+            ${mainLessons.imageCover}, ${mainLessons.free}, ${mainLessons.price}, 
+            ${mainLessons.createdAt}, ${mainLessons.updatedAt},
+            ${mainLessons.productId},
             (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
             WHERE ${purchase_history.paymentStatus} = 'completed' 
               AND ${purchase_history.userId} > ${user?.id ?? 0}
-              AND ${purchase_history.mainLessonId} = ${mainLessons.id})
+              AND ${purchase_history.mainLessonId} = ${mainLessons.id}) as purchase_count
             FROM ${mainLessons} ORDER BY ${mainLessons.price} DESC, ${mainLessons.createdAt} DESC`
     
         const queryResult = await db.execute(command)
@@ -112,18 +115,19 @@ export class MainLessonController{
             id: e.id,
             title: e.title,
             description: e.description,
-            imageCover: e.imageCover,
+            imageCover: e.image_cover,
             imageFile: {
-              name: e.imageCover,
-              extension: extname(`${bucketEndpoint}/${e.imageCover}`)
+              name: e.image_cover,
+              extension: extname(`${bucketEndpoint}/${e.image_cover}`)
             },
             free: e.free,
             price: e.price,
+            productId: e.product_id,
             priceCurrency: `${Intl.NumberFormat("en-US", {
               style: "currency",
               currency: "USD"
             }).format((e.price || 0) / 100)}`,
-            hasPurchased: e.count > 0 && user !== undefined && user !== null,
+            hasPurchased: e.purchase_count > 0 && user !== undefined && user !== null,
             createdAt: e.createdAt,
             updatedAt: e.updatedAt
           }

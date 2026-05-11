@@ -23,7 +23,8 @@ const mainLessonSchema = z.object({
     price: z.number().optional(),
     imageCover: z.string().min(1, "Image cover is required"),
     title: z.string().min(1, "Title is required"),
-    description: z.string().min(1, "Description is required")
+    description: z.string().min(1, "Description is required"),
+    productId: z.string().optional()
 })
 
 type MainLessonFormData = z.infer<typeof mainLessonSchema>
@@ -33,6 +34,7 @@ interface MainLessonFormProps{
     onSubmit: (data: MainLessonFormData, isDraft: boolean) => void
     isLoading: boolean
 }
+
 
 export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: MainLessonFormProps){
     const [autoSaveTime, setAutoSaveTime] = useState<Date | null>(null)
@@ -45,6 +47,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
             free: mainLesson?.free ?? true,
             price: mainLesson?.price ? mainLesson.price / 100 : undefined,
             imageCover: mainLesson?.imageCover ?? "",
+            productId: mainLesson?.productId ?? "",
             title: mainLesson?.title ?? "",
             description: mainLesson?.description ?? ""
         }
@@ -164,6 +167,14 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
         return () => clearInterval(timer);
     }, []);
 
+    useEffect(() => {
+        if (watchedFree) {
+            form.setValue("price", 0);
+            form.setValue("productId", "");
+            form.clearErrors(["price", "productId"]);
+        }
+    }, [watchedFree]);
+
     return (
         <>
         <Form {...form}>
@@ -193,6 +204,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                 />
 
                 {!watchedFree && (
+                <>
                     <FormField
                     control={form.control}
                     name="price"
@@ -200,21 +212,41 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                         <FormItem>
                         <FormLabel>Price ($)</FormLabel>
                         <FormControl>
-                            <Input 
-                            type="number" 
-                            step="0.01" 
+                            <Input
+                            type="number"
+                            step="0.01"
                             placeholder="0.00"
-                            min="0" 
+                            min="0"
                             {...field}
-                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            onChange={(e) =>
+                                field.onChange(parseFloat(e.target.value) || 0)
+                            }
                             />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
                     )}
                     />
-                )}
 
+                    {/* NEW: Product ID */}
+                    <FormField
+                    control={form.control}
+                    name="productId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Product ID</FormLabel>
+                        <FormControl>
+                            <Input
+                            placeholder="Enter Product ID"
+                            {...field}
+                            />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </>
+                )}
                 <FormField 
                     control={form.control}
                     name="imageCover"
@@ -242,13 +274,20 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                                             className="hidden" />
                                     </label>
                                 </div>
-                                {
-                                    previewImage && previewImage.length > 0 && (
+                                
                                         <div className="w-full border rounded p-4 flex items-center justify-center">
-                                            <img className="rounded" src={`${previewImage}`} width="150" height="150" />
+                                            <img
+                                                className="rounded"
+                                                src={
+                                                    previewImage && previewImage.length > 0
+                                                    ? previewImage
+                                                    : "/uploads/no-image-placeholder.png"
+                                                }
+                                                width="150"
+                                                height="150"
+                                                />
                                         </div>
-                                    )
-                                }
+                                    
                             </div>
                             </FormControl>
                             <FormMessage />

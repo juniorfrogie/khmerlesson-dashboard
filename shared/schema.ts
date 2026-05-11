@@ -9,6 +9,7 @@ export const mainLessons = pgTable("main_lessons", {
   imageCover: text("image_cover").notNull(),
   free: boolean("free").notNull().default(true),
   price: integer("price"), // price in cents
+  productId: text("product_id"),
   status: text("status").notNull().default("draft"), // "draft" | "published"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -219,6 +220,7 @@ export type MainLesson = {
   price: number | null;
   description: string;
   imageCover: string;
+  productId?: string | null;
   imageCoverUrl?: string | null;
 }
 export type InsertMainLesson = z.infer<typeof insertMainLessonSchema>
@@ -325,7 +327,6 @@ export type PurchaseHistoryData = {
   id: number
   purchaseId: string
   email: string
-  // lessonId: number
   mainLessonId: number
   purchaseDate: string
   purchaseAmount: number

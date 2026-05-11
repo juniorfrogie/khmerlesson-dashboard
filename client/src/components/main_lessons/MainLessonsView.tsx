@@ -93,24 +93,24 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) =>
-      await apiRequest("DELETE", `/api/main-lesson/${id}`),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["main-lessons"] });
-      await queryClient.invalidateQueries({
-        queryKey: ["/api/dashboard/stats"],
-      });
-      toast({
-        title: "Success",
-        description: "Main Lesson deleted successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete main lesson",
-        variant: "destructive",
-      });
-    },
+      await apiRequest("DELETE", `/api/main-lessons/${id}`),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["main-lessons"] });
+        await queryClient.invalidateQueries({
+          queryKey: ["/api/dashboard/stats"],
+        });
+        toast({
+          title: "Success",
+          description: "Main Lesson deleted successfully",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to delete main lesson",
+          variant: "destructive",
+        });
+      },
   });
 
   const toggleLessonSelection = (mainLessonId: number) => {
