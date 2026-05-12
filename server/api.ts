@@ -1,4 +1,5 @@
-import { Router } from "express";
+import jwt from 'jsonwebtoken';
+import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
 import { verifyPurchase } from "./services/iap/ios/storekit2/service";
@@ -9,167 +10,124 @@ import { PurchaseHistoryController } from "./features/purchase-history/controlle
 import { QuizController } from "./features/quizzes/controller/controller";
 
 const router = Router();
-const userController = new UserController()
-const mainLessonController = new MainLessonController()
-const lessonController = new LessonController()
-const purchaseHistoryController = new PurchaseHistoryController()
-const quizController = new QuizController()
+const userController = new UserController();
+const mainLessonController = new MainLessonController();
+const lessonController = new LessonController();
+const purchaseHistoryController = new PurchaseHistoryController();
+const quizController = new QuizController();
 
-// API Authentication middleware (simple API key for now)
-const authenticateAPI = (req: any, res: any, next: any) => {
-  const apiKey = req.header('X-API-Key') || req.query.api_key;
-  
-  // For development, allow a default test key or no key
-  // const validKeys = [
-  //   process.env.API_KEY,
-  //   'test_key_123',
-  //   'demo_key',
-  // ].filter(Boolean);
-  
-  // If no API key provided and we have valid keys configured, require authentication
-  // if (validKeys.length > 0 && apiKey && !validKeys.includes(apiKey)) {
-  //   return res.status(401).json({ 
-  //     error: 'Unauthorized', 
-  //     message: 'Valid API key required' 
-  //   });
-  // }
+const PASSING_GRADE_PERCENT = 70;
 
-  if(process.env.NODE_ENV === "production"){
-    if (apiKey !== process.env.API_KEY) {
-      return res.status(401).json({ 
-        error: 'Unauthorized', 
-        message: 'Valid API key required' 
-      });
-    }
+interface AuthRequest extends Request {
+  user?: { id: number; email: string };
+}
+
+const ok = (data: unknown, total?: number) => ({
+  success: true,
+  data,
+  ...(total !== undefined && { total })
+});
+
+const fail = (message: string) => ({ success: false, error: message });
+
+// Validates API key when API_KEY env var is set, regardless of environment
+const authenticateAPI = (req: Request, res: Response, next: NextFunction) => {
+  const apiKey = req.header('X-API-Key') || (req.query.api_key as string);
+  const configuredKey = process.env.API_KEY;
+
+  if (configuredKey && apiKey !== configuredKey) {
+    return res.status(401).json(fail('Valid API key required'));
   }
-  
+
   next();
 };
 
-// const authenticateToken = async (req: any, res: any, next: any) => {
-  
-//   const authHeader = req.headers['authorization']
-//   const token = req.cookies.token || authHeader && authHeader.split(' ')[1]
-//   const refreshToken = req.cookies.refreshToken || authHeader && authHeader.split(' ')[1]
+const authenticateToken = async (req: any, res: Response, next: NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = req.cookies?.token || (authHeader && authHeader.split(' ')[1]);
 
-//   if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
+  if (!token) {
+    return res.status(401).json({ message: "You are not logged in! Please log in to get access." });
+  }
 
-//   const isBlacklisted = await storage.getBlacklist(token)
-//   if (isBlacklisted) {
-//     return res.status(401).json({
-//       message: "Token is no longer valid. Please log in again."
-//     })
-//   }
+  const isBlacklisted = await storage.getBlacklist(token);
+  if (isBlacklisted) {
+    return res.status(401).json({ message: "Token is no longer valid. Please log in again." });
+  }
 
-//   jwt.verify(token, process.env.TOKEN_SECRET as string, async (err: any, user: any) => {
-//     if (err) return res.status(403).json({message: "Forbidden"})
-
-//     req.user = user
-//     next()
-//   })
-// }
-
-// Apply authentication to lesson-related routes only
+  jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
+    if (err) return res.status(403).json({ message: "Forbidden" });
+    req.user = user;
+    next();
+  });
+};
 
 // ===== MAIN LESSONS API =====
 
-// GET /api/v1/main-lessons - List all published main lessons (public)
-router.get("/main-lessons", async (req: any, res) => {
+router.get("/main-lessons", async (req: any, res: Response) => {
   try {
     const mainLessons = await mainLessonController.getMainLessonsJoin(req.user);
-    res.json({
-      success: true,
-      data: mainLessons,
-      total: mainLessons.length
-    });
+    res.json(ok(mainLessons, mainLessons.length));
   } catch (error) {
-    console.error(error)
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch main lessons' 
-    });
-  }
-})
-
-// ===== LESSONS API =====
-
-// GET /api/v1/lessons - List all published lessons associate with users
-// router.get("/lessons", async (req: any, res: any) => {
-//   try {
-//     // const lessons = await storage.getLessons();
-//     // // Only return published lessons for public API
-//     // const publishedLessons = lessons
-//     //   .filter(lesson => lesson.status === 'published')
-//     //   .map(lesson => ({
-//     //     id: lesson.id,
-//     //     title: lesson.title,
-//     //     description: lesson.description,
-//     //     level: lesson.level,
-//     //     image: lesson.image,
-//     //     free: lesson.free,
-//     //     price: lesson.price,
-//     //     createdAt: lesson.createdAt,
-//     //     updatedAt: lesson.updatedAt
-//     //   }));
-
-//     // res.json({
-//     //   success: true,
-//     //   data: publishedLessons,
-//     //   total: publishedLessons.length
-//     // });
-    
-//     const lessons = await storage.getLessonsJoin(req.user);
-//     res.json({
-//       success: true,
-//       data: lessons,
-//       total: lessons.length
-//     });
-//   } catch (error) {
-//     res.status(500).json({ 
-//       success: false, 
-//       error: 'Failed to fetch lessons' 
-//     });
-//   }
-// });
-
-// GET /api/v1/main-lessons/:id/lessons - List all published lessons associate with users and main-lessons (protected)
-router.get("/main-lessons/:id/lessons", authenticateAPI, async (req: any, res: any) => {
-  try {  
-    const id = parseInt(req.params.id)
-    const lessons = await mainLessonController.getAllLessonsByMainLesson(id);
-    res.json({
-      success: true,
-      data: lessons,
-      total: lessons.length
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch lessons' 
-    });
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch main lessons'));
   }
 });
 
-// GET /api/v1/lessons/:id - Get a specific lesson with content (protected)
-router.get("/lessons/:id", authenticateAPI, async (req, res) => {
+// ===== LESSONS API =====
+
+// /lessons/level/:level must be declared before /lessons/:id to avoid route shadowing
+router.get("/lessons/level/:level", authenticateAPI, async (req: Request, res: Response) => {
+  try {
+    const level = req.params.level;
+    const filteredLessons = await lessonController.getLessonsByLevel(level);
+    const mapped = filteredLessons.map((lesson: (typeof filteredLessons)[number]) => ({
+      id: lesson.id,
+      title: lesson.title,
+      description: lesson.description,
+      level: lesson.level,
+      image: lesson.image,
+      createdAt: lesson.createdAt,
+      updatedAt: lesson.updatedAt
+    }));
+    res.json(ok(mapped, mapped.length));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch lessons by level'));
+  }
+});
+
+router.get("/main-lessons/:id/lessons", authenticateAPI, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json(fail('Invalid ID parameter'));
+    }
+    const lessons = await mainLessonController.getAllLessonsByMainLesson(id);
+    res.json(ok(lessons, lessons.length));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch lessons'));
+  }
+});
+
+router.get("/lessons/:id", authenticateAPI, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json(fail('Invalid ID parameter'));
+    }
     const lesson = await lessonController.getLesson(id);
-    
+
     if (!lesson || lesson.status !== 'published') {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Lesson not found' 
-      });
+      return res.status(404).json(fail('Lesson not found'));
     }
 
-    const sections = lesson.sections as { title: string, content: string, items: {english: string, phonemic: string, khmer: string}[]}[]
-    for(let section of sections){
-      let content = section.content
-      const lines = content.split('\n').filter(line => line.trim());
+    const sections = lesson.sections as { title: string; content: string; items: { english: string; phonemic: string; khmer: string }[] }[];
+    const enrichedSections = sections.map(section => {
+      const lines = section.content.split('\n').filter(line => line.trim());
       const parsedEntries = [];
       for (const line of lines) {
-        // Match patterns like: "word [pronunciation] : translation"
         const match = line.match(/^(.+?)\s*\[(.+?)\]\s*:\s*(.+)$/);
         if (match) {
           parsedEntries.push({
@@ -179,74 +137,30 @@ router.get("/lessons/:id", authenticateAPI, async (req, res) => {
           });
         }
       }
-      Object.assign(section, {
-        items: parsedEntries
-      })
-    }
-    
-    res.json({
-      success: true,
-      data: {
-        id: lesson.id,
-        title: lesson.title,
-        description: lesson.description,
-        level: lesson.level,
-        image: lesson.image,
-        // free: lesson.free,
-        // price: lesson.price,
-        sections: sections,
-        createdAt: lesson.createdAt,
-        updatedAt: lesson.updatedAt
-      }
+      return { ...section, items: parsedEntries };
     });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch lesson' 
-    });
-  }
-});
 
-// GET /api/v1/lessons/level/:level - Get lessons by level (protected)
-router.get("/lessons/level/:level", authenticateAPI, async (req, res) => {
-  try {
-    const level = req.params.level;
-    const lessons = await lessonController.getAllLessons();
-    
-    const filteredLessons = lessons
-      .filter(lesson => lesson.status === 'published' && lesson.level.toLowerCase() === level.toLowerCase())
-      .map(lesson => ({
-        id: lesson.id,
-        title: lesson.title,
-        description: lesson.description,
-        level: lesson.level,
-        image: lesson.image,
-        // free: lesson.free,
-        // price: lesson.price,
-        createdAt: lesson.createdAt,
-        updatedAt: lesson.updatedAt
-      }));
-    
-    res.json({
-      success: true,
-      data: filteredLessons,
-      total: filteredLessons.length
-    });
+    res.json(ok({
+      id: lesson.id,
+      title: lesson.title,
+      description: lesson.description,
+      level: lesson.level,
+      image: lesson.image,
+      sections: enrichedSections,
+      createdAt: lesson.createdAt,
+      updatedAt: lesson.updatedAt
+    }));
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch lessons by level' 
-    });
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch lesson'));
   }
 });
 
 // ===== QUIZZES API =====
 
-// GET /api/v1/quizzes - List all active quizzes
-router.get("/quizzes", async (req, res) => {
+router.get("/quizzes", async (_req: Request, res: Response) => {
   try {
     const quizzes = await quizController.getQuizzes();
-    // Only return active quizzes for public API
     const activeQuizzes = quizzes
       .filter(quiz => quiz.status === 'active')
       .map(quiz => ({
@@ -257,106 +171,87 @@ router.get("/quizzes", async (req, res) => {
         createdAt: quiz.createdAt,
         updatedAt: quiz.updatedAt
       }));
-    
-    res.json({
-      success: true,
-      data: activeQuizzes,
-      total: activeQuizzes.length
-    });
+    res.json(ok(activeQuizzes, activeQuizzes.length));
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch quizzes' 
-    });
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch quizzes'));
   }
 });
 
-// GET /api/v1/quizzes/:id - Get a specific quiz with questions
-router.get("/quizzes/:id", async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const quiz = await quizController.getQuiz(id);
-    
-    if (!quiz || quiz.status !== 'active') {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Quiz not found' 
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: {
-        id: quiz.id,
-        title: quiz.title,
-        description: quiz.description,
-        lessonId: quiz.lessonId,
-        questions: quiz.questions,
-        createdAt: quiz.createdAt,
-        updatedAt: quiz.updatedAt
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch quiz' 
-    });
-  }
-});
-
-// GET /api/v1/quizzes/lesson/:lessonId - Get quizzes for a specific lesson (protected)
-router.get("/quizzes/lesson/:lessonId", authenticateAPI, async (req, res) => {
+// /quizzes/lesson/:lessonId must be declared before /quizzes/:id to avoid route shadowing
+router.get("/quizzes/lesson/:lessonId", authenticateAPI, async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
-    const quizzes = await quizController.getQuizzes();
-    
-    const lessonQuizzes = quizzes
-      .filter(quiz => quiz.status === 'active' && quiz.lessonId === lessonId)
-      .map(quiz => ({
-        id: quiz.id,
-        title: quiz.title,
-        description: quiz.description,
-        lessonId: quiz.lessonId,
-        questions: quiz.questions,
-        createdAt: quiz.createdAt,
-        updatedAt: quiz.updatedAt
-      }));
-    
-    res.json({
-      success: true,
-      data: lessonQuizzes,
-      total: lessonQuizzes.length
-    });
+    if (isNaN(lessonId) || lessonId <= 0) {
+      return res.status(400).json(fail('Invalid ID parameter'));
+    }
+    const lessonQuizzes = await quizController.getQuizzesByLesson(lessonId);
+    const mapped = lessonQuizzes.map((quiz: (typeof lessonQuizzes)[number]) => ({
+      id: quiz.id,
+      title: quiz.title,
+      description: quiz.description,
+      lessonId: quiz.lessonId,
+      questions: quiz.questions,
+      createdAt: quiz.createdAt,
+      updatedAt: quiz.updatedAt
+    }));
+    res.json(ok(mapped, mapped.length));
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch quizzes for lesson' 
-    });
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch quizzes for lesson'));
   }
 });
 
-// POST /api/v1/quizzes/:id/submit - Submit quiz answers (for scoring) (protected)
-router.post("/quizzes/:id/submit", authenticateAPI, async (req, res) => {
+router.get("/quizzes/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { answers } = req.body; // Array of { questionId, selectedAnswer }
-    
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json(fail('Invalid ID parameter'));
+    }
+    const quiz = await quizController.getQuiz(id);
+
+    if (!quiz || quiz.status !== 'active') {
+      return res.status(404).json(fail('Quiz not found'));
+    }
+
+    res.json(ok({
+      id: quiz.id,
+      title: quiz.title,
+      description: quiz.description,
+      lessonId: quiz.lessonId,
+      questions: quiz.questions,
+      createdAt: quiz.createdAt,
+      updatedAt: quiz.updatedAt
+    }));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch quiz'));
+  }
+});
+
+router.post("/quizzes/:id/submit", authenticateAPI, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json(fail('Invalid ID parameter'));
+    }
+    const { answers } = req.body;
+
+    if (!Array.isArray(answers)) {
+      return res.status(400).json(fail('answers must be an array'));
+    }
+
     const quiz = await quizController.getQuiz(id);
     if (!quiz || quiz.status !== 'active') {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Quiz not found' 
-      });
+      return res.status(404).json(fail('Quiz not found'));
     }
-    
-    // Calculate score
+
     const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
     let correct = 0;
     const results = questions.map((question: any) => {
       const userAnswer = answers.find((a: any) => a.questionId === question.id);
       const isCorrect = userAnswer && userAnswer.selectedAnswer === question.correctAnswer;
       if (isCorrect) correct++;
-      
       return {
         questionId: question.id,
         question: question.question,
@@ -365,73 +260,57 @@ router.post("/quizzes/:id/submit", authenticateAPI, async (req, res) => {
         isCorrect
       };
     });
-    
+
     const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
-    
-    res.json({
-      success: true,
-      data: {
-        quizId: id,
-        totalQuestions: questions.length,
-        correctAnswers: correct,
-        score: score,
-        passed: score >= 70, // 70% passing grade
-        results: results
-      }
-    });
+
+    res.json(ok({
+      quizId: id,
+      totalQuestions: questions.length,
+      correctAnswers: correct,
+      score,
+      passed: score >= PASSING_GRADE_PERCENT,
+      results
+    }));
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to submit quiz' 
-    });
+    console.error(error);
+    res.status(500).json(fail('Failed to submit quiz'));
   }
 });
 
 // ===== GENERAL API =====
 
-// GET /api/v1/stats - Get public statistics
-router.get("/stats", async (req, res) => {
+router.get("/stats", async (_req: Request, res: Response) => {
   try {
     const stats = await storage.getDashboardStats();
-    
-    res.json({
-      success: true,
-      data: {
-        totalLessons: stats.totalLessons,
-        totalQuizzes: stats.totalQuizzes,
-        totalFreeMainLessons: stats.totalFreeMainLessons,
-        totalPremiumMainLessons: stats.totalPremiumMainLessons
-      }
-    });
+    res.json(ok({
+      totalLessons: stats.totalLessons,
+      totalQuizzes: stats.totalQuizzes,
+      totalFreeMainLessons: stats.totalFreeMainLessons,
+      totalPremiumMainLessons: stats.totalPremiumMainLessons
+    }));
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch statistics' 
-    });
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch statistics'));
   }
 });
 
-// GET /api/v1/search - Search lessons and quizzes
-router.get("/search", async (req, res) => {
+router.get("/search", async (req: Request, res: Response) => {
   try {
     const { q, type = 'all' } = req.query;
-    
+
     if (!q || typeof q !== 'string') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Search query required' 
-      });
+      return res.status(400).json(fail('Search query required'));
     }
-    
+
     const query = q.toLowerCase();
-    let results: any[] = [];
-    
+    const results: any[] = [];
+
     if (type === 'all' || type === 'lessons') {
       const lessons = await lessonController.getAllLessons();
       const lessonResults = lessons
-        .filter(lesson => 
-          lesson.status === 'published' && 
-          (lesson.title.toLowerCase().includes(query) || 
+        .filter(lesson =>
+          lesson.status === 'published' &&
+          (lesson.title.toLowerCase().includes(query) ||
            lesson.description.toLowerCase().includes(query))
         )
         .map(lesson => ({
@@ -440,17 +319,16 @@ router.get("/search", async (req, res) => {
           title: lesson.title,
           description: lesson.description,
           level: lesson.level,
-          // free: lesson.free
         }));
       results.push(...lessonResults);
     }
-    
+
     if (type === 'all' || type === 'quizzes') {
       const quizzes = await quizController.getQuizzes();
       const quizResults = quizzes
-        .filter(quiz => 
-          quiz.status === 'active' && 
-          (quiz.title.toLowerCase().includes(query) || 
+        .filter(quiz =>
+          quiz.status === 'active' &&
+          (quiz.title.toLowerCase().includes(query) ||
            quiz.description.toLowerCase().includes(query))
         )
         .map(quiz => ({
@@ -462,65 +340,57 @@ router.get("/search", async (req, res) => {
         }));
       results.push(...quizResults);
     }
-    
-    res.json({
-      success: true,
-      data: results,
-      total: results.length,
-      query: q
-    });
+
+    res.json({ ...ok(results, results.length), query: q });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Search failed' 
-    });
+    console.error(error);
+    res.status(500).json(fail('Search failed'));
   }
 });
 
-// POST:: /api/v1/purchase-history
-router.post("/purchase-history", async (req, res) => {
+router.post("/purchase-history", authenticateAPI, async (req: Request, res: Response) => {
   try {
-    const { jws } = req.body
-    const isVerified = await verifyPurchase(jws)
-    if(isVerified){
-      const validatedData = insertPurchaseHistorySchema.parse(req.body)
-      const purchaseHistory = await purchaseHistoryController.createPurchaseHistory(validatedData)
-      return res.status(201).json(purchaseHistory)
+    const { jws } = req.body;
+    const isVerified = await verifyPurchase(jws);
+    if (isVerified) {
+      const validatedData = insertPurchaseHistorySchema.parse(req.body);
+      const purchaseHistory = await purchaseHistoryController.createPurchaseHistory(validatedData);
+      return res.status(201).json(purchaseHistory);
     }
-    return res.status(400).json({message: "Transaction failed."})
+    return res.status(400).json({ message: "Transaction failed." });
   } catch (error) {
-    console.error(error)
-    res.status(500).json({ message: "Failed to create purchase history.", errors: error })
+    console.error(error);
+    res.status(500).json({ message: "Failed to create purchase history.", errors: error });
   }
-})
+});
 
-router.post("/verify-purchase", async (req, res) => {
+router.post("/verify-purchase", authenticateAPI, async (req: Request, res: Response) => {
   try {
-    const { jws } = req.body
-    const isVerified = await verifyPurchase(jws)
-    if(isVerified){
-      return res.status(200).json({message: "Transaction verified."})
+    const { jws } = req.body;
+    const isVerified = await verifyPurchase(jws);
+    if (isVerified) {
+      return res.status(200).json({ message: "Transaction verified." });
     }
-    return res.status(400).json({message: "Transaction failed."})
+    return res.status(400).json({ message: "Transaction failed." });
   } catch (error) {
-    console.error(error)
-    res.status(500).json({ message: "Failed to verify purchase.", errors: error })
+    console.error(error);
+    res.status(500).json({ message: "Failed to verify purchase.", errors: error });
   }
-})
+});
 
-router.get("/me", async (req: any, res) => {
-  try{
-    const id = req.user.id as number
-    const user = await userController.getUserById(id)
-    if(!user){
-      return res.status(404).json({message: "User not found."})
+router.get("/me", authenticateToken, async (req: any, res: Response) => {
+  try {
+    const id = req.user.id as number;
+    const user = await userController.getUserById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
     }
-    const { password, resetToken, registrationType, ...safeUser } = user
-    return res.status(200).json(safeUser)
-  }catch(error){
-    console.error(error)
-    res.status(500).json({message: "Failed to get me."})
+    const { password, resetToken, registrationType, ...safeUser } = user;
+    return res.status(200).json(safeUser);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to get me." });
   }
-})
+});
 
 export default router;

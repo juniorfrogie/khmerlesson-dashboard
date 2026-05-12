@@ -1,5 +1,5 @@
 import { InsertQuiz, Quiz, quizzes, UpdateQuiz } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "server/db";
 
 export class QuizController{
@@ -47,6 +47,13 @@ export class QuizController{
         return quiz || undefined;
     }
     
+    async getQuizzesByLesson(lessonId: number): Promise<Quiz[]> {
+        const result = await db.select().from(quizzes)
+            .where(and(eq(quizzes.status, 'active'), eq(quizzes.lessonId, lessonId)))
+            .orderBy(quizzes.createdAt);
+        return result;
+    }
+
     async deleteQuiz(id: number): Promise<boolean> {
         const result = await db.delete(quizzes).where(eq(quizzes.id, id));
         return (result.rowCount ?? 0) > 0;

@@ -1,5 +1,5 @@
 import { InsertLesson, Lesson, lessons, lessonType, UpdateLesson } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "server/db";
 
 export class LessonController{
@@ -97,6 +97,28 @@ export class LessonController{
             .where(eq(lessons.lessonTypeId, id))
             .orderBy(lessons.createdAt)
         return result
+    }
+
+    async getLessonsByLevel(level: string): Promise<Lesson[]> {
+        const result = await db.select().from(lessons)
+            .leftJoin(lessonType, eq(lessonType.id, lessons.lessonTypeId))
+            .where(and(eq(lessons.status, 'published'), sql`lower(${lessons.level}) = lower(${level})`))
+            .orderBy(lessons.createdAt)
+
+        return result.map(e => (<Lesson>{
+            id: e.lessons.id,
+            mainLessonId: e.lessons.mainLessonId,
+            lessonTypeId: e.lessons.lessonTypeId,
+            lessonType: e.lesson_type,
+            title: e.lessons.title,
+            description: e.lessons.description,
+            level: e.lessons.level,
+            image: e.lessons.image,
+            status: e.lessons.status,
+            sections: e.lessons.sections,
+            createdAt: e.lessons.createdAt,
+            updatedAt: e.lessons.updatedAt
+        }));
     }
 
     async getLessonCount(): Promise<number> {
