@@ -18,9 +18,9 @@ export const mainLessons = pgTable("main_lessons", {
 export const lessons = pgTable("lessons", {
   id: serial("id").primaryKey(),
   mainLessonId: integer("main_lesson_id")
-    .references(() => mainLessons.id, {onDelete: "cascade", onUpdate: "cascade"}).notNull(), // association with main lesson
+    .references(() => mainLessons.id, { onDelete: "cascade", onUpdate: "cascade" }).notNull(), // association with main lesson
   lessonTypeId: integer("lesson_type_id")
-    .references(() => lessonType.id, {onDelete: "cascade", onUpdate: "cascade"}).notNull(), // association with lesson type
+    .references(() => lessonType.id, { onDelete: "cascade", onUpdate: "cascade" }).notNull(), // association with lesson type
   title: text("title").notNull(),
   description: text("description").notNull(),
   level: text("level").notNull(), // "Beginner" | "Intermediate" | "Advanced"
@@ -44,7 +44,7 @@ export const quizzes = pgTable("quizzes", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  lessonId: integer("lesson_id").references(() => lessons.id, {onDelete: "cascade", onUpdate: "cascade" }), // optional association with lesson
+  lessonId: integer("lesson_id").references(() => lessons.id, { onDelete: "cascade", onUpdate: "cascade" }), // optional association with lesson
   questions: jsonb("questions").notNull().default([]), // array of quiz questions
   status: text("status").notNull().default("draft"), // "draft" | "active"
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -78,15 +78,14 @@ export const analytics = pgTable("analytics", {
 export const purchase_history = pgTable("purchase_history", {
   id: serial("id").primaryKey(),
   purchaseId: varchar("purchase_id").notNull(),
-  userId: integer("user_id").references(() => users.id, {onDelete: 'cascade'}).notNull(),
-  userEmail: varchar("user_email").references(() => users.email, {onDelete: 'cascade'}).notNull(),
-  mainLessonId: integer("main_lesson_id").references(() => mainLessons.id, {onDelete: 'cascade'}).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  userEmail: varchar("user_email").references(() => users.email, { onDelete: 'cascade' }).notNull(),
+  mainLessonId: integer("main_lesson_id").references(() => mainLessons.id, { onDelete: 'cascade' }).notNull(),
   purchaseAmount: integer("purchase_amount").notNull(),
   paymentMethod: varchar("payment_method"),
   platformType: varchar("platform_type"),
   paymentStatus: varchar("payment_status"), // Complete, Refund, Pending, Cancel
   purchaseDate: varchar("purchase_date").notNull(),
-  receipt: jsonb("receipt"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });

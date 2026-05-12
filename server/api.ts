@@ -240,37 +240,6 @@ router.get("/lessons/level/:level", authenticateAPI, async (req, res) => {
   }
 });
 
-// GET /api/v1/lessons/free - Get all free lessons
-// router.get("/lessons/free", async (req, res) => {
-//   try {
-//     const lessons = await storage.getAllLessons();
-    
-//     const freeLessons = lessons
-//       .filter(lesson => lesson.status === 'published' && lesson.free)
-//       .map(lesson => ({
-//         id: lesson.id,
-//         title: lesson.title,
-//         description: lesson.description,
-//         level: lesson.level,
-//         image: lesson.image,
-//         free: lesson.free,
-//         createdAt: lesson.createdAt,
-//         updatedAt: lesson.updatedAt
-//       }));
-    
-//     res.json({
-//       success: true,
-//       data: freeLessons,
-//       total: freeLessons.length
-//     });
-//   } catch (error) {
-//     res.status(500).json({ 
-//       success: false, 
-//       error: 'Failed to fetch free lessons' 
-//     });
-//   }
-// });
-
 // ===== QUIZZES API =====
 
 // GET /api/v1/quizzes - List all active quizzes

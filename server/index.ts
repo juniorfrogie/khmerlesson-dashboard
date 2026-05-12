@@ -1,12 +1,21 @@
+// ⚠️  dotenv MUST be loaded before any other import that reads process.env.
+// Previously this was called after the app was created, so TOKEN_SECRET etc.
+// could be undefined when route closures captured them at startup.
+import dotEnv from "dotenv";
+dotEnv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import dotEnv from "dotenv"
+import { correlationMiddleware } from "./auth/middleware/correlation";
 
 const app = express();
+
+// Attach correlation ID to every request for end-to-end log tracing
+app.use(correlationMiddleware);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-dotEnv.config()
 
 app.use((req, res, next) => {
   const start = Date.now();

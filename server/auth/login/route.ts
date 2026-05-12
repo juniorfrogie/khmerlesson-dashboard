@@ -1,15 +1,15 @@
 import { loginSchema } from "@shared/schema";
 import { Router } from "express";
 import { UserController } from "server/features/users/controller/controller";
-import { setCookies } from "server/routes";
-import { tokenGenerator } from "server/utils/token-generator";
+import { setCookieTokens } from "server/auth/token/token-service";
+import { generateTokenPair } from "server/auth/token/token-service";
 import { z } from "zod"
-import jwt from "jsonwebtoken"
+
 
 const router = Router()
 const controller = new UserController()
 
-router.post("/login", async (req, res) => {
+  router.post("/login", async (req, res) => {
     try {
       const loginData = loginSchema.parse(req.body);
       
@@ -23,19 +23,9 @@ router.post("/login", async (req, res) => {
       }
   
       const { password, resetToken, registrationType, ...userResponse } = user;
-      const { token, refreshToken } = tokenGenerator(userResponse)
+      // Use centralised token service — ensures consistent expiry across all login paths
+      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email })
   
-      // const days = 90;
-      // const expirationDate = new Date();
-      // expirationDate.setDate(expirationDate.getDate() + days);
-      // res.cookie("token", token, {
-      //   expires: expirationDate,
-      //   httpOnly: true,
-      //   sameSite: "strict",
-      //   secure: true,
-      //   maxAge: 1000 * 60 * 60 * 24 * 7
-      // })
-      //
       res.json({
         message: "Login successful",
         user: userResponse,
@@ -58,7 +48,6 @@ router.post("/login", async (req, res) => {
 
 // Admin Login
 router.post("/admin", async (req, res) => {
-    const { NODE_ENV, TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env
     try {
       const loginData = loginSchema.parse(req.body);
       
@@ -72,25 +61,14 @@ router.post("/admin", async (req, res) => {
       }
   
       const { password, ...userResponse } = user;
-      // const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
-      //   expiresIn: expiresIn
-      // })
+      // Use centralised token service — ensures consistent expiry
+      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email })
 
-      const token = jwt.sign(userResponse, TOKEN_SECRET as string, {
-        expiresIn: NODE_ENV === "development" ? "1m" : "1d"
-      })
-
-      const refreshToken = jwt.sign(userResponse, REFRESH_TOKEN_SECRET as string, {
-        expiresIn: NODE_ENV === "development" ? "5m" : "7d"
-      })
-
-      setCookies(res, token, refreshToken)
-      //
+      setCookieTokens(res, token, refreshToken)
       res.json({
         user: userResponse,
         token: token
       });
-      //
       await controller.updateUserLastLogin(user.id)
     } catch (error) { 
       if (error instanceof z.ZodError) {

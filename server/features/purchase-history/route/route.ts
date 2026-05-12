@@ -113,8 +113,12 @@ router.get("/", async (req, res) => {
         total: purchaseHistoryCount
       }
       return res.status(200).json(sendReponse)
-    }catch(error){
-      res.status(500).send("Failed to get purchase history")
+    } catch (error) {
+      console.error("Purchase history error:", error);
+      res.status(500).json({
+        message: "Internal Server Error",
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   })
 

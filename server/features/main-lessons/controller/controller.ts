@@ -11,13 +11,6 @@ import { extname } from "path"
 import { db } from "server/db"
 
 export class MainLessonController{
-    // static instance: MainLessonController | null = null
-    // constructor(){
-    //   if(MainLessonController.instance){
-    //     return MainLessonController.instance;
-    //   }
-    //   MainLessonController.instance = this;
-    // }
 
     async getAllMainLessons(): Promise<MainLesson[]> {
         const result = await db.select().from(mainLessons).orderBy(mainLessons.createdAt)
@@ -34,80 +27,39 @@ export class MainLessonController{
     }
     
     async getMainLessonsJoin(user: User): Promise<any> {
-        // const result = await db.select().from(mainLessons)
-        //   .orderBy(mainLessons.createdAt);
-        // const mainLessonsUserPurchased = await db.select().from(mainLessons)
-        //   .fullJoin(purchase_history, eq(mainLessons.id, purchase_history.mainLessonId))
-        //   .innerJoin(users, eq(users.id, purchase_history.userId))
-        //   .where(eq(users.id, user.id))
-        //   .orderBy(mainLessons.createdAt);
-    
-        // const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
-        // const publishedLessons = result.filter(e => e.status === "published").map(e => ({
-        //   id: e.id,
-        //   title: e.title,
-        //   description: e.description,
-        //   imageCover: e.imageCover,
-        //   imageFile: {
-        //     name: e.imageCover,
-        //     extension: extname(`${bucketEndpoint}/${e.imageCover}`)
-        //   },
-        //   free: e.free,
-        //   price: e.price,
-        //   priceCurrency: `${Intl.NumberFormat("en-US", {
-        //     style: "currency",
-        //     currency: "USD"
-        //   }).format((e.price || 0) / 100)}`,
-        //   hasPurchased: false,
-        //   createdAt: e.createdAt,
-        //   updatedAt: e.updatedAt
-        // }))
-    
-        // for(const mainLessonPurchased of mainLessonsUserPurchased){
-        //     const indexFound = publishedLessons.findIndex(e => e.id === mainLessonPurchased.main_lessons?.id)
-        //     const hasPurchased = mainLessonPurchased.main_lessons?.id === mainLessonPurchased.purchase_history?.mainLessonId
-        //         && mainLessonPurchased.purchase_history?.userId === user.id 
-        //         && mainLessonPurchased.purchase_history?.paymentStatus?.toLowerCase() === "completed"
-        //     if(indexFound === -1) break
-        //     publishedLessons[indexFound].hasPurchased = hasPurchased
-        // }
-        // return publishedLessons;
           
         const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
     
-        // const rawCommand = sql`SELECT *, 
-        //   (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
-        //   WHERE ${purchase_history.paymentStatus} = 'completed' 
-        //     AND ${purchase_history.userId} = ${user.id} AND ${purchase_history.mainLessonId} = ${mainLessons.id})
-        //   FROM ${mainLessons} ORDER BY (${mainLessons.createdAt})`
+        const userFilter = user?.id
+        ? sql`AND ${purchase_history.userId} = ${user.id}`
+        : sql``;
+
+        // console.log("UserID", user?.id)
     
-        //let rawCommand: string | SQLWrapper
-    
-        // if(user){
-        //   rawCommand = sql`SELECT *, 
-        //     (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
-        //     WHERE ${purchase_history.paymentStatus} = 'completed' 
-        //       AND ${purchase_history.userId} = ${user?.id} 
-        //       AND ${purchase_history.mainLessonId} = ${mainLessons.id})
-        //     FROM ${mainLessons} ORDER BY ${mainLessons.price} DESC, ${mainLessons.createdAt} DESC`
-        // }else{
-        //   rawCommand = sql`SELECT *, 
-        //     (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
-        //     WHERE ${purchase_history.paymentStatus} = 'completed' 
-        //       AND ${purchase_history.mainLessonId} = ${mainLessons.id})
-        //     FROM ${mainLessons} ORDER BY ${mainLessons.price} DESC, ${mainLessons.createdAt} DESC`
-        // }
-    
-        const command = sql`SELECT ${mainLessons.id}, ${mainLessons.title}, ${mainLessons.description}, 
-            ${mainLessons.imageCover}, ${mainLessons.free}, ${mainLessons.price}, 
-            ${mainLessons.createdAt}, ${mainLessons.updatedAt},
-            ${mainLessons.productId},
-            (SELECT CAST(COUNT(${purchase_history.mainLessonId}) AS INT) FROM ${purchase_history}
-            WHERE ${purchase_history.paymentStatus} = 'completed' 
-              AND ${purchase_history.userId} > ${user?.id ?? 0}
-              AND ${purchase_history.mainLessonId} = ${mainLessons.id}) as purchase_count
-            FROM ${mainLessons} ORDER BY ${mainLessons.price} DESC, ${mainLessons.createdAt} DESC`
-    
+        const command = sql`
+        SELECT 
+          ${mainLessons.id},
+          ${mainLessons.title},
+          ${mainLessons.description},
+          ${mainLessons.imageCover},
+          ${mainLessons.free},
+          ${mainLessons.price},
+          ${mainLessons.createdAt},
+          ${mainLessons.updatedAt},
+          ${mainLessons.productId},
+
+          (
+            SELECT CAST(COUNT(*) AS INT)
+            FROM ${purchase_history}
+            WHERE ${purchase_history.paymentStatus} = 'completed'
+              ${userFilter}
+              AND ${purchase_history.mainLessonId} = ${mainLessons.id}
+          ) as purchase_count
+
+        FROM ${mainLessons}
+        ORDER BY ${mainLessons.price} DESC,
+                ${mainLessons.createdAt} DESC
+        `;
         const queryResult = await db.execute(command)
     
         return queryResult.rows.map((e: any) => (

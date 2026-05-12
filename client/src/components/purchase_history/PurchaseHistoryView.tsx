@@ -33,18 +33,23 @@ export default function PurchaseHistoryView() {
     useState<PurchaseHistoryData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [limit, _] = useState(15);
-  var [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
   const [purchaseDateFilter, setPurchaseDateFilter] = useState("all");
 
   const getPurchaseHistory = async ({ queryKey }: any) => {
     const [_key, params] = queryKey;
-    const response = await apiRequest(
-      "GET",
-      `/api/purchase-history?payment_status=${params.paymentStatus}&purchase_date=${params.purchaseDate}&search=${params.search}&limit=${params.limit}&offset=${params.offset}`,
-    );
-    const result = await response.json();
-    return result;
+
+    const url = new URL("http://localhost:5001/api/purchase-history");
+
+    url.searchParams.set("payment_status", params.paymentStatus?.trim());
+    url.searchParams.set("purchase_date", params.purchaseDate?.trim());
+    url.searchParams.set("search", params.search || "");
+    url.searchParams.set("limit", String(params.limit));
+    url.searchParams.set("offset", String(params.offset));
+
+    const response = await apiRequest("GET", url.toString());
+    return await response.json();
   };
 
   const {
@@ -88,7 +93,9 @@ export default function PurchaseHistoryView() {
 
   const toggleUserSelection = (id: number) => {
     setSelectedUsers((prev) =>
-      prev.includes(id) ? prev.filter((id) => id !== id) : [...prev, id],
+      prev.includes(id)
+        ? prev.filter((userId) => userId !== id)
+        : [...prev, id],
     );
   };
 
@@ -118,38 +125,23 @@ export default function PurchaseHistoryView() {
     }
   };
 
-  // const getPaymentStatusLabel = (paymentStatus: string) => {
-  //    switch (paymentStatus.toLowerCase()) {
-  //         case "complete":
-  //         case "completed":
-  //             return "COMPLETED";
-  //         case "pending": return "Pending";
-  //         case "refund":
-  //         case "refunded":
-  //             return "Refund";
-  //         case "cancel":
-  //         case "cancelled":
-  //             return "Cancelled";
-  //         default: return "Unknown";
-  //     }
-  // };
-
   const next = () => {
-    let min = offset + limit;
-    setOffset(Math.min(min, data.total));
-    setPageNumber(pageNumber + 1);
+    const newOffset = offset + limit;
+
+    if (newOffset >= data.total) return;
+
+    setOffset(newOffset);
+    setPageNumber((p) => p + 1);
   };
 
   const previous = () => {
-    let max = offset - limit;
-    setOffset(Math.max(0, max));
-    setPageNumber(pageNumber - 1);
-  };
+    const newOffset = offset - limit;
 
-  // const handleEdit = (data: PurchaseHistoryData) => {
-  //     setEditingPurchaseHistory(data);
-  //     setIsModalOpen(true);
-  // };
+    if (newOffset < 0) return;
+
+    setOffset(newOffset);
+    setPageNumber((p) => Math.max(1, p - 1));
+  };
 
   const handlePreview = (data: PurchaseHistoryData) => {
     setEditingPurchaseHistory(data);

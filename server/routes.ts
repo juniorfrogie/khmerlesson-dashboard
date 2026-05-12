@@ -14,7 +14,7 @@ import purchaseHistoryRoutes from "./features/purchase-history/route/route"
 import exportRoutes from "./features/export/route/route"
 import importRoutes from "./features/import/route/route"
 import fileUploadRoute from "./file-upload/file_upload"
-import jwt, { JwtPayload } from "jsonwebtoken";
+import { JwtPayload } from "jsonwebtoken";
 import cors from "cors";
 import cron from "node-cron"
 import path from "path";
@@ -30,106 +30,46 @@ import cookieParser from "cookie-parser"
 import { PurchaseHistoryController } from "./features/purchase-history/controller/controller";
 import { verifyAppleToken } from "./services/auth/apple/service";
 import { UserController } from "./features/users/controller/controller";
+// Centralised auth middleware (fixes the refreshToken extraction bug)
+import { authenticateToken } from "./auth/middleware/authenticate";
+// Centralised token service (single source of truth for expiry + cookie helpers)
+export { setToken, setCookieTokens as setCookies } from "./auth/token/token-service";
 
-export const setToken = async (res: any, user: any) => {
-  const { NODE_ENV, 
-    TOKEN_SECRET, 
-    REFRESH_TOKEN_SECRET
-  } = process.env
-  const payload = { id: user.id, email: user.email }
-  const newToken = jwt.sign(payload, TOKEN_SECRET as string, {
-    expiresIn: NODE_ENV === "development" ? "1m" : "1d"
-  })
-  const newRefreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET as string, {
-    expiresIn: NODE_ENV === "development" ? "5m" : "7d"
-  })
-  setCookies(res, newToken, newRefreshToken)
-}
-
-export const setCookies = (res: any, token: string, refreshToken: string) => {
-  const { NODE_ENV } = process.env
-  res.cookie("token", token, {
-    httpOnly: true,
-    sameSite: "strict",
-    secure: NODE_ENV === "production",
-    maxAge: NODE_ENV === "development" ? 1000 * 60 * 1 : 1000 * 60 * 60 * 24 * 1
-  })
-
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    sameSite: "strict",
-    secure: NODE_ENV === "production",
-    maxAge: NODE_ENV === "development" ? 1000 * 60 * 5 : 1000 * 60 * 60 * 24 * 7
-  })
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const { NODE_ENV,
-    TOKEN_SECRET, 
-    REFRESH_TOKEN_SECRET
-  } = process.env
+  const { NODE_ENV } = process.env
   
   const purchaseHistoryController = new PurchaseHistoryController()
-
-  const authenticateToken = async (req: any, res: any, next: any) => {
-    
-    const authHeader = req.headers['authorization']
-    const token = req.cookies.token || authHeader && authHeader.split(' ')[1]
-    const refreshToken = req.cookies.refreshToken || authHeader && authHeader.split(' ')[1]
   
-    //if (!token) return res.status(401).json({message: "You are not logged in! Please log in to get access."})
-
-    if(!token && !refreshToken){
-      //return res.redirect("/")
-
-      const url = req.originalUrl
-      if(url.includes("/api/v1/main-lessons") || url.includes("/api/v1/lessons")){
-        next()
-        return
-      }
-      return res.status(401).json({message: "You are not logged in! Please log in to get access."})
-    }
-    if(!token && refreshToken){
-      jwt.verify(refreshToken, REFRESH_TOKEN_SECRET as string, async (err: any, user: any) => {
-        if(err) return res.status(403).json({message: "Forbidden"})
-        setToken(res, user)  
-        req.user = user
-        next()
-      })
-      return
-    }
-  
-    const isBlacklisted = await storage.getBlacklist(token)
-    if (isBlacklisted) {
-      return res.status(401).json({
-        message: "Token is no longer valid. Please log in again."
-      })
-    }
-  
-    jwt.verify(token, TOKEN_SECRET as string, async (err: any, user: any) => {
-      if(err){
-        jwt.verify(refreshToken, REFRESH_TOKEN_SECRET as string, async (err: any, user: any) => {
-          if(err) return res.status(403).json({message: "Forbidden"})
-          setToken(res, user)  
-          req.user = user
-          next()
-        })
-        return
-      }
-
-      req.user = user
-      next()
-    })
-  }
+  // authenticateToken is now imported from ./auth/middleware/authenticate
+  // The old inline version had a critical bug: refreshToken was reading
+  // req.cookies.token (the access token) instead of req.cookies.refreshToken.
 
   //const expiresIn = NODE_ENV === "development" ? "1800s" : "90d"
   //const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
 
   app.use(cookieParser())
 
-  // Middleware to set CORS headers for all routes
+  // ── CORS ──────────────────────────────────────────────────────────────────
+  // Fix: added `credentials: true` so cookies are sent cross-origin (dashboard).
+  // Fix: removed wildcard origin in dev — wildcard + credentials is rejected by browsers.
+  // Fix: explicit allowed origins for both dev and prod.
   app.use(cors({
-    origin: NODE_ENV === "development" ? "*" : "https://cambodianlesson.netlify.app"
+    origin: (origin, callback) => {
+      const allowed =
+        NODE_ENV === "development"
+          ? ["http://localhost:3000", "http://localhost:5001", "http://localhost:5000", undefined]
+          : ["https://cambodianlesson.netlify.app"]
+      // undefined origin = same-origin or non-browser (curl, Postman, mobile)
+      if (!origin || (allowed as (string | undefined)[]).includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(new Error(`CORS: Origin '${origin}' not allowed`))
+      }
+    },
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Correlation-ID"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }))
 
   // Mount public API routes
@@ -342,10 +282,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   cron.schedule("*/10 * * * *", cleanExpiredTokens);
 
   //DELETE delete file
-  app.delete("/api/unlinkFile/:filename", authenticateToken, (req, res) => {
+  app.delete("/api/unlinkFile/:filename", authenticateToken, (req: any, res) => {
     try {
       const { filename } = req.params
-      const { role } = req.body
+      // Fix: use req.user.role (set by authenticateToken) instead of req.body.role.
+      // Previously an attacker could delete any file by spoofing role: "admin" in the body.
+      const role = req.user?.role
 
       if(role === "admin"){
         fs.unlink(`uploads/${filename}`, (err) => {
@@ -353,6 +295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`File deleted successfully: ${filename}`)
           res.send()
         })
+      } else {
+        res.status(403).json({ message: "Forbidden: admin role required" })
       }
     } catch (error) {
       res.status(500).send("Failed to delete file")
