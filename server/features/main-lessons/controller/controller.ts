@@ -9,7 +9,6 @@ import {
   User
 } from "@shared/schema"
 import { eq, sql } from "drizzle-orm"
-import { extname } from "path"
 import { db } from "server/db"
 
 export class MainLessonController {
@@ -56,7 +55,14 @@ export class MainLessonController {
             WHERE ${purchase_history.paymentStatus} = 'completed'
               ${userFilter}
               AND ${purchase_history.mainLessonId} = ${mainLessons.id}
-          ) as purchase_count
+          ) as purchase_count,
+
+          (
+            SELECT CAST(COUNT(*) AS INT)
+            FROM ${lessons}
+            WHERE ${lessons.mainLessonId} = ${mainLessons.id}
+              AND ${lessons.status} = 'published'
+          ) as lesson_count
 
         FROM ${mainLessons}
         ORDER BY ${mainLessons.price} DESC,
@@ -64,28 +70,14 @@ export class MainLessonController {
         `;
     const queryResult = await db.execute(command)
 
-    return queryResult.rows.map((e: any) => (
-      {
-        id: e.id,
-        title: e.title,
-        description: e.description,
-        imageCover: e.image_cover,
-        imageFile: {
-          name: e.image_cover,
-          extension: extname(`${bucketEndpoint}/${e.image_cover}`)
-        },
-        free: e.free,
-        price: e.price,
-        productId: e.product_id,
-        priceCurrency: `${Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD"
-        }).format((e.price || 0) / 100)}`,
-        hasPurchased: e.purchase_count > 0 && user !== undefined && user !== null,
-        createdAt: e.createdAt,
-        updatedAt: e.updatedAt
-      }
-    ))
+    return queryResult.rows.map((e: any) => ({
+      id: e.id,
+      title: e.title,
+      description: e.description,
+      thumbnail: e.image_cover,
+      isFree: e.free,
+      lessonCount: e.lesson_count,
+    }))
 
     // const result = await db.select()
     //   .from(mainLessons)
@@ -131,21 +123,13 @@ export class MainLessonController {
       .where(eq(mainLessons.id, id))
       .orderBy(lessons.createdAt);
 
-    const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
     const publishedLessons = result.filter(e => e.lessons.status === "published").map(e => ({
       id: e.lessons.id,
-      mainLessonId: e.lessons.mainLessonId,
+      courseId: e.lessons.mainLessonId,
       title: e.lessons.title,
       description: e.lessons.description,
       level: e.lessons.level,
-      lessonType: e.lesson_type,
-      image: e.lessons.image,
-      imageFile: e.lesson_type.iconMode === "raw" ? null : {
-        name: e.lesson_type.icon,
-        extension: extname(`${bucketEndpoint}/${e.lesson_type.icon}`)
-      },
-      createdAt: e.lessons.createdAt,
-      updatedAt: e.lessons.updatedAt
+      type: e.lesson_type.title,
     }))
     return publishedLessons
   }

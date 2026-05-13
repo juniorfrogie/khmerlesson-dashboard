@@ -34,13 +34,15 @@ import { UserController } from "./features/users/controller/controller";
 import { authenticateToken } from "./auth/middleware/authenticate";
 // Centralised token service (single source of truth for expiry + cookie helpers)
 export { setToken, setCookieTokens as setCookies } from "./auth/token/token-service";
+import { generateTokenPair } from "./auth/token/token-service";
+import googleAuthRoutes from "./auth/google/route";
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const { NODE_ENV } = process.env
-  
+
   const purchaseHistoryController = new PurchaseHistoryController()
-  
+
   // authenticateToken is now imported from ./auth/middleware/authenticate
   // The old inline version had a critical bug: refreshToken was reading
   // req.cookies.token (the access token) instead of req.cookies.refreshToken.
@@ -58,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     origin: (origin, callback) => {
       const allowed =
         NODE_ENV === "development"
-          ? ["http://localhost:3000", "http://localhost:5001", "http://localhost:5000", undefined]
+          ? ["http://localhost:3000", "http://localhost:5001", "http://localhost:5000", "http://localhost:8081"]
           : ["https://cambodianlesson.netlify.app"]
       // undefined origin = same-origin or non-browser (curl, Postman, mobile)
       if (!origin || (allowed as (string | undefined)[]).includes(origin)) {
@@ -74,12 +76,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount public API routes
   app.use("/api", paypalRoutes);
-  app.use("/api/auth", 
-    loginRoutes, 
-    registerationRoutes, 
-    forgotPasswordRoutes, 
+  app.use("/api/auth",
+    loginRoutes,
+    registerationRoutes,
+    forgotPasswordRoutes,
     resetPasswordRoutes,
-    refreshTokenRoutes
+    refreshTokenRoutes,
+    googleAuthRoutes
   )
 
   //app.disable('etag');
@@ -131,20 +134,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/me", authenticateToken, async (req: any, res) => {
-    try{
-      if(!req.user?.id) {
-        return res.status(400).json({message: "Invalid user."})
+    try {
+      if (!req.user?.id) {
+        return res.status(400).json({ message: "Invalid user." })
       }
       const id = req.user.id as number
       const user = await new UserController().getUserById(id)
-      if(!user){
-        return res.status(404).json({message: "User not found."})
+      if (!user) {
+        return res.status(404).json({ message: "User not found." })
       }
       const { password, resetToken, registrationType, ...safeUser } = user
       return res.status(200).json(safeUser)
-    }catch(error){
+    } catch (error) {
       console.error(error)
-      res.status(500).json({message: "Failed to get me."})
+      res.status(500).json({ message: "Failed to get me." })
     }
   })
 
@@ -155,10 +158,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Read the HTML file
     fs.readFile(filePath, (err, data) => {
       if (err) {
-          // Handle errors if the file cannot be read
-          res.writeHead(500, { 'Content-Type': 'text/plain' })
-          res.end('Error loading file.')
-          return
+        // Handle errors if the file cannot be read
+        res.writeHead(500, { 'Content-Type': 'text/plain' })
+        res.end('Error loading file.')
+        return
       }
 
       // Set the content type to HTML and send the file content
@@ -168,19 +171,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   })
 
   app.post("/api/auth/verify-apple-id-token", async (req, res) => {
-    const { idToken } = req.body
-    const verifedPayload = await verifyAppleToken(idToken)
-      
-    if (verifedPayload) {
-      // Token is valid, proceed with user authentication or registration
-      const payload = (verifedPayload as JwtPayload)
-      const user = {
-          email: payload["email"]
+    const { idToken, firstName, lastName } = req.body
+    const verifiedPayload = await verifyAppleToken(idToken)
+
+    if (!verifiedPayload) {
+      return res.status(401).json({ success: false, message: 'Apple token verification failed' })
+    }
+
+    try {
+      const payload = verifiedPayload as JwtPayload
+      const email: string | undefined = payload["email"]
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email not found in Apple token' })
       }
-      res.status(200).json({success: true, message: 'Apple token verified successfully', user: user})
-    } else {
-      // Token is invalid
-      res.status(401).json({success: false, message: 'Apple token verification failed'})
+
+      const userController = new UserController()
+      let user = await userController.getUserByEmail(email)
+
+      if (!user) {
+        user = await userController.createUserWithAuthService({
+          email,
+          firstName: firstName ?? "",
+          lastName: lastName ?? "",
+          registrationType: "apple_service",
+        })
+      }
+
+      if (!user.isActive) {
+        return res.status(401).json({ success: false, message: 'Account is disabled' })
+      }
+
+      const { token, refreshToken } = generateTokenPair({ id: user.id, email: user.email })
+      await userController.updateUserLastLogin(user.id)
+
+      const { password, resetToken, registrationType, ...userResponse } = user
+      const responseBody = {
+        success: true,
+        message: 'Apple sign-in successful',
+        user: userResponse,
+        token,
+        refreshToken,
+      }
+      console.log("[Apple Sign-In] Response:\n", JSON.stringify(responseBody, null, 2))
+      return res.status(200).json(responseBody)
+    } catch (error) {
+      console.error('Apple sign-in error:', error)
+      return res.status(500).json({ success: false, message: 'Apple sign-in failed' })
     }
   })
 
@@ -218,11 +254,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { purchaseId } = req.params
       const deleted = await purchaseHistoryController.deletePurchaseHistoryByPurchaseId(purchaseId);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "Purchase history not found" });
       }
-      
+
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to purchase history" });
@@ -231,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Proxy: Google Text to Speech
   app.get("/api/tts", async (req, res) => {
-    try{
+    try {
       const { q } = req.query
       const options = {
         protocol: 'https:',
@@ -268,14 +304,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   //Clean up expired token From Blacklist in every 10 minutes
   const cleanExpiredTokens = async () => {
-    try{
+    try {
       const result = await storage.deleteBlacklist();
       if (result) {
         console.log(
           `Expired tokens cleaned from blacklist. Count: ${result}`
         );
       }
-    }catch(err){
+    } catch (err) {
       console.error("Error during schedule cron-job:", err)
     }
   }
@@ -289,9 +325,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Previously an attacker could delete any file by spoofing role: "admin" in the body.
       const role = req.user?.role
 
-      if(role === "admin"){
+      if (role === "admin") {
         fs.unlink(`uploads/${filename}`, (err) => {
-          if(err) throw err
+          if (err) throw err
           console.log(`File deleted successfully: ${filename}`)
           res.send()
         })
