@@ -33,7 +33,7 @@ export class MainLessonController {
 
     const userFilter = user?.id
       ? sql`AND ${purchase_history.userId} = ${user.id}`
-      : sql``;
+      : sql`AND 1=0`;
 
     // console.log("UserID", user?.id)
 

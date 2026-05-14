@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -88,7 +88,9 @@ export const purchase_history = pgTable("purchase_history", {
   purchaseDate: varchar("purchase_date").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
-});
+}, (table) => [
+  unique("ph_purchase_id_user_id_lesson_id_unique").on(table.purchaseId, table.userId, table.mainLessonId)
+]);
 
 export const blacklist = pgTable("blacklist", {
   token: varchar("token").notNull().unique(),
@@ -190,10 +192,6 @@ export const changePasswordSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string().min(8, "Confirm password must be at least 8 characters")
 });
-
-// export const userCount = z.object({
-//   count: z.number()
-// })
 
 export const updateUserSchema = insertUserSchema.partial().omit({
   password: true,

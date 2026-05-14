@@ -1,13 +1,13 @@
-import jwt from 'jsonwebtoken';
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { insertPurchaseHistorySchema } from "@shared/schema";
-import { verifyPurchase } from "./services/iap/ios/storekit2/service";
+import { verifyPurchase, decodeJWSPayload, markVerified, isTransactionVerified } from "./services/iap/ios/storekit2/service";
 import { UserController } from "./features/users/controller/controller";
 import { MainLessonController } from "./features/main-lessons/controller/controller";
 import { LessonController } from "./features/lessons/controller/controller";
 import { PurchaseHistoryController } from "./features/purchase-history/controller/controller";
 import { QuizController } from "./features/quizzes/controller/controller";
+import { ZodError } from "zod";
 
 const router = Router();
 const userController = new UserController();
@@ -42,25 +42,6 @@ const authenticateAPI = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-const authenticateToken = async (req: any, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = req.cookies?.token || (authHeader && authHeader.split(' ')[1]);
-
-  if (!token) {
-    return res.status(401).json({ message: "You are not logged in! Please log in to get access." });
-  }
-
-  const isBlacklisted = await storage.getBlacklist(token);
-  if (isBlacklisted) {
-    return res.status(401).json({ message: "Token is no longer valid. Please log in again." });
-  }
-
-  jwt.verify(token, process.env.TOKEN_SECRET as string, (err: any, user: any) => {
-    if (err) return res.status(403).json({ message: "Forbidden" });
-    req.user = user;
-    next();
-  });
-};
 
 // ===== MAIN LESSONS API =====
 
@@ -97,11 +78,22 @@ router.get("/lessons/level/:level", authenticateAPI, async (req: Request, res: R
   }
 });
 
-router.get("/main-lessons/:id/lessons", authenticateAPI, async (req: Request, res: Response) => {
+router.get("/main-lessons/:id/lessons", authenticateAPI, async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
       return res.status(400).json(fail('Invalid ID parameter'));
+    }
+    const mainLesson = await mainLessonController.getMainLesson(id);
+    if (!mainLesson) return res.status(404).json(fail('Main lesson not found'));
+    if (!mainLesson.free) {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
+      }
+      const purchased = await purchaseHistoryController.hasUserPurchased(req.user.id, id);
+      if (!purchased) {
+        return res.status(403).json({ success: false, message: "Purchase required." });
+      }
     }
     const lessons = await mainLessonController.getAllLessonsByMainLesson(id);
     res.json(ok(lessons, lessons.length));
@@ -111,7 +103,7 @@ router.get("/main-lessons/:id/lessons", authenticateAPI, async (req: Request, re
   }
 });
 
-router.get("/lessons/:id", authenticateAPI, async (req: Request, res: Response) => {
+router.get("/lessons/:id", authenticateAPI, async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
@@ -121,6 +113,19 @@ router.get("/lessons/:id", authenticateAPI, async (req: Request, res: Response) 
 
     if (!lesson || lesson.status !== 'published') {
       return res.status(404).json(fail('Lesson not found'));
+    }
+
+    if (lesson.mainLessonId) {
+      const mainLesson = await mainLessonController.getMainLesson(lesson.mainLessonId);
+      if (mainLesson && !mainLesson.free) {
+        if (!req.user) {
+          return res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
+        }
+        const purchased = await purchaseHistoryController.hasUserPurchased(req.user.id, lesson.mainLessonId);
+        if (!purchased) {
+          return res.status(403).json({ success: false, message: "Purchase required." });
+        }
+      }
     }
 
     const sections = lesson.sections as { title: string; content: string; items: { english: string; phonemic: string; khmer: string }[] }[];
@@ -311,7 +316,7 @@ router.get("/search", async (req: Request, res: Response) => {
         .filter(lesson =>
           lesson.status === 'published' &&
           (lesson.title.toLowerCase().includes(query) ||
-           lesson.description.toLowerCase().includes(query))
+            lesson.description.toLowerCase().includes(query))
         )
         .map(lesson => ({
           type: 'lesson',
@@ -329,7 +334,7 @@ router.get("/search", async (req: Request, res: Response) => {
         .filter(quiz =>
           quiz.status === 'active' &&
           (quiz.title.toLowerCase().includes(query) ||
-           quiz.description.toLowerCase().includes(query))
+            quiz.description.toLowerCase().includes(query))
         )
         .map(quiz => ({
           type: 'quiz',
@@ -348,39 +353,92 @@ router.get("/search", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/purchase-history", authenticateAPI, async (req: Request, res: Response) => {
+router.post("/purchase-history", async (req: any, res: Response) => {
   try {
-    const { jws } = req.body;
-    const isVerified = await verifyPurchase(jws);
-    if (isVerified) {
-      const validatedData = insertPurchaseHistorySchema.parse(req.body);
-      const purchaseHistory = await purchaseHistoryController.createPurchaseHistory(validatedData);
-      return res.status(201).json(purchaseHistory);
+    if (!req.user) {
+      return res.status(401).json({ message: "Authentication required.", code: "TOKEN_EXPIRED" });
     }
-    return res.status(400).json({ message: "Transaction failed." });
-  } catch (error) {
+    const { jws, mainLessonId } = req.body;
+
+    // In development, skip Apple JWS verification so the endpoint can be tested without StoreKit
+    const isDev = process.env.NODE_ENV === "development";
+    let verified = isDev;
+    if (!isDev) {
+      const payload = decodeJWSPayload(jws);
+      const transactionId = payload?.transactionId;
+      verified = transactionId ? isTransactionVerified(transactionId) : false;
+      if (!verified) {
+        const mainLesson = mainLessonId ? await mainLessonController.getMainLesson(Number(mainLessonId)) : null;
+        const expectedProductId = mainLesson?.productId ?? undefined;
+        const result = await verifyPurchase(jws, expectedProductId);
+        console.error(`[purchase-history] verification — ok:${result.ok} reason:"${result.reason}" transactionId:"${transactionId}" mainLessonId:${mainLessonId} expectedProductId:"${expectedProductId}"`);
+        verified = result.ok;
+        if (!verified) {
+          return res.status(400).json({ message: "Create purchase history failed.", reason: result.reason });
+        }
+      }
+    }
+
+    const validatedData = insertPurchaseHistorySchema.parse({
+      ...req.body,
+      userId: req.user.id,
+      userEmail: req.user.email,
+    });
+    const existing = await purchaseHistoryController.findExistingPurchase(
+      validatedData.purchaseId,
+      req.user.id,
+      validatedData.mainLessonId
+    );
+    if (existing) {
+      return res.status(200).json(existing);
+    }
+    const purchaseHistory = await purchaseHistoryController.createPurchaseHistory(validatedData);
+    return res.status(201).json(purchaseHistory);
+  } catch (error: any) {
     console.error(error);
+    if (error instanceof ZodError) {
+      return res.status(400).json(error.errors);
+    }
+    if (error?.code === '23503') {
+      return res.status(400).json({ message: "User account not found. Please log in again.", code: "USER_NOT_FOUND" });
+    }
+    if (error?.code === '23505') {
+      const existing = await purchaseHistoryController.findExistingPurchase(
+        req.body.purchaseId,
+        req.user.id,
+        req.body.mainLessonId
+      ).catch(() => null);
+      if (existing) return res.status(200).json(existing);
+    }
     res.status(500).json({ message: "Failed to create purchase history.", errors: error });
   }
 });
 
-router.post("/verify-purchase", authenticateAPI, async (req: Request, res: Response) => {
+router.post("/verify-purchase", async (req: any, res: Response) => {
   try {
-    const { jws } = req.body;
-    const isVerified = await verifyPurchase(jws);
-    if (isVerified) {
+    if (!req.user) {
+      return res.status(401).json({ message: "Authentication required.", code: "TOKEN_EXPIRED" });
+    }
+    const { jws, mainLessonId } = req.body;
+    const mainLesson = mainLessonId ? await mainLessonController.getMainLesson(Number(mainLessonId)) : null;
+    const expectedProductId = mainLesson?.productId ?? undefined;
+    const result = await verifyPurchase(jws, expectedProductId);
+    console.log(`[verify-purchase] ok:${result.ok} reason:"${result.reason}" mainLessonId:${mainLessonId} expectedProductId:"${expectedProductId}"`);
+    if (result.ok) {
+      const payload = decodeJWSPayload(jws);
+      if (payload?.transactionId) markVerified(payload.transactionId);
       return res.status(200).json({ message: "Transaction verified." });
     }
-    return res.status(400).json({ message: "Transaction failed." });
+    return res.status(400).json({ message: "Verify transaction failed.", reason: result.reason });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to verify purchase.", errors: error });
   }
 });
 
-router.get("/me", authenticateToken, async (req: any, res: Response) => {
+router.get("/me", async (req: any, res: Response) => {
   try {
-    const id = req.user.id as number;
+    const id = req.user?.id as number;
     const user = await userController.getUserById(id);
     if (!user) {
       return res.status(404).json({ message: "User not found." });

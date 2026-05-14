@@ -60,7 +60,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     origin: (origin, callback) => {
       const allowed =
         NODE_ENV === "development"
-          ? ["http://localhost:3000", "http://localhost:5001", "http://localhost:5000", "http://localhost:8081"]
+          ? ["http://localhost:3000", "http://localhost:5001", "http://localhost:5000", "http://localhost:8081",
+            ...(process.env.DEV_ORIGIN ? [process.env.DEV_ORIGIN] : [])]
           : ["https://cambodianlesson.netlify.app", "https://khmerlessons.app"]
       // undefined origin = same-origin or non-browser (curl, Postman, mobile)
       if (!origin || (allowed as (string | undefined)[]).includes(origin)) {
@@ -220,20 +221,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  // POST /api/lessons/purchase
-  // app.post("/api/lessons/purchase", async (req, res) => {
-  //   try {
-  //     const validatedData = insertPurchaseHistorySchema.parse(req.body);
-  //     const purchaseHistory = await storage.createPurchaseHistory(validatedData);
-  //     res.status(201).json(purchaseHistory);
-  //   } catch (error) {
-  //     console.log(error)
-  //     res.status(500).json({ message: "Failed to create purchase!", errors: error });
-  //   }
-  // })
-
-  app.patch("/api/purchase-history/:purchaseId/payment-status", async (req, res) => {
+  app.patch("/api/purchase-history/:purchaseId/payment-status", authenticateToken, async (req: any, res) => {
     try {
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required." });
+      }
       const { purchaseId } = req.params
       const { paymentStatus } = req.body
       const updatedPurchaseHistory = await purchaseHistoryController.updatePurchaseHistory(purchaseId, { paymentStatus })
@@ -250,8 +242,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   })
 
-  app.delete("/api/purchase-history/:purchaseId", async (req, res) => {
+  app.delete("/api/purchase-history/:purchaseId", authenticateToken, async (req: any, res) => {
     try {
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required." });
+      }
       const { purchaseId } = req.params
       const deleted = await purchaseHistoryController.deletePurchaseHistoryByPurchaseId(purchaseId);
 
