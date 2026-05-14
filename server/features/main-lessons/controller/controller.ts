@@ -74,46 +74,13 @@ export class MainLessonController {
       id: e.id,
       title: e.title,
       description: e.description,
-      thumbnail: e.image_cover,
+      thumbnailUrl: e.image_cover ? `${bucketEndpoint}/${e.image_cover}` : null,
       isFree: e.free,
       lessonCount: e.lesson_count,
+      price: Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((e.price ?? 0) / 100),
+      hasPurchased: (e.purchase_count ?? 0) > 0,
+      productId: e.product_id ?? null,
     }))
-
-    // const result = await db.select()
-    //   .from(mainLessons)
-    //   .where(eq(mainLessons.status, "published"))
-    //   .orderBy(mainLessons.createdAt)
-
-    // const data = []
-    // for(const e of result){
-    //   const purchaseHistories = await db.select()
-    //     .from(purchase_history)
-    //     .where(and(eq(purchase_history.mainLessonId, e.id), 
-    //       eq(purchase_history.userId, user.id), 
-    //       eq(purchase_history.paymentStatus, "completed")))
-
-    //   data.push({
-    //     id: e.id,
-    //     title: e.title,
-    //     description: e.description,
-    //     imageCover: e.imageCover,
-    //     imageFile: {
-    //       name: e.imageCover,
-    //       extension: extname(`${bucketEndpoint}/${e.imageCover}`)
-    //     },
-    //     free: e.free,
-    //     price: e.price,
-    //     priceCurrency: `${Intl.NumberFormat("en-US", {
-    //       style: "currency",
-    //       currency: "USD"
-    //     }).format((e.price || 0) / 100)}`,
-    //     hasPurchased: purchaseHistories.length > 0,
-    //     createdAt: e.createdAt,
-    //     updatedAt: e.updatedAt
-    //   })  
-    // }
-
-    // return data
   }
 
   async getAllLessonsByMainLesson(id: number): Promise<any> {
@@ -166,7 +133,3 @@ export class MainLessonController {
     return result
   }
 }
-
-// const instance = new MainLessonController()
-// Object.freeze(instance)
-// export default instance
