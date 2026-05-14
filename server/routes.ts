@@ -61,7 +61,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allowed =
         NODE_ENV === "development"
           ? ["http://localhost:3000", "http://localhost:5001", "http://localhost:5000", "http://localhost:8081"]
-          : ["https://cambodianlesson.netlify.app"]
+          : ["https://cambodianlesson.netlify.app", "https://khmerlessons.app"]
       // undefined origin = same-origin or non-browser (curl, Postman, mobile)
       if (!origin || (allowed as (string | undefined)[]).includes(origin)) {
         callback(null, true)
