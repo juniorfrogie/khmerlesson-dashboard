@@ -358,6 +358,7 @@ router.post("/purchase-history", async (req: any, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ message: "Authentication required.", code: "TOKEN_EXPIRED" });
     }
+    console.log("[IAP:BODY]", JSON.stringify({ ...req.body, jws: req.body.jws ? "<jws>" : undefined }));
     const { jws, mainLessonId } = req.body;
 
     // In development, skip Apple JWS verification so the endpoint can be tested without StoreKit
@@ -395,8 +396,9 @@ router.post("/purchase-history", async (req: any, res: Response) => {
     const purchaseHistory = await purchaseHistoryController.createPurchaseHistory(validatedData);
     return res.status(201).json(purchaseHistory);
   } catch (error: any) {
-    console.error(error);
+    console.error("[IAP:ERROR]", error?.message ?? error, "code:", error?.code, "detail:", error?.detail);
     if (error instanceof ZodError) {
+      console.error("[IAP:ZOD]", JSON.stringify(error.errors));
       return res.status(400).json(error.errors);
     }
     if (error?.code === '23503') {
@@ -410,7 +412,7 @@ router.post("/purchase-history", async (req: any, res: Response) => {
       ).catch(() => null);
       if (existing) return res.status(200).json(existing);
     }
-    res.status(500).json({ message: "Failed to create purchase history.", errors: error });
+    res.status(500).json({ message: "Failed to create purchase history.", errors: error?.message ?? String(error) });
   }
 });
 
