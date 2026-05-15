@@ -40,15 +40,15 @@ export default function PurchaseHistoryView() {
   const getPurchaseHistory = async ({ queryKey }: any) => {
     const [_key, params] = queryKey;
 
-    const url = new URL("http://localhost:5001/api/purchase-history");
+    const qs = new URLSearchParams({
+      payment_status: params.paymentStatus?.trim(),
+      purchase_date: params.purchaseDate?.trim(),
+      search: params.search || "",
+      limit: String(params.limit),
+      offset: String(params.offset),
+    });
 
-    url.searchParams.set("payment_status", params.paymentStatus?.trim());
-    url.searchParams.set("purchase_date", params.purchaseDate?.trim());
-    url.searchParams.set("search", params.search || "");
-    url.searchParams.set("limit", String(params.limit));
-    url.searchParams.set("offset", String(params.offset));
-
-    const response = await apiRequest("GET", url.toString());
+    const response = await apiRequest("GET", `/api/purchase-history?${qs}`);
     return await response.json();
   };
 
