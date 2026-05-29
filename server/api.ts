@@ -30,18 +30,15 @@ const ok = (data: unknown, total?: number) => ({
 
 const fail = (message: string) => ({ success: false, error: message });
 
-// Validates API key when API_KEY env var is set, regardless of environment
-const authenticateAPI = (req: Request, res: Response, next: NextFunction) => {
+// When API_KEY env var is set, all /api/v1 routes require X-API-Key header or ?api_key= param
+router.use((req: Request, res: Response, next: NextFunction) => {
   const apiKey = req.header('X-API-Key') || (req.query.api_key as string);
   const configuredKey = process.env.API_KEY;
-
   if (configuredKey && apiKey !== configuredKey) {
     return res.status(401).json(fail('Valid API key required'));
   }
-
   next();
-};
-
+});
 
 // ===== MAIN LESSONS API =====
 
@@ -58,7 +55,7 @@ router.get("/main-lessons", async (req: any, res: Response) => {
 // ===== LESSONS API =====
 
 // /lessons/level/:level must be declared before /lessons/:id to avoid route shadowing
-router.get("/lessons/level/:level", authenticateAPI, async (req: Request, res: Response) => {
+router.get("/lessons/level/:level", async (req: Request, res: Response) => {
   try {
     const level = req.params.level;
     const filteredLessons = await lessonController.getLessonsByLevel(level);
@@ -78,7 +75,7 @@ router.get("/lessons/level/:level", authenticateAPI, async (req: Request, res: R
   }
 });
 
-router.get("/main-lessons/:id/lessons", authenticateAPI, async (req: any, res: Response) => {
+router.get("/main-lessons/:id/lessons", async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
@@ -103,7 +100,7 @@ router.get("/main-lessons/:id/lessons", authenticateAPI, async (req: any, res: R
   }
 });
 
-router.get("/lessons/:id", authenticateAPI, async (req: any, res: Response) => {
+router.get("/lessons/:id", async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
@@ -183,8 +180,29 @@ router.get("/quizzes", async (_req: Request, res: Response) => {
   }
 });
 
-// /quizzes/lesson/:lessonId must be declared before /quizzes/:id to avoid route shadowing
-router.get("/quizzes/lesson/:lessonId", authenticateAPI, async (req: Request, res: Response) => {
+// /quizzes/all and /quizzes/lesson/:lessonId must be declared before /quizzes/:id to avoid route shadowing
+router.get("/quizzes/all", async (_req: Request, res: Response) => {
+  try {
+    const quizzes = await quizController.getQuizzes();
+    const mapped = quizzes
+      .filter(quiz => quiz.status === 'active')
+      .map(quiz => ({
+        id: quiz.id,
+        title: quiz.title,
+        description: quiz.description,
+        lessonId: quiz.lessonId,
+        questions: quiz.questions,
+        createdAt: quiz.createdAt,
+        updatedAt: quiz.updatedAt
+      }));
+    res.json(ok(mapped, mapped.length));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch quizzes'));
+  }
+});
+
+router.get("/quizzes/lesson/:lessonId", async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
     if (isNaN(lessonId) || lessonId <= 0) {
@@ -234,7 +252,7 @@ router.get("/quizzes/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/quizzes/:id/submit", authenticateAPI, async (req: Request, res: Response) => {
+router.post("/quizzes/:id/submit", async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {

@@ -35,7 +35,13 @@ declare global {
 
 /** Routes that are "semi-public": the middleware lets unauthenticated requests
  *  through but still attaches req.user when a valid token IS present. */
-const SEMI_PUBLIC_PREFIXES = ["/api/v1/main-lessons", "/api/v1/lessons"];
+const SEMI_PUBLIC_PREFIXES = [
+  "/api/v1/main-lessons",
+  "/api/v1/lessons",
+  "/api/v1/quizzes",
+  "/api/v1/stats",
+  "/api/v1/search",
+];
 
 function isSemiPublic(url: string): boolean {
   return SEMI_PUBLIC_PREFIXES.some((prefix) => url.includes(prefix));
