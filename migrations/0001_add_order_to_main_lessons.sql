@@ -1,0 +1,1 @@
+ALTER TABLE "main_lessons" ADD COLUMN IF NOT EXISTS "order" integer DEFAULT 0 NOT NULL;

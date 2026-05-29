@@ -1,4 +1,4 @@
-CREATE TABLE "analytics" (
+CREATE TABLE IF NOT EXISTS "analytics" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"lesson_id" integer,
 	"quiz_id" integer,
@@ -7,14 +7,14 @@ CREATE TABLE "analytics" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "blacklist" (
+CREATE TABLE IF NOT EXISTS "blacklist" (
 	"token" varchar NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"expired_at" timestamp NOT NULL,
 	CONSTRAINT "blacklist_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
-CREATE TABLE "lesson_type" (
+CREATE TABLE IF NOT EXISTS "lesson_type" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"icon" text NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE "lesson_type" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "lessons" (
+CREATE TABLE IF NOT EXISTS "lessons" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"main_lesson_id" integer NOT NULL,
 	"lesson_type_id" integer NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE "lessons" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "main_lessons" (
+CREATE TABLE IF NOT EXISTS "main_lessons" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"description" text NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE "main_lessons" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "purchase_history" (
+CREATE TABLE IF NOT EXISTS "purchase_history" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"purchase_id" varchar NOT NULL,
 	"user_id" integer NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE "purchase_history" (
 	CONSTRAINT "ph_purchase_id_user_id_lesson_id_unique" UNIQUE("purchase_id","user_id","main_lesson_id")
 );
 --> statement-breakpoint
-CREATE TABLE "quizzes" (
+CREATE TABLE IF NOT EXISTS "quizzes" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"description" text NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE "quizzes" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"password" varchar(255) NOT NULL,
@@ -94,9 +94,26 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-ALTER TABLE "lessons" ADD CONSTRAINT "lessons_main_lesson_id_main_lessons_id_fk" FOREIGN KEY ("main_lesson_id") REFERENCES "public"."main_lessons"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "lessons" ADD CONSTRAINT "lessons_lesson_type_id_lesson_type_id_fk" FOREIGN KEY ("lesson_type_id") REFERENCES "public"."lesson_type"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "purchase_history" ADD CONSTRAINT "purchase_history_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "purchase_history" ADD CONSTRAINT "purchase_history_user_email_users_email_fk" FOREIGN KEY ("user_email") REFERENCES "public"."users"("email") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "purchase_history" ADD CONSTRAINT "purchase_history_main_lesson_id_main_lessons_id_fk" FOREIGN KEY ("main_lesson_id") REFERENCES "public"."main_lessons"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_lesson_id_lessons_id_fk" FOREIGN KEY ("lesson_id") REFERENCES "public"."lessons"("id") ON DELETE cascade ON UPDATE cascade;
+DO $$ BEGIN
+ ALTER TABLE "lessons" ADD CONSTRAINT "lessons_main_lesson_id_main_lessons_id_fk" FOREIGN KEY ("main_lesson_id") REFERENCES "public"."main_lessons"("id") ON DELETE cascade ON UPDATE cascade;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "lessons" ADD CONSTRAINT "lessons_lesson_type_id_lesson_type_id_fk" FOREIGN KEY ("lesson_type_id") REFERENCES "public"."lesson_type"("id") ON DELETE cascade ON UPDATE cascade;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "purchase_history" ADD CONSTRAINT "purchase_history_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "purchase_history" ADD CONSTRAINT "purchase_history_user_email_users_email_fk" FOREIGN KEY ("user_email") REFERENCES "public"."users"("email") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "purchase_history" ADD CONSTRAINT "purchase_history_main_lesson_id_main_lessons_id_fk" FOREIGN KEY ("main_lesson_id") REFERENCES "public"."main_lessons"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_lesson_id_lessons_id_fk" FOREIGN KEY ("lesson_id") REFERENCES "public"."lessons"("id") ON DELETE cascade ON UPDATE cascade;
+EXCEPTION WHEN duplicate_object THEN null; END $$;

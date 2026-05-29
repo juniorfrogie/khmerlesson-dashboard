@@ -8,6 +8,13 @@
       "when": 1780048732048,
       "tag": "0000_careful_multiple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780048732049,
+      "tag": "0001_add_order_to_main_lessons",
+      "breakpoints": true
     }
   ]
 }
