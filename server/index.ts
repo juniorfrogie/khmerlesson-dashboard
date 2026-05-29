@@ -8,6 +8,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { correlationMiddleware } from "./auth/middleware/correlation";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { db } from "./db";
 
 const app = express();
 
@@ -48,6 +50,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Run pending migrations before accepting traffic
+  await migrate(db, { migrationsFolder: "./migrations" });
+  log("Database migrations applied");
+
   // Register API routes BEFORE setting up Vite to ensure they take precedence
   const server = await registerRoutes(app);
 
