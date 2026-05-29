@@ -10,6 +10,7 @@ export const mainLessons = pgTable("main_lessons", {
   free: boolean("free").notNull().default(true),
   price: integer("price"), // price in cents
   productId: text("product_id"),
+  order: integer("order").notNull().default(0),
   status: text("status").notNull().default("draft"), // "draft" | "published"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -101,6 +102,7 @@ export const blacklist = pgTable("blacklist", {
 // Main Lesson schema
 export const insertMainLessonSchema = createInsertSchema(mainLessons).omit({
   id: true,
+  order: true,
   createdAt: true,
   updatedAt: true
 })
@@ -219,6 +221,7 @@ export type MainLesson = {
   imageCover: string;
   productId?: string | null;
   imageCoverUrl?: string | null;
+  order: number;
 }
 export type InsertMainLesson = z.infer<typeof insertMainLessonSchema>
 export type UpdateMainLesson = z.infer<typeof updateMainLessonSchema>

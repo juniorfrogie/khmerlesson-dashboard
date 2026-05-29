@@ -8,13 +8,13 @@ import {
   UpdateMainLesson,
   User
 } from "@shared/schema"
-import { eq, sql } from "drizzle-orm"
+import { eq, sql, asc } from "drizzle-orm"
 import { db } from "server/db"
 
 export class MainLessonController {
 
   async getAllMainLessons(): Promise<MainLesson[]> {
-    const result = await db.select().from(mainLessons).orderBy(mainLessons.createdAt)
+    const result = await db.select().from(mainLessons).orderBy(asc(mainLessons.order), asc(mainLessons.createdAt))
     return result
   }
 
@@ -23,7 +23,7 @@ export class MainLessonController {
       .from(mainLessons)
       .limit(limit)
       .offset(offset)
-      .orderBy(mainLessons.createdAt)
+      .orderBy(asc(mainLessons.order), asc(mainLessons.createdAt))
     return result
   }
 
@@ -38,13 +38,14 @@ export class MainLessonController {
     // console.log("UserID", user?.id)
 
     const command = sql`
-        SELECT 
+        SELECT
           ${mainLessons.id},
           ${mainLessons.title},
           ${mainLessons.description},
           ${mainLessons.imageCover},
           ${mainLessons.free},
           ${mainLessons.price},
+          ${mainLessons.order},
           ${mainLessons.createdAt},
           ${mainLessons.updatedAt},
           ${mainLessons.productId},
@@ -65,7 +66,8 @@ export class MainLessonController {
           ) as lesson_count
 
         FROM ${mainLessons}
-        ORDER BY ${mainLessons.price} DESC,
+        ORDER BY ${mainLessons.order} ASC,
+                ${mainLessons.price} DESC,
                 ${mainLessons.createdAt} DESC
         `;
     const queryResult = await db.execute(command)
@@ -77,6 +79,7 @@ export class MainLessonController {
       thumbnailUrl: e.image_cover ? `${bucketEndpoint}/${e.image_cover}` : null,
       isFree: e.free,
       lessonCount: e.lesson_count,
+      order: e.order,
       price: Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((e.price ?? 0) / 100),
       hasPurchased: (e.purchase_count ?? 0) > 0,
       productId: e.product_id ?? null,
@@ -107,12 +110,25 @@ export class MainLessonController {
   }
 
   async createMainLesson(mainLesson: InsertMainLesson): Promise<MainLesson> {
-    const [result] = await db.insert(mainLessons).values(
-      {
-        ...mainLesson,
-        status: mainLesson.status || "draft"
-      }).returning()
+    const [{ maxOrder }] = await db
+      .select({ maxOrder: sql<number>`COALESCE(MAX(${mainLessons.order}), -1)` })
+      .from(mainLessons)
+    const [result] = await db.insert(mainLessons).values({
+      ...mainLesson,
+      order: maxOrder + 1,
+      status: mainLesson.status || "draft"
+    }).returning()
     return result
+  }
+
+  async reorderMainLessons(items: { id: number; order: number }[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      for (const item of items) {
+        await tx.update(mainLessons)
+          .set({ order: item.order, updatedAt: new Date() })
+          .where(eq(mainLessons.id, item.id))
+      }
+    })
   }
 
   async updateMainLesson(id: number, mainLesson: UpdateMainLesson): Promise<MainLesson | undefined> {

@@ -141,6 +141,20 @@ router.post("/", async (req, res) => {
     }
 })
 
+router.patch("/reorder", async (req, res) => {
+    try {
+        const { orderedIds, startOrder = 0 } = req.body
+        if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+            return res.status(400).json({ message: "orderedIds must be a non-empty array" })
+        }
+        const items = (orderedIds as number[]).map((id, index) => ({ id, order: startOrder + index }))
+        await controller.reorderMainLessons(items)
+        res.json({ message: "Reordered successfully" })
+    } catch (error) {
+        res.status(500).json({ message: "Failed to reorder main lessons" })
+    }
+})
+
 router.patch("/:id", async (req, res) => {
     try {
         const id = parseInt(req.params.id)
