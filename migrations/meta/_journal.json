@@ -15,6 +15,13 @@
       "when": 1780048732049,
       "tag": "0001_add_order_to_main_lessons",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785000000000,
+      "tag": "0002_subscription_model",
+      "breakpoints": true
     }
   ]
 }
