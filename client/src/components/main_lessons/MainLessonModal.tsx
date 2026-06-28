@@ -73,10 +73,9 @@ export default function MainLessonModal({
   });
 
   const handleSubmit = async (data: any, isDraft = false) => {
-    const payload = {
-      ...data,
-      status: isDraft ? "draft" : "published",
-    };
+    const status = data.status === "coming_soon" ? "coming_soon" : isDraft ? "draft" : "published";
+    const { status: _s, ...rest } = data;
+    const payload = { ...rest, status };
     if (mainLesson) {
       await updateMutation.mutateAsync(payload);
     } else {

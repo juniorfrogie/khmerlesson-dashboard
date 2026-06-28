@@ -1,19 +1,19 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
-import { insertPurchaseHistorySchema } from "@shared/schema";
-import { verifyPurchase, decodeJWSPayload, markVerified, isTransactionVerified } from "./services/iap/ios/storekit2/service";
+import { verifySubscription, decodeJWSPayload, markVerified, isTransactionVerified } from "./services/iap/ios/storekit2/service";
 import { UserController } from "./features/users/controller/controller";
 import { MainLessonController } from "./features/main-lessons/controller/controller";
 import { LessonController } from "./features/lessons/controller/controller";
-import { PurchaseHistoryController } from "./features/purchase-history/controller/controller";
+import { SubscriptionController } from "./features/subscriptions/controller/controller";
+import { SubscriptionPlanController } from "./features/subscription-plans/controller/controller";
 import { QuizController } from "./features/quizzes/controller/controller";
-import { ZodError } from "zod";
 
 const router = Router();
 const userController = new UserController();
 const mainLessonController = new MainLessonController();
 const lessonController = new LessonController();
-const purchaseHistoryController = new PurchaseHistoryController();
+const subscriptionController = new SubscriptionController();
+const subscriptionPlanController = new SubscriptionPlanController();
 const quizController = new QuizController();
 
 const PASSING_GRADE_PERCENT = 70;
@@ -30,8 +30,11 @@ const ok = (data: unknown, total?: number) => ({
 
 const fail = (message: string) => ({ success: false, error: message });
 
-// When API_KEY env var is set, all /api/v1 routes require X-API-Key header or ?api_key= param
+// When API_KEY env var is set, unauthenticated requests to /api/v1 require X-API-Key.
+// Requests with a valid JWT (req.user set by authenticateToken) are exempt —
+// they are already verified users and don't need a separate API key.
 router.use((req: Request, res: Response, next: NextFunction) => {
+  if ((req as any).user) { next(); return; }
   const apiKey = req.header('X-API-Key') || (req.query.api_key as string);
   const configuredKey = process.env.API_KEY;
   if (configuredKey && apiKey !== configuredKey) {
@@ -44,8 +47,29 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 
 router.get("/main-lessons", async (req: any, res: Response) => {
   try {
-    const mainLessons = await mainLessonController.getMainLessonsJoin(req.user);
-    res.json(ok(mainLessons, mainLessons.length));
+    const lessons = await mainLessonController.getPublishedMainLessons();
+
+    let accessibleCourseIds: number[] = [];
+    if (req.user) {
+      const sub = await subscriptionController.getActiveSubscription(req.user.id);
+      if (sub) {
+        accessibleCourseIds = await subscriptionPlanController.getCourseIdsForPlan(sub.planId);
+      }
+    }
+
+    const data = lessons.map((lesson: any) => ({
+      id: lesson.id,
+      title: lesson.title,
+      description: lesson.description,
+      thumbnailUrl: lesson.thumbnailUrl,
+      isFree: lesson.isFree,
+      hasAccess: lesson.isFree || accessibleCourseIds.includes(lesson.id),
+      comingSoon: lesson.status === "coming_soon",
+      lessonCount: lesson.lessonCount,
+      order: lesson.order,
+    }));
+
+    res.json(ok(data, data.length));
   } catch (error) {
     console.error(error);
     res.status(500).json(fail('Failed to fetch main lessons'));
@@ -83,15 +107,21 @@ router.get("/main-lessons/:id/lessons", async (req: any, res: Response) => {
     }
     const mainLesson = await mainLessonController.getMainLesson(id);
     if (!mainLesson) return res.status(404).json(fail('Main lesson not found'));
-    if (!mainLesson.free) {
+
+    if (mainLesson.status === "coming_soon") {
+      return res.status(403).json({ success: false, message: "Content not yet available." });
+    }
+
+    if (!mainLesson.isFree) {
       if (!req.user) {
         return res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
       }
-      const purchased = await purchaseHistoryController.hasUserPurchased(req.user.id, id);
-      if (!purchased) {
-        return res.status(403).json({ success: false, message: "Purchase required." });
+      const hasAccess = await subscriptionController.hasAccessToCourse(req.user.id, id);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: "Active subscription required." });
       }
     }
+
     const lessons = await mainLessonController.getAllLessonsByMainLesson(id);
     res.json(ok(lessons, lessons.length));
   } catch (error) {
@@ -114,13 +144,18 @@ router.get("/lessons/:id", async (req: any, res: Response) => {
 
     if (lesson.mainLessonId) {
       const mainLesson = await mainLessonController.getMainLesson(lesson.mainLessonId);
-      if (mainLesson && !mainLesson.free) {
-        if (!req.user) {
-          return res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
+      if (mainLesson) {
+        if (mainLesson.status === "coming_soon") {
+          return res.status(403).json({ success: false, message: "Content not yet available." });
         }
-        const purchased = await purchaseHistoryController.hasUserPurchased(req.user.id, lesson.mainLessonId);
-        if (!purchased) {
-          return res.status(403).json({ success: false, message: "Purchase required." });
+        if (!mainLesson.isFree) {
+          if (!req.user) {
+            return res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
+          }
+          const hasAccess = await subscriptionController.hasAccessToCourse(req.user.id, mainLesson.id);
+          if (!hasAccess) {
+            return res.status(403).json({ success: false, message: "Active subscription required." });
+          }
         }
       }
     }
@@ -300,6 +335,113 @@ router.post("/quizzes/:id/submit", async (req: Request, res: Response) => {
   }
 });
 
+// ===== SUBSCRIPTION PLANS API (public — mobile needs these to display offers) =====
+
+router.get("/subscription-plans", async (_req: Request, res: Response) => {
+  try {
+    const plans = await subscriptionPlanController.getActivePlans();
+    res.json(ok(plans, plans.length));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch subscription plans'));
+  }
+});
+
+// ===== SUBSCRIPTIONS API =====
+
+router.post("/subscriptions", async (req: any, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
+    }
+
+    const { jws } = req.body;
+    if (!jws) {
+      return res.status(400).json(fail("jws is required"));
+    }
+
+    const isDev = process.env.NODE_ENV === "development";
+
+    let verifyResult;
+    if (isDev) {
+      // In dev, decode without Apple verification — allows testing without StoreKit
+      const payload = decodeJWSPayload(jws);
+      if (!payload) {
+        return res.status(400).json(fail("Invalid JWS — could not decode"));
+      }
+      verifyResult = {
+        ok: true,
+        reason: "dev mode — verification skipped",
+        productId: payload.productId as string,
+        originalTransactionId: (payload.originalTransactionId ?? payload.transactionId) as string,
+        transactionId: payload.transactionId as string,
+        expiresDate: payload.expiresDate ? new Date(payload.expiresDate as number) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        isIntroductoryOffer: (payload as any).offerType === 1,
+      };
+    } else {
+      const payload = decodeJWSPayload(jws);
+      const transactionId = payload?.transactionId as string | undefined;
+      if (transactionId && isTransactionVerified(transactionId)) {
+        verifyResult = {
+          ok: true,
+          reason: "cached",
+          productId: payload!.productId as string,
+          originalTransactionId: (payload!.originalTransactionId ?? transactionId) as string,
+          transactionId,
+          expiresDate: payload!.expiresDate ? new Date(payload!.expiresDate as number) : undefined,
+          isIntroductoryOffer: (payload as any)?.offerType === 1,
+        };
+      } else {
+        verifyResult = await verifySubscription(jws);
+        if (!verifyResult.ok) {
+          return res.status(400).json({ success: false, message: "Subscription verification failed.", reason: verifyResult.reason });
+        }
+        if (verifyResult.transactionId) markVerified(verifyResult.transactionId);
+      }
+    }
+
+    // Lookup plan level from subscription_plans table
+    const plan = verifyResult.productId
+      ? await subscriptionPlanController.getPlanByIosProductId(verifyResult.productId)
+      : undefined;
+
+    if (!plan) {
+      return res.status(400).json(fail(`Unknown productId: ${verifyResult.productId}`));
+    }
+
+    const status = verifyResult.isIntroductoryOffer ? "trial" : "active";
+    const currentPeriodEndsAt = verifyResult.expiresDate ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+    const subscription = await subscriptionController.createOrUpdateSubscription({
+      userId: req.user.id,
+      planId: plan.id,
+      platform: "ios",
+      productId: verifyResult.productId!,
+      originalTransactionId: verifyResult.originalTransactionId!,
+      status,
+      currentPeriodEndsAt,
+    });
+
+    res.status(201).json(ok(subscription));
+  } catch (error: any) {
+    console.error("[SUBSCRIPTION:ERROR]", error?.message ?? error);
+    res.status(500).json(fail("Failed to process subscription"));
+  }
+});
+
+router.get("/subscriptions/me", async (req: any, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
+    }
+    const sub = await subscriptionController.getActiveSubscription(req.user.id);
+    res.json(ok(sub));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(fail('Failed to fetch subscription'));
+  }
+});
+
 // ===== GENERAL API =====
 
 router.get("/stats", async (_req: Request, res: Response) => {
@@ -308,8 +450,8 @@ router.get("/stats", async (_req: Request, res: Response) => {
     res.json(ok({
       totalLessons: stats.totalLessons,
       totalQuizzes: stats.totalQuizzes,
-      totalFreeMainLessons: stats.totalFreeMainLessons,
-      totalPremiumMainLessons: stats.totalPremiumMainLessons
+      totalActiveSubscriptions: stats.totalActiveSubscriptions,
+      totalTrialSubscriptions: stats.totalTrialSubscriptions,
     }));
   } catch (error) {
     console.error(error);
@@ -368,91 +510,6 @@ router.get("/search", async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json(fail('Search failed'));
-  }
-});
-
-router.post("/purchase-history", async (req: any, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ message: "Authentication required.", code: "TOKEN_EXPIRED" });
-    }
-    console.log("[IAP:BODY]", JSON.stringify({ ...req.body, jws: req.body.jws ? "<jws>" : undefined }));
-    const { jws, mainLessonId } = req.body;
-
-    // In development, skip Apple JWS verification so the endpoint can be tested without StoreKit
-    const isDev = process.env.NODE_ENV === "development";
-    let verified = isDev;
-    if (!isDev) {
-      const payload = decodeJWSPayload(jws);
-      const transactionId = payload?.transactionId;
-      verified = transactionId ? isTransactionVerified(transactionId) : false;
-      if (!verified) {
-        const mainLesson = mainLessonId ? await mainLessonController.getMainLesson(Number(mainLessonId)) : null;
-        const expectedProductId = mainLesson?.productId ?? undefined;
-        const result = await verifyPurchase(jws, expectedProductId);
-        console.error(`[purchase-history] verification — ok:${result.ok} reason:"${result.reason}" transactionId:"${transactionId}" mainLessonId:${mainLessonId} expectedProductId:"${expectedProductId}"`);
-        verified = result.ok;
-        if (!verified) {
-          return res.status(400).json({ message: "Create purchase history failed.", reason: result.reason });
-        }
-      }
-    }
-
-    const validatedData = insertPurchaseHistorySchema.parse({
-      ...req.body,
-      userId: req.user.id,
-      userEmail: req.user.email,
-    });
-    const existing = await purchaseHistoryController.findExistingPurchase(
-      validatedData.purchaseId,
-      req.user.id,
-      validatedData.mainLessonId
-    );
-    if (existing) {
-      return res.status(200).json(existing);
-    }
-    const purchaseHistory = await purchaseHistoryController.createPurchaseHistory(validatedData);
-    return res.status(201).json(purchaseHistory);
-  } catch (error: any) {
-    console.error("[IAP:ERROR]", error?.message ?? error, "code:", error?.code, "detail:", error?.detail);
-    if (error instanceof ZodError) {
-      console.error("[IAP:ZOD]", JSON.stringify(error.errors));
-      return res.status(400).json(error.errors);
-    }
-    if (error?.code === '23503') {
-      return res.status(400).json({ message: "User account not found. Please log in again.", code: "USER_NOT_FOUND" });
-    }
-    if (error?.code === '23505') {
-      const existing = await purchaseHistoryController.findExistingPurchase(
-        req.body.purchaseId,
-        req.user.id,
-        req.body.mainLessonId
-      ).catch(() => null);
-      if (existing) return res.status(200).json(existing);
-    }
-    res.status(500).json({ message: "Failed to create purchase history.", errors: error?.message ?? String(error) });
-  }
-});
-
-router.post("/verify-purchase", async (req: any, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ message: "Authentication required.", code: "TOKEN_EXPIRED" });
-    }
-    const { jws, mainLessonId } = req.body;
-    const mainLesson = mainLessonId ? await mainLessonController.getMainLesson(Number(mainLessonId)) : null;
-    const expectedProductId = mainLesson?.productId ?? undefined;
-    const result = await verifyPurchase(jws, expectedProductId);
-    console.log(`[verify-purchase] ok:${result.ok} reason:"${result.reason}" mainLessonId:${mainLessonId} expectedProductId:"${expectedProductId}"`);
-    if (result.ok) {
-      const payload = decodeJWSPayload(jws);
-      if (payload?.transactionId) markVerified(payload.transactionId);
-      return res.status(200).json({ message: "Transaction verified." });
-    }
-    return res.status(400).json({ message: "Verify transaction failed.", reason: result.reason });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to verify purchase.", errors: error });
   }
 });
 

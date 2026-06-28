@@ -1,6 +1,6 @@
 import { useUser } from "@/contexts/user-context";
 import { ActiveView } from "@/pages/dashboard";
-import { GraduationCap, BarChart3, BookOpen, HelpCircle, History, BookType, Library, Users } from "lucide-react";
+import { GraduationCap, BarChart3, BookOpen, HelpCircle, BookType, Library, Users, CreditCard, Package } from "lucide-react";
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -14,7 +14,8 @@ const navigation = [
   { key: "lesson_type" as ActiveView, label: "Lesson Type", icon: BookType },
   { key: "quizzes" as ActiveView, label: "Quizzes", icon: HelpCircle },
   { key: "users" as ActiveView, label: "Users", icon: Users },
-  { key: "purchase_history" as ActiveView, label: "Purchase History", icon: History },
+  { key: "subscriptions" as ActiveView, label: "Subscriptions", icon: CreditCard },
+  { key: "subscription_plans" as ActiveView, label: "Subscription Plans", icon: Package },
   // { key: "analytics" as ActiveView, label: "Analytics", icon: BarChart },
   // { key: "import-export" as ActiveView, label: "Import/Export", icon: Download },
   // { key: "api-settings" as ActiveView, label: "API Settings", icon: Code },

@@ -9,9 +9,10 @@ import QuizzesView from "@/components/quizzes/QuizzesView";
 import UsersView from "@/components/users/UsersView";
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal";
 import APISettings from "./api-settings";
-import PurchaseHistoryView from "@/components/purchase_history/PurchaseHistoryView";
 import LessonTypeView from "@/components/lesson_type/LessonTypeView";
 import MainLessonsView from "@/components/main_lessons/MainLessonsView";
+import SubscriptionsView from "@/components/subscriptions/SubscriptionsView";
+import SubscriptionPlansView from "@/components/subscription_plans/SubscriptionPlansView";
 
 export type ActiveView =
   | "dashboard"
@@ -20,7 +21,8 @@ export type ActiveView =
   | "lesson_type"
   | "quizzes"
   | "users"
-  | "purchase_history"
+  | "subscriptions"
+  | "subscription_plans"
   | "analytics"
   | "import-export"
   | "api-settings";
@@ -83,8 +85,10 @@ export default function Dashboard() {
         return <QuizzesView onDelete={openDeleteModal} />;
       case "users":
         return <UsersView onDelete={openDeleteModal} />;
-      case "purchase_history":
-        return <PurchaseHistoryView />;
+      case "subscriptions":
+        return <SubscriptionsView />;
+      case "subscription_plans":
+        return <SubscriptionPlansView />;
       case "analytics":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

@@ -1,11 +1,11 @@
-import { 
+import {
   Analytics,
   DashboardStats,
   lessons,
   quizzes,
   analytics,
   users,
-  purchase_history,
+  subscriptions,
   InsertBlacklist,
   blacklist,
   insertBlacklistSchema,
@@ -14,8 +14,10 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import {
-  eq, 
-  lte, 
+  and,
+  eq,
+  gt,
+  lte,
   sql } from "drizzle-orm";
 import { getLastMonthGrowthValue } from "./utils/query-utils";
 
@@ -51,78 +53,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDashboardStats(): Promise<DashboardStats> {
-    // const allMainLessons = await db.select({
-    //   free: mainLessons.free, 
-    //   price: mainLessons.price,
-    //   createdAt: mainLessons.createdAt}).from(mainLessons)
-
-    //const allLessons = await db.select({createdAt: lessons.createdAt}).from(lessons)
-
-    //const allQuizzes = await db.select({createdAt: quizzes.createdAt}).from(quizzes)
-
     const allUsers = await db.select({
-      isActive: users.isActive, 
+      isActive: users.isActive,
       createdAt: users.createdAt
     }).from(users)
       .where(eq(users.role, "student"))
 
-    const allPurchaseHistory = await db.select({
-      createdAt: purchase_history.createdAt,
-      paymentStatus: purchase_history.paymentStatus,
-      purchaseAmount: purchase_history.purchaseAmount
-    }).from(purchase_history)
-      .where(eq(purchase_history.paymentStatus, "completed"))
-    
+    const now = new Date()
     const totalMainLessons = await db.$count(mainLessons);
     const totalLessons = await db.$count(lessons);
     const totalQuizzes = await db.$count(quizzes);
     const totalUsers = await db.$count(users);
     const totalActiveUsers = await db.$count(users, eq(users.isActive, true));
+    const totalActiveSubscriptions = await db.$count(subscriptions,
+      and(eq(subscriptions.status, "active"), gt(subscriptions.currentPeriodEndsAt, now))
+    );
+    const totalTrialSubscriptions = await db.$count(subscriptions,
+      and(eq(subscriptions.status, "trial"), gt(subscriptions.currentPeriodEndsAt, now))
+    );
 
-    const totalPurchaseHistoryComplete = allPurchaseHistory
-      .reduce((sum, f) => sum + ((f.purchaseAmount) / 100), 0)
- 
-    const totalFreeMainLessons = await db.$count(mainLessons, eq(mainLessons.free, true));
-    const totalPremiumMainLessons = Math.max(totalMainLessons - totalFreeMainLessons, 0)
+    const allSubscriptions = await db.select({ createdAt: subscriptions.createdAt }).from(subscriptions)
 
-    // Calculate MoM (Month over Month) Users Growth Rate
     const usersGrowth = this.getLastMonthGrowthValue(allUsers)
-
-    // Calculate MoM (Month over Month) Active Users Growth Rate
     const activeUsersGrowth = this.getLastMonthGrowthValue(allUsers.filter(f => f.isActive))
-
-    // Calculate MoM (Month over Month) Main Lessons Growth Rate
     const mainLessonsGrowth = await getLastMonthGrowthValue(mainLessons)
-
-    // Calculate MoM (Month over Month) Lessons Growth Rate
     const lessonsGrowth = await getLastMonthGrowthValue(lessons)
-
-    // Calculate MoM (Month over Month) Quizzes Growth Rate
     const quizzesGrowth = await getLastMonthGrowthValue(quizzes)
-
-    // Calculate complete purchase amount Growth Rate
-    const purchasesGrowth = this.getLastMonthGrowthValue(allPurchaseHistory)
-    
-    // Calculate average price for main lessons
-    // const premiumMainLessonsWithPrice = allMainLessons.filter(l => !l.free && l.price);
-    // const avgPrice = premiumMainLessonsWithPrice.length > 0 
-    //   ? premiumMainLessonsWithPrice.reduce((sum, l) => sum + ((l.price || 0) / 100), 0) / premiumMainLessonsWithPrice.length
-    //   : 0;
-
-    const commandAvgPrice = sql`
-      WITH AvgPrice AS (
-        SELECT 
-          (SELECT CAST(COUNT(${mainLessons.id}) AS INT) AS count),
-          (SELECT CAST(ROUND(SUM(${mainLessons.price})::DECIMAL / 100::NUMERIC, 2) AS NUMERIC) AS sum)
-        FROM ${mainLessons}     
-        WHERE ${mainLessons.free} IS FALSE
-            AND ${mainLessons.price} IS NOT NULL 
-            AND ${mainLessons.price} > 0 
-      )
-      SELECT CAST(ROUND((sum / count)::NUMERIC, 2) AS NUMERIC) AS value FROM AvgPrice    
-    `
-    const result = await db.execute(commandAvgPrice)
-    const avgPrice = result.rowCount && result.rowCount > 0 ? (result.rows[0].value as number) : 0
+    const subscriptionsGrowth = this.getLastMonthGrowthValue(allSubscriptions)
 
     return {
       totalMainLessons,
@@ -130,16 +87,14 @@ export class DatabaseStorage implements IStorage {
       totalQuizzes,
       totalUsers,
       totalActiveUsers,
-      totalPurchaseHistoryComplete,
-      totalFreeMainLessons,
-      totalPremiumMainLessons,
+      totalActiveSubscriptions,
+      totalTrialSubscriptions,
       mainLessonsGrowth,
       lessonsGrowth,
       quizzesGrowth,
       usersGrowth,
       activeUsersGrowth,
-      purchasesGrowth,
-      avgPrice: avgPrice
+      subscriptionsGrowth,
     };
   }
 

@@ -149,16 +149,6 @@ function SortableRow({
         </Badge>
       </td>
       <td className="p-4">
-        <span className="neutral-dark font-medium">
-          {mainLesson.free
-            ? "Free"
-            : `${Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format((mainLesson.price || 0) / 100)}`}
-        </span>
-      </td>
-      <td className="p-4">
         <span className="neutral-medium text-sm">
           {new Date(mainLesson.updatedAt).toLocaleDateString()}
         </span>
@@ -217,7 +207,6 @@ export default function MainLessonsView({ onDelete }: MainLessonsViewProps) {
     "Image cover",
     "Main Lesson",
     "Status",
-    "Price",
     "Update",
     "Actions",
   ];

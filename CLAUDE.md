@@ -9,7 +9,8 @@ npm run dev        # Start dev server (Express + Vite HMR on same port)
 npm run build      # vite build (client → dist/public) + esbuild (server → dist/index.js)
 npm start          # Run production build: node dist/index.js
 npm run check      # TypeScript type-check (no emit)
-npm run db:push    # Push Drizzle schema to the database
+npm run db:push    # Push Drizzle schema to the database (dev — destructive on conflict)
+npm run db:migrate # Generate and apply Drizzle migrations (safer for prod)
 ```
 
 No test suite is configured.
@@ -21,6 +22,7 @@ Required in `.env` at project root:
 ```
 NODE_ENV=development
 DATABASE_URL=postgresql://...
+BASE_URL=http://localhost
 PORT=5001
 TOKEN_SECRET=...
 REFRESH_TOKEN_SECRET=...
@@ -59,11 +61,14 @@ In development, the Express server hosts Vite as middleware (`server/vite.ts:set
 - `server/storage.ts` contains a thin `DatabaseStorage` class used only for dashboard analytics and the JWT blacklist — all other DB access goes directly through the feature controllers
 
 Key tables and their status enums:
-- `main_lessons` — `status: "draft" | "published"`, `free: boolean`, `price` in cents, `productId` for Apple IAP
-- `lessons` — `status: "draft" | "published"`, `level: "Beginner" | "Intermediate" | "Advanced"`, `sections: jsonb` (array of `{title, content, html, ops}`)
-- `quizzes` — `status: "draft" | "active"`, `questions: jsonb`
-- `users` — `role: "admin" | "teacher" | "student"`, `registrationType: "authenication" | "google_service" | "apple_service"`
-- `purchase_history` — `paymentStatus: "Complete" | "Refund" | "Pending" | "Cancel"`, unique on `(purchaseId, userId, mainLessonId)`
+- `main_lessons` — `status: "draft" | "published" | "coming_soon"`, `requiredPlanLevel: integer` (1–5, minimum subscription plan to access), `order: integer` (drag-and-drop display order)
+- `lessons` — `status: "draft" | "published"`, `level: "Beginner" | "Intermediate" | "Advanced"`, `sections: jsonb` (array of `{title, content, html, ops}` where `ops` is a Quill Delta)
+- `lesson_type` — `icon: text`, `iconMode: "raw" | "file"` (raw = inline SVG/emoji, file = uploaded asset)
+- `quizzes` — `status: "draft" | "active"`, `questions: jsonb`, optionally linked to a lesson
+- `users` — `role: "admin" | "teacher" | "student"`, `registrationType: "authenication" | "google_service" | "apple_service"` (**note**: `"authenication"` is a typo baked into the DB default — do not correct it without a migration)
+- `subscriptions` — user subscription records; `status: "trial" | "active" | "expired" | "cancelled"`, `planLevel: integer`, `platform: "ios" | "android"`, `originalTransactionId` (unique), `currentPeriodEndsAt`
+- `subscription_plans` — admin-managed plan definitions; `planLevel: integer` (unique 1–5), `price` in cents, `productIdIos`, `productIdAndroid`, `isActive: boolean`
+- `analytics` — tracks per-lesson/quiz `completions` and `averageScore`; populated via `DatabaseStorage` in `server/storage.ts`
 - `blacklist` — JWT blacklist with `expiredAt`; purged every 10 minutes by node-cron
 
 ### Auth
@@ -87,23 +92,30 @@ server/features/<domain>/
 
 Feature routes are mounted in `server/routes.ts` and all require `authenticateToken`.
 
-Current features: `main-lessons`, `lessons`, `lesson-types`, `quizzes`, `users`, `purchase-history`, `export`, `import`.
+Current features: `main-lessons`, `lessons`, `lesson-types`, `quizzes`, `users`, `subscriptions`, `subscription-plans`, `export`, `import`.
+
+The `export` feature streams lessons/quizzes as downloadable JSON (`GET /api/export/lessons`, `GET /api/export/quizzes`). The `import` feature validates against Zod insert schemas before bulk-inserting (`POST /api/import/lessons`, `POST /api/import/quizzes`).
 
 ### Mobile API (`/api/v1`)
 
-`server/api.ts` — mounted at `/api/v1`, behind `authenticateToken` (which calls `next()` even without a valid token, so `req.user` may be undefined). Routes check `req.user` themselves for paid/premium content.
+`server/api.ts` — mounted at `/api/v1`, behind `authenticateToken` (which calls `next()` even without a valid token, so `req.user` may be undefined). Routes check `req.user` themselves for gated content.
 
 Response envelope: `{ success: true, data, total? }` (success) or `{ success: false, error: string }` (failure).
 
 Optional `authenticateAPI` middleware within this router validates `X-API-Key` header or `?api_key=` when `API_KEY` env var is set.
 
-Semi-public endpoints (no auth required but premium content is gated):
-- `GET /api/v1/main-lessons` — lists all published main lessons
-- `GET /api/v1/main-lessons/:id/lessons` — returns 401 if unauthenticated and lesson pack is paid; 403 if not purchased
-- `GET /api/v1/lessons/:id` — same purchase gate as above
+Key endpoints:
+- `GET /api/v1/main-lessons` — lists published + coming_soon courses; each entry includes `hasAccess` (based on user's active subscription vs `requiredPlanLevel`) and `comingSoon`
+- `GET /api/v1/main-lessons/:id/lessons` — 401 if unauthenticated; 403 if subscription level insufficient or course is coming_soon
+- `GET /api/v1/lessons/:id` — same subscription gate
+- `GET /api/v1/subscription-plans` — public; lists active plans for the paywall UI
+- `POST /api/v1/subscriptions` — verifies Apple StoreKit 2 JWS, upserts subscription record; in dev mode JWS verification is skipped
+- `GET /api/v1/subscriptions/me` — returns user's active/trial subscription or null
 - `GET /api/v1/quizzes`, `GET /api/v1/quizzes/:id`, `GET /api/v1/quizzes/lesson/:lessonId`
 
 Quiz passing grade is 70% (`PASSING_GRADE_PERCENT` in `server/api.ts`).
+
+Access control logic: `subscription.planLevel >= course.requiredPlanLevel && status IN ('trial','active') && currentPeriodEndsAt > now`.
 
 ### Server services
 
@@ -111,8 +123,7 @@ Quiz passing grade is 70% (`PASSING_GRADE_PERCENT` in `server/api.ts`).
 
 - `services/auth/apple/` — Apple Sign-In token verification (`verifyAppleToken`)
 - `services/auth/google/` — Google OAuth helpers
-- `services/iap/ios/storekit2/` — Apple StoreKit 2 JWS purchase verification (`verifyPurchase`, `decodeJWSPayload`, `markVerified`, `isTransactionVerified`). In development mode, JWS verification is skipped.
-- `services/paypal/` — PayPal payment routes (mounted at `/api`)
+- `services/iap/ios/storekit2/` — Apple StoreKit 2 subscription verification (`verifySubscription`, `decodeJWSPayload`, `markVerified`, `isTransactionVerified`). Checks `type === "Auto-Renewable Subscription"` and `offerType === INTRODUCTORY_OFFER` for trial detection. In development mode, JWS verification is skipped.
 
 ### Miscellaneous routes
 
@@ -139,3 +150,5 @@ In development, allowed origins include `localhost:3000`, `localhost:5001`, `loc
 - `client/src/contexts/user-context.tsx` — React context providing the authenticated user to the component tree
 - `client/src/lib/queryClient.ts` configures TanStack Query with `credentials: "include"` on all fetches and `staleTime: Infinity` (no automatic background refetch)
 - UI components are shadcn/ui in `client/src/components/ui/`; domain components are co-located under `client/src/components/<domain>/`
+- Lesson section content is edited with a Quill v2 rich-text editor (`client/src/components/ui/quill-editor.tsx`); the `ops` field in `sections` stores Quill Delta format
+- Main lesson ordering uses `@dnd-kit` drag-and-drop (`MainLessonsView.tsx`); the `order` column on `main_lessons` is the persisted sort index

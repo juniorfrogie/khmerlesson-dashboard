@@ -24,8 +24,8 @@ const controller = new UserController()
   
       const { password, resetToken, registrationType, ...userResponse } = user;
       // Use centralised token service — ensures consistent expiry across all login paths
-      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email })
-  
+      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email, role: userResponse.role })
+
       res.json({
         message: "Login successful",
         user: userResponse,
@@ -62,7 +62,7 @@ router.post("/admin", async (req, res) => {
   
       const { password, ...userResponse } = user;
       // Use centralised token service — ensures consistent expiry
-      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email })
+      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email, role: userResponse.role })
 
       setCookieTokens(res, token, refreshToken)
       res.json({

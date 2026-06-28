@@ -4,13 +4,13 @@ import { createServer, type Server } from "http";
 import { request } from "https";
 import { storage } from "./storage";
 import apiRoutes from "./api";
-import paypalRoutes from "./services/paypal/service"
 import mainLessonRoutes from "./features/main-lessons/route/route"
 import lessonRoutes from "./features/lessons/route/route"
 import lessonTypeRoutes from "./features/lesson-types/route/route"
 import quizRoutes from "./features/quizzes/route/route"
 import userRoutes from "./features/users/route/route"
-import purchaseHistoryRoutes from "./features/purchase-history/route/route"
+import subscriptionRoutes from "./features/subscriptions/route/route"
+import subscriptionPlanRoutes from "./features/subscription-plans/route/route"
 import exportRoutes from "./features/export/route/route"
 import importRoutes from "./features/import/route/route"
 import fileUploadRoute from "./file-upload/file_upload"
@@ -27,7 +27,6 @@ import changePasswordRoutes from "./auth/change-password/route"
 import resetPasswordRoutes from "./auth/reset-password/route"
 import refreshTokenRoutes from "./auth/refresh-token/route"
 import cookieParser from "cookie-parser"
-import { PurchaseHistoryController } from "./features/purchase-history/controller/controller";
 import { verifyAppleToken } from "./services/auth/apple/service";
 import { UserController } from "./features/users/controller/controller";
 // Centralised auth middleware (fixes the refreshToken extraction bug)
@@ -40,8 +39,6 @@ import googleAuthRoutes from "./auth/google/route";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const { NODE_ENV } = process.env
-
-  const purchaseHistoryController = new PurchaseHistoryController()
 
   // authenticateToken is now imported from ./auth/middleware/authenticate
   // The old inline version had a critical bug: refreshToken was reading
@@ -76,7 +73,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }))
 
   // Mount public API routes
-  app.use("/api", paypalRoutes);
   app.use("/api/auth",
     loginRoutes,
     registerationRoutes,
@@ -115,8 +111,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //** Users CRUD Router */
   app.use("/api/users", authenticateToken, userRoutes)
 
-  //** Purchase History CRUD Router */
-  app.use("/api/purchase-history", authenticateToken, purchaseHistoryRoutes)
+  //** Subscriptions Router */
+  app.use("/api/subscriptions", authenticateToken, subscriptionRoutes)
+
+  //** Subscription Plans Router */
+  app.use("/api/subscription-plans", authenticateToken, subscriptionPlanRoutes)
 
   //** Export CRUD Router */
   app.use("/api/export", authenticateToken, exportRoutes)
@@ -202,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ success: false, message: 'Account is disabled' })
       }
 
-      const { token, refreshToken } = generateTokenPair({ id: user.id, email: user.email })
+      const { token, refreshToken } = generateTokenPair({ id: user.id, email: user.email, role: user.role })
       await userController.updateUserLastLogin(user.id)
 
       const { password, resetToken, registrationType, ...userResponse } = user
@@ -220,45 +219,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ success: false, message: 'Apple sign-in failed' })
     }
   })
-
-  app.patch("/api/purchase-history/:purchaseId/payment-status", authenticateToken, async (req: any, res) => {
-    try {
-      if (req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required." });
-      }
-      const { purchaseId } = req.params
-      const { paymentStatus } = req.body
-      const updatedPurchaseHistory = await purchaseHistoryController.updatePurchaseHistory(purchaseId, { paymentStatus })
-      if (!updatedPurchaseHistory) {
-        return res.status(404).json({ message: "Purchase history not found" });
-      }
-      res.json({
-        message: "Purchase history updated successfully",
-        data: updatedPurchaseHistory
-      });
-    } catch (error) {
-      console.error(error)
-      res.status(500).json({ message: "Failed to update purchase history!", errors: error });
-    }
-  })
-
-  app.delete("/api/purchase-history/:purchaseId", authenticateToken, async (req: any, res) => {
-    try {
-      if (req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required." });
-      }
-      const { purchaseId } = req.params
-      const deleted = await purchaseHistoryController.deletePurchaseHistoryByPurchaseId(purchaseId);
-
-      if (!deleted) {
-        return res.status(404).json({ message: "Purchase history not found" });
-      }
-
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Failed to purchase history" });
-    }
-  });
 
   // Proxy: Google Text to Speech
   app.get("/api/tts", async (req, res) => {

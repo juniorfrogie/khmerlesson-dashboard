@@ -2,15 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   HelpCircle,
-  Unlock,
-  Crown,
   TrendingUp,
   TrendingDown,
-  CircleDollarSign,
+  CreditCard,
   Users,
   UserCheck,
   Library,
   BookOpen,
+  BadgeCheck,
 } from "lucide-react";
 import { DashboardStats as StatsType } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -65,21 +64,19 @@ export default function DashboardStats() {
       iconColor: "text-cyan-500",
     },
     {
-      title: "Premium Main Lessons",
-      value: numberCompactFormat(stats.totalPremiumMainLessons),
-      subtitle: `Average price: ${Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(stats.avgPrice)}`,
-      icon: Crown,
+      title: "Active Subscriptions",
+      value: numberCompactFormat(stats.totalActiveSubscriptions),
+      growth: `${stats.subscriptionsGrowth ? stats.subscriptionsGrowth.toFixed(2) : 0}%`,
+      growthValue: stats.subscriptionsGrowth,
+      icon: CreditCard,
       iconBg: "bg-orange-100",
       iconColor: "fluent-orange",
     },
     {
-      title: "Free Main Lessons",
-      value: numberCompactFormat(stats.totalFreeMainLessons),
-      subtitle: `${Math.round((stats.totalFreeMainLessons / stats.totalMainLessons) * 100)}% of total content`,
-      icon: Unlock,
+      title: "Trial Subscriptions",
+      value: numberCompactFormat(stats.totalTrialSubscriptions),
+      subtitle: "Active free trials",
+      icon: BadgeCheck,
       iconBg: "bg-green-100",
       iconColor: "fluent-green",
     },
@@ -129,18 +126,6 @@ export default function DashboardStats() {
       icon: UserCheck,
       iconBg: "bg-emerald-100",
       iconColor: "text-emerald-500",
-    },
-    {
-      title: "Total Purchases Complete",
-      value: `${Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(stats.totalPurchaseHistoryComplete)}`,
-      growth: `${stats.purchasesGrowth ? stats.purchasesGrowth.toFixed(2) : 0}%`,
-      growthValue: stats.purchasesGrowth,
-      icon: CircleDollarSign,
-      iconBg: "bg-teal-100",
-      iconColor: "text-teal-500",
     },
   ];
 

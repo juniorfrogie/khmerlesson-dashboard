@@ -13,18 +13,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { MainLesson } from "@shared/schema";
 import { Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-
 const mainLessonSchema = z.object({
-    free: z.boolean(),
-    price: z.number().optional(),
     imageCover: z.string().min(1, "Image cover is required"),
     title: z.string().min(1, "Title is required"),
     description: z.string().min(1, "Description is required"),
-    productId: z.string().optional()
+    isFree: z.boolean(),
 })
 
 type MainLessonFormData = z.infer<typeof mainLessonSchema>
@@ -44,17 +41,12 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
     const form = useForm<MainLessonFormData>({
         resolver: zodResolver(mainLessonSchema),
         defaultValues: {
-            free: mainLesson?.free ?? true,
-            price: mainLesson?.price ? mainLesson.price / 100 : undefined,
             imageCover: mainLesson?.imageCover ?? "",
-            productId: mainLesson?.productId ?? "",
             title: mainLesson?.title ?? "",
-            description: mainLesson?.description ?? ""
+            description: mainLesson?.description ?? "",
+            isFree: mainLesson?.isFree ?? false,
         }
     })
-
-    const { watch } = form
-    const watchedFree = watch("free")
 
     const uploadFile = async (file: File) => {
         try {
@@ -67,37 +59,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
             })
             const responseData = await response.json()
             return responseData
-
-            // const xhr = new XMLHttpRequest()
-            // const uploader = xhr.upload
-            // uploader.onprogress = function(event) {
-            //     event.preventDefault()
-            //     if (event.lengthComputable) {
-            //         const loaded = event.loaded // Bytes loaded so far
-            //         const total = event.total   // Total bytes to upload
-            //         const percentage = (loaded / total) * 100
-            //         // Update UI (e.g., progress bar, text display) with the percentage
-            //         console.log(`Upload progress: ${percentage.toFixed(2)}%`)
-            //     }
-            // }
-            // uploader.onloadend = (event) => {
-            //     console.log("Upload finished.")
-            // }
-
-            // xhr.open("POST", "/api/upload", true)
-            // xhr.onreadystatechange = () => {
-            //     if (xhr.readyState === XMLHttpRequest.DONE) {
-            //         if (xhr.status === 201) {
-            //             const jsonResponse = JSON.parse(xhr.responseText)
-            //             setPreviewImage(`${jsonResponse.data.filename}`)
-            //             form.setValue("imageCover", `${jsonResponse.data.filename}`)
-            //         } else {
-            //             console.error('Request failed. Status:', xhr.status)
-            //         }
-            //     }
-            // }
-            // xhr.send(formData)
-        } catch (error) { 
+        } catch (error) {
             console.error(error)
             toast({
                 title: "Error",
@@ -115,19 +77,15 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
             if(files.length === 0) return
 
             const file = files[0]
-            // setPreviewImage(file.name)
-            // form.setValue("imageCover", `${file.name}`)
             const result = await uploadFile(file)
             if(result){
                 if(result.data){
-                    //setSelectedFile(file)
                     setPreviewImage(`${result.data.url}`)
                     form.setValue("imageCover", `${result.data.filename}`)
                 }else{
                     form.setError("imageCover", {
                         message: `${result.message}`
                     })
-                    //
                     toast({
                         title: "Error",
                         description: `${result.message}`,
@@ -147,18 +105,9 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
 
     const handleSubmit = (data: MainLessonFormData, isDraft = false) => {
         form.clearErrors()
-        //onSubmit({...data, price: data.free ? undefined : (data?.price || 0) * 100}, isDraft)
-        const price = data.free ? undefined : (data?.price || 0) * 100
-        if(price === 0){
-            form.setError("price", {
-                message: "Price is required"
-            })
-            return
-        }
-        onSubmit({...data, price: price}, isDraft)
+        onSubmit(data, isDraft)
     }
 
-    // Auto-save simulation
     useEffect(() => {
         const timer = setInterval(() => {
         setAutoSaveTime(new Date());
@@ -167,87 +116,12 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
         return () => clearInterval(timer);
     }, []);
 
-    useEffect(() => {
-        if (watchedFree) {
-            form.setValue("price", 0);
-            form.setValue("productId", "");
-            form.clearErrors(["price", "productId"]);
-        }
-    }, [watchedFree]);
-
     return (
         <>
         <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => handleSubmit(data))} className="space-y-6">
-                {/* Basic Information */}
 
                 <FormField
-                control={form.control}
-                name="free"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Pricing</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(value === "true")} value={field.value.toString()}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            <SelectItem value="true">Free</SelectItem>
-                            <SelectItem value="false">Paid</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-
-                {!watchedFree && (
-                <>
-                    <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Price ($)</FormLabel>
-                        <FormControl>
-                            <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            min="0"
-                            {...field}
-                            onChange={(e) =>
-                                field.onChange(parseFloat(e.target.value) || 0)
-                            }
-                            />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-
-                    {/* NEW: Product ID */}
-                    <FormField
-                    control={form.control}
-                    name="productId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Product ID</FormLabel>
-                        <FormControl>
-                            <Input
-                            placeholder="Enter Product ID"
-                            {...field}
-                            />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                </>
-                )}
-                <FormField 
                     control={form.control}
                     name="imageCover"
                     render={({ field: { onBlur, name, ref } }) => (
@@ -264,17 +138,16 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                                             <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span></p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Max size: 10MB (support only JPEG, PNG and WEBP)</p>
                                         </div>
-                                        {/* <input id="dropzone-file" type="file" class="hidden" /> */}
                                         <Input id="dropzone-file" type="file"
                                             name={name}
                                             ref={ref}
-                                            onBlur={onBlur} 
+                                            onBlur={onBlur}
                                             onChange={handleFileChange}
-                                            accept="image/png, image/jpeg, image/webp" 
+                                            accept="image/png, image/jpeg, image/webp"
                                             className="hidden" />
                                     </label>
                                 </div>
-                                
+
                                         <div className="w-full border rounded p-4 flex items-center justify-center">
                                             <img
                                                 className="rounded"
@@ -287,7 +160,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                                                 height="150"
                                                 />
                                         </div>
-                                    
+
                             </div>
                             </FormControl>
                             <FormMessage />
@@ -295,7 +168,7 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                     )}
                 />
                 <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-                    <FormField 
+                    <FormField
                         control={form.control}
                         name="title"
                         render={({ field }) => (
@@ -309,14 +182,14 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                         )}
                     />
                 </div>
-                <FormField 
+                <FormField
                     control={form.control}
                     name="description"
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Description *</FormLabel>
                             <FormControl>
-                                <Textarea 
+                                <Textarea
                                     placeholder="Enter description" className="h-24 resize-none" {...field} />
                             </FormControl>
                             <FormMessage />
@@ -324,12 +197,30 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                     )}
                 />
 
+                <FormField
+                    control={form.control}
+                    name="isFree"
+                    render={({ field }) => (
+                        <FormItem>
+                            <div className="flex items-center justify-between rounded-lg border p-4">
+                                <div>
+                                    <FormLabel className="text-base">Free content</FormLabel>
+                                    <p className="text-sm text-gray-500">Anyone can access this course without a subscription.</p>
+                                </div>
+                                <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                            </div>
+                        </FormItem>
+                    )}
+                />
+
                 {/* Form Actions */}
                 <div className="flex items-center justify-between border-t border-gray-200 pt-6">
                     <div className="flex items-center space-x-3">
-                        <Button 
-                            type="button" 
-                            variant="outline" 
+                        <Button
+                            type="button"
+                            variant="outline"
                             onClick={() => handleSubmit(form.getValues(), true)}
                             disabled={isLoading}
                             >
@@ -344,6 +235,14 @@ export default function MainLessonForm({ mainLesson, onSubmit, isLoading }: Main
                         )}
                     </div>
                     <div className="flex items-center space-x-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleSubmit({ ...form.getValues(), status: "coming_soon" } as any, false)}
+                            disabled={isLoading}
+                        >
+                            Coming Soon
+                        </Button>
                         <Button type="submit" disabled={isLoading} className="bg-fluent-blue hover:bg-blue-600">
                             {isLoading ? "Publishing..." : "Publish"}
                         </Button>

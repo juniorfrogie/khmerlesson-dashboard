@@ -41,6 +41,7 @@ const SEMI_PUBLIC_PREFIXES = [
   "/api/v1/quizzes",
   "/api/v1/stats",
   "/api/v1/search",
+  "/api/v1/subscription-plans",
 ];
 
 function isSemiPublic(url: string): boolean {
@@ -113,7 +114,7 @@ export const authenticateToken = async (
         refreshToken,
         REFRESH_TOKEN_SECRET as string
       ) as { id: number; email: string; [key: string]: any };
-      await setToken(res, { id: decoded.id, email: decoded.email });
+      await setToken(res, { id: decoded.id, email: decoded.email, role: decoded.role });
       req.user = decoded;
       console.log(
         `[AUTH][${correlationId}] Auto-refreshed token for user.id=${decoded.id}`
@@ -172,7 +173,7 @@ export const authenticateToken = async (
           refreshToken,
           REFRESH_TOKEN_SECRET as string
         ) as { id: number; email: string; [key: string]: any };
-        await setToken(res, { id: decoded.id, email: decoded.email });
+        await setToken(res, { id: decoded.id, email: decoded.email, role: decoded.role });
         req.user = decoded;
         console.log(
           `[AUTH][${correlationId}] Access token expired — auto-refreshed for user.id=${decoded.id}`

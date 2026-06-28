@@ -42,10 +42,13 @@ const pageConfig = {
     subtitle: "Create and manage users",
     action: { text: "New Users", icon: Plus },
   },
-  purchase_history: {
-    title: "Purchase History Management",
-    subtitle: "Manage purchase history",
-    // action: { text: "New Users", icon: Plus },
+  subscriptions: {
+    title: "Subscriptions",
+    subtitle: "View and manage user subscriptions",
+  },
+  subscription_plans: {
+    title: "Subscription Plans",
+    subtitle: "Configure plan offers and pricing",
   },
   analytics: {
     title: "Analytics",

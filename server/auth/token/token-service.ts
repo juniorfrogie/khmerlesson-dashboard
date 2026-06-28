@@ -38,10 +38,10 @@ const REFRESH_TOKEN_COOKIE_MS = () => REFRESH_TOKEN_TTL_S() * 1000;
 
 /**
  * Generate a signed access token + refresh token pair.
- * @param payload - Object to embed in the JWT. Only { id, email } is included
- *                  to minimise token size and avoid stale profile data.
+ * @param payload - Object to embed in the JWT. { id, email, role } is included
+ *                  so role-based access checks work without a DB round-trip.
  */
-export function generateTokenPair(payload: { id: number; email: string }) {
+export function generateTokenPair(payload: { id: number; email: string; role?: string }) {
   const { TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
 
   if (!TOKEN_SECRET || !REFRESH_TOKEN_SECRET) {
@@ -51,13 +51,13 @@ export function generateTokenPair(payload: { id: number; email: string }) {
     );
   }
 
-  const minimalPayload = { id: payload.id, email: payload.email };
+  const tokenPayload = { id: payload.id, email: payload.email, role: payload.role };
 
-  const token = jwt.sign(minimalPayload, TOKEN_SECRET, {
+  const token = jwt.sign(tokenPayload, TOKEN_SECRET, {
     expiresIn: ACCESS_TOKEN_TTL_S(),
   });
 
-  const refreshToken = jwt.sign(minimalPayload, REFRESH_TOKEN_SECRET, {
+  const refreshToken = jwt.sign(tokenPayload, REFRESH_TOKEN_SECRET, {
     expiresIn: REFRESH_TOKEN_TTL_S(),
   });
 
@@ -100,11 +100,12 @@ export function setCookieTokens(
  */
 export async function setToken(
   res: Response,
-  user: { id: number; email: string }
+  user: { id: number; email: string; role?: string }
 ): Promise<void> {
   const { token, refreshToken } = generateTokenPair({
     id: user.id,
     email: user.email,
+    role: user.role,
   });
   setCookieTokens(res, token, refreshToken);
 }

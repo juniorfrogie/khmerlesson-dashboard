@@ -19,7 +19,7 @@ router.post("/register", async (req, res) => {
       const user = await controller.createUser(userData);
       const { password, resetToken, registrationType, ...userResponse } = user;
       // Use centralised token service — consistent expiry across all auth paths
-      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email })
+      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email, role: userResponse.role })
   
       res.status(201).json({
         message: "User registered successfully",
@@ -49,7 +49,7 @@ router.post("/register-auth-service", async (req, res) => {
           return res.status(409).json({ message: "User already exists with this email" });
         }
         const { password, resetToken, registrationType, ...userResponse } = existingUser;
-        const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email })
+        const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email, role: userResponse.role })
         return res.status(200).json({
           user: userResponse,
           token: token,
@@ -59,7 +59,7 @@ router.post("/register-auth-service", async (req, res) => {
 
       const user = await controller.createUserWithAuthService(userData);
       const { password, resetToken, registrationType, ...userResponse } = user;
-      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email })
+      const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email, role: userResponse.role })
   
       res.status(201).json({
         message: "User registered successfully",

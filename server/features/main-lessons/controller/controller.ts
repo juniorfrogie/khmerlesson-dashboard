@@ -4,9 +4,7 @@ import {
   lessonType,
   MainLesson,
   mainLessons,
-  purchase_history,
   UpdateMainLesson,
-  User
 } from "@shared/schema"
 import { eq, sql, asc } from "drizzle-orm"
 import { db } from "server/db"
@@ -27,15 +25,8 @@ export class MainLessonController {
     return result
   }
 
-  async getMainLessonsJoin(user: User): Promise<any> {
-
+  async getPublishedMainLessons(): Promise<any[]> {
     const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
-
-    const userFilter = user?.id
-      ? sql`AND ${purchase_history.userId} = ${user.id}`
-      : sql`AND 1=0`;
-
-    // console.log("UserID", user?.id)
 
     const command = sql`
         SELECT
@@ -43,20 +34,11 @@ export class MainLessonController {
           ${mainLessons.title},
           ${mainLessons.description},
           ${mainLessons.imageCover},
-          ${mainLessons.free},
-          ${mainLessons.price},
+          ${mainLessons.isFree},
+          ${mainLessons.status},
           ${mainLessons.order},
           ${mainLessons.createdAt},
           ${mainLessons.updatedAt},
-          ${mainLessons.productId},
-
-          (
-            SELECT CAST(COUNT(*) AS INT)
-            FROM ${purchase_history}
-            WHERE ${purchase_history.paymentStatus} = 'completed'
-              ${userFilter}
-              AND ${purchase_history.mainLessonId} = ${mainLessons.id}
-          ) as purchase_count,
 
           (
             SELECT CAST(COUNT(*) AS INT)
@@ -66,9 +48,9 @@ export class MainLessonController {
           ) as lesson_count
 
         FROM ${mainLessons}
+        WHERE ${mainLessons.status} IN ('published', 'coming_soon')
         ORDER BY ${mainLessons.order} ASC,
-                ${mainLessons.price} DESC,
-                ${mainLessons.createdAt} DESC
+                 ${mainLessons.createdAt} DESC
         `;
     const queryResult = await db.execute(command)
 
@@ -77,12 +59,10 @@ export class MainLessonController {
       title: e.title,
       description: e.description,
       thumbnailUrl: e.image_cover ? `${bucketEndpoint}/${e.image_cover}` : null,
-      isFree: e.free,
+      isFree: e.is_free,
+      status: e.status,
       lessonCount: e.lesson_count,
       order: e.order,
-      price: Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((e.price ?? 0) / 100),
-      hasPurchased: (e.purchase_count ?? 0) > 0,
-      productId: e.product_id ?? null,
     }))
   }
 

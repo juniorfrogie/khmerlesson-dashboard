@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7,11 +7,9 @@ export const mainLessons = pgTable("main_lessons", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   imageCover: text("image_cover").notNull(),
-  free: boolean("free").notNull().default(true),
-  price: integer("price"), // price in cents
-  productId: text("product_id"),
+  isFree: boolean("is_free").notNull().default(false),
   order: integer("order").notNull().default(0),
-  status: text("status").notNull().default("draft"), // "draft" | "published"
+  status: text("status").notNull().default("draft"), // "draft" | "published" | "coming_soon"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 })
@@ -76,21 +74,36 @@ export const analytics = pgTable("analytics", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
-export const purchase_history = pgTable("purchase_history", {
+export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
-  purchaseId: varchar("purchase_id").notNull(),
-  userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  userEmail: varchar("user_email").references(() => users.email, { onDelete: 'cascade' }).notNull(),
-  mainLessonId: integer("main_lesson_id").references(() => mainLessons.id, { onDelete: 'cascade' }).notNull(),
-  purchaseAmount: integer("purchase_amount").notNull(),
-  paymentMethod: varchar("payment_method"),
-  platformType: varchar("platform_type"),
-  paymentStatus: varchar("payment_status"), // Complete, Refund, Pending, Cancel
-  purchaseDate: varchar("purchase_date").notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  planId: integer("plan_id").references(() => subscriptionPlans.id).notNull(),
+  platform: varchar("platform").notNull(),                           // "ios" | "android"
+  productId: varchar("product_id").notNull(),                        // App Store product ID
+  originalTransactionId: varchar("original_transaction_id").notNull().unique(),
+  status: varchar("status").notNull().default("trial"),              // "trial" | "active" | "expired" | "cancelled"
+  currentPeriodEndsAt: timestamp("current_period_ends_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull()
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull(),
+  price: integer("price").notNull(),                  // annual price in cents
+  productIdIos: varchar("product_id_ios"),            // App Store product ID
+  productIdAndroid: varchar("product_id_android"),    // Play Store product ID (future)
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const subscriptionPlanCourses = pgTable("subscription_plan_courses", {
+  planId: integer("plan_id").notNull().references(() => subscriptionPlans.id, { onDelete: "cascade" }),
+  mainLessonId: integer("main_lesson_id").notNull().references(() => mainLessons.id, { onDelete: "cascade" }),
 }, (table) => [
-  unique("ph_purchase_id_user_id_lesson_id_unique").on(table.purchaseId, table.userId, table.mainLessonId)
+  primaryKey({ columns: [table.planId, table.mainLessonId] }),
 ]);
 
 export const blacklist = pgTable("blacklist", {
@@ -109,19 +122,28 @@ export const insertMainLessonSchema = createInsertSchema(mainLessons).omit({
 
 export const updateMainLessonSchema = insertMainLessonSchema.partial()
 
+// Subscription schema
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+})
+
+export const updateSubscriptionSchema = insertSubscriptionSchema.partial()
+
+// Subscription Plan schema
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+})
+
+export const updateSubscriptionPlanSchema = insertSubscriptionPlanSchema.partial()
+
 // Blacklist schema
 export const insertBlacklistSchema = createInsertSchema(blacklist).omit({
   createdAt: true
 });
-
-// Purchase History schema
-export const insertPurchaseHistorySchema = createInsertSchema(purchase_history).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true
-});
-
-export const updatePurchaseHistorySchema = insertPurchaseHistorySchema.partial()
 
 // Lesson schema
 export const insertLessonSchema = createInsertSchema(lessons).omit({
@@ -208,19 +230,16 @@ export type ResetPasswordUser = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordUser = z.infer<typeof changePasswordSchema>;
 export type InsertUserWithAuthService = z.infer<typeof insertUserWithAuthServiceSchema>;
 
-//export type MainLesson = typeof mainLessons.$inferSelect
 export type MainLesson = {
   id: number;
   createdAt: Date;
   updatedAt: Date;
   status: string;
   title: string;
-  free: boolean;
-  price: number | null;
   description: string;
   imageCover: string;
-  productId?: string | null;
   imageCoverUrl?: string | null;
+  isFree: boolean;
   order: number;
 }
 export type InsertMainLesson = z.infer<typeof insertMainLessonSchema>
@@ -263,9 +282,15 @@ export type UpdateQuiz = z.infer<typeof updateQuizSchema>;
 
 export type Analytics = typeof analytics.$inferSelect;
 
-export type PurchaseHistory = typeof purchase_history.$inferSelect;
-export type InsertPurchaseHistory = z.infer<typeof insertPurchaseHistorySchema>;
-export type UpdatePurchaseHistory = z.infer<typeof updatePurchaseHistorySchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type UpdateSubscription = z.infer<typeof updateSubscriptionSchema>;
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type UpdateSubscriptionPlan = z.infer<typeof updateSubscriptionPlanSchema>;
+
+export type SubscriptionPlanCourse = typeof subscriptionPlanCourses.$inferSelect;
 
 export type Blacklist = typeof blacklist.$inferSelect
 export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
@@ -310,27 +335,23 @@ export type DashboardStats = {
   totalQuizzes: number;
   totalUsers: number;
   totalActiveUsers: number;
-  totalPurchaseHistoryComplete: number;
-  totalFreeMainLessons: number;
-  totalPremiumMainLessons: number;
+  totalActiveSubscriptions: number;
+  totalTrialSubscriptions: number;
   mainLessonsGrowth: number;
   lessonsGrowth: number;
   quizzesGrowth: number;
   usersGrowth: number;
   activeUsersGrowth: number;
-  purchasesGrowth: number;
-  avgPrice: number;
+  subscriptionsGrowth: number;
 };
 
-// Purchase History type
-export type PurchaseHistoryData = {
-  id: number
-  purchaseId: string
-  email: string
-  mainLessonId: number
-  purchaseDate: string
-  purchaseAmount: number
-  platformType: string | null
-  paymentMethod: string | null
-  paymentStatus: string | null
+// Subscription dashboard row type
+export type SubscriptionData = {
+  id: number;
+  email: string;
+  planName: string;
+  platform: string;
+  status: string;
+  currentPeriodEndsAt: Date;
+  createdAt: Date;
 }

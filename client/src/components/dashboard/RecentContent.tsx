@@ -47,7 +47,7 @@ export default function RecentContent() {
       id: mainLesson.id,
       title: mainLesson.title,
       imageCover: mainLesson.imageCoverUrl,
-      type: `Main lesson • ${mainLesson.free ? "Free" : `${Intl.NumberFormat("en-US", {style: "currency", currency: "USD", }).format((mainLesson.price || 0) / 100)}`}`,
+      type: `Main lesson`,
       icon: null,
       iconMode: null,
       updated: formatDistanceToNow(new Date(mainLesson.updatedAt), { addSuffix: true }),

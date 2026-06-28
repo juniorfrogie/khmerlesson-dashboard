@@ -51,7 +51,7 @@ router.post("/verify-google-id-token", async (req, res) => {
             return res.status(401).json({ success: false, message: "Account is disabled" })
         }
 
-        const { token, refreshToken } = generateTokenPair({ id: user.id, email: user.email })
+        const { token, refreshToken } = generateTokenPair({ id: user.id, email: user.email, role: user.role })
         await userController.updateUserLastLogin(user.id)
 
         const { password, resetToken, registrationType, ...userResponse } = user
