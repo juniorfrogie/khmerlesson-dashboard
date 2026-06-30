@@ -152,3 +152,17 @@ In development, allowed origins include `localhost:3000`, `localhost:5001`, `loc
 - UI components are shadcn/ui in `client/src/components/ui/`; domain components are co-located under `client/src/components/<domain>/`
 - Lesson section content is edited with a Quill v2 rich-text editor (`client/src/components/ui/quill-editor.tsx`); the `ops` field in `sections` stores Quill Delta format
 - Main lesson ordering uses `@dnd-kit` drag-and-drop (`MainLessonsView.tsx`); the `order` column on `main_lessons` is the persisted sort index
+
+## Planned Features
+
+### AI Quiz Generation (not yet built)
+
+After an admin creates/edits a lesson, a "Generate Quiz with AI" button should auto-generate quiz questions using the **Google Gemini API** (free tier, `gemini-1.5-flash` model).
+
+**Environment variable:** `GEMINI_API_KEY` — add to `.env`
+
+**Implementation plan:**
+- Backend: `POST /api/ai/generate-quiz` (admin-only) — accepts `{ lessonId }`, fetches lesson content from DB, sends title + description + sections to Gemini, returns structured questions
+- Questions must match the existing `quizzes.questions` jsonb format: `{ id, question, options: string[], correctAnswer: string }[]`
+- Frontend: "Generate Quiz with AI" button on the lesson edit page — calls the endpoint, pre-populates the quiz creation form with results for admin review/edit before saving
+- New quiz is linked to the lesson via `quizzes.lessonId` FK automatically

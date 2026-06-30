@@ -12,6 +12,7 @@ export class SubscriptionController {
         inArray(subscriptions.status, ["trial", "active"]),
         gt(subscriptions.currentPeriodEndsAt, new Date())
       ))
+      .orderBy(desc(subscriptions.id))
       .limit(1)
     return result ?? null
   }
@@ -37,8 +38,10 @@ export class SubscriptionController {
       .onConflictDoUpdate({
         target: subscriptions.originalTransactionId,
         set: {
-          status: data.status,
+          userId: data.userId,
           planId: data.planId,
+          productId: data.productId,
+          status: data.status,
           currentPeriodEndsAt: data.currentPeriodEndsAt,
           updatedAt: new Date(),
         },

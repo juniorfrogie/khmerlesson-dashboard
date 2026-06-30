@@ -8,14 +8,23 @@ const { NODE_ENV,
     APPLE_ROOT_CA_BASE64,
     APPLE_PRIVATE_KEY_BASE64,
     APP_APPLE_ID } = process.env
-const ENVIRONMENT = NODE_ENV === "development" ? Environment.SANDBOX : Environment.PRODUCTION
+
 const PRIVATE_KEY = Buffer.from(APPLE_PRIVATE_KEY_BASE64 ?? "", "base64").toString("utf-8")
 
-const client = new AppStoreServerAPIClient(PRIVATE_KEY,
+// Two clients — selected at runtime based on the transaction's environment field.
+// TestFlight and sandbox purchases use Environment.SANDBOX; App Store uses Environment.PRODUCTION.
+const productionClient = new AppStoreServerAPIClient(PRIVATE_KEY,
     APPLE_KEY_ID as string,
     BUNDLE_ID as string,
     APPLE_ISSUER_ID as string,
-    ENVIRONMENT
+    Environment.PRODUCTION
+)
+
+const sandboxClient = new AppStoreServerAPIClient(PRIVATE_KEY,
+    APPLE_KEY_ID as string,
+    BUNDLE_ID as string,
+    APPLE_ISSUER_ID as string,
+    Environment.SANDBOX
 )
 
 // Brief in-memory cache of recently verified transaction IDs (5 min TTL).
@@ -84,8 +93,14 @@ export const verifySubscription = async (jws: string): Promise<VerifyResult> => 
         return { ok: true, reason: "Xcode environment — JWS payload accepted without Apple API call", ...successFields }
     }
 
+    // TestFlight and manual sandbox purchases carry environment === "Sandbox".
+    // Route them to the sandbox API; everything else goes to production.
+    const isSandboxTransaction = environment === "Sandbox"
+    const activeClient = isSandboxTransaction ? sandboxClient : productionClient
+    const activeEnvironment = isSandboxTransaction ? Environment.SANDBOX : Environment.PRODUCTION
+
     try {
-        const transactionResponse = await client.getTransactionInfo(transactionId)
+        const transactionResponse = await activeClient.getTransactionInfo(transactionId)
         const signedTransactionInfo = transactionResponse.signedTransactionInfo
         if (!signedTransactionInfo) {
             return { ok: false, reason: "Apple API returned no signedTransactionInfo" }
@@ -95,7 +110,7 @@ export const verifySubscription = async (jws: string): Promise<VerifyResult> => 
         const appleRootCAs = isProduction ? loadRootCAs() : []
         const appAppleId = isProduction ? parseInt(APP_APPLE_ID as string) : undefined
 
-        const verifier = new SignedDataVerifier(appleRootCAs, isProduction, ENVIRONMENT, BUNDLE_ID as string, appAppleId)
+        const verifier = new SignedDataVerifier(appleRootCAs, isProduction, activeEnvironment, BUNDLE_ID as string, appAppleId)
         const transaction = await verifier.verifyAndDecodeTransaction(signedTransactionInfo)
 
         if (transaction.type !== "Auto-Renewable Subscription") {
@@ -115,6 +130,8 @@ export const verifySubscription = async (jws: string): Promise<VerifyResult> => 
             isIntroductoryOffer: transaction.offerType === OfferType.INTRODUCTORY_OFFER,
         }
     } catch (err: any) {
-        return { ok: false, reason: `Apple API error: ${err?.message ?? err}` }
+        const detail = err?.errorMessage ?? err?.message ?? JSON.stringify(err, Object.getOwnPropertyNames(err))
+        console.error("[IAP] verifySubscription error:", { httpStatusCode: err?.httpStatusCode, apiError: err?.apiError, detail })
+        return { ok: false, reason: `Apple API error: ${detail} (http=${err?.httpStatusCode ?? "?"} apiError=${err?.apiError ?? "?"})` }
     }
 }

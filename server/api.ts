@@ -375,7 +375,8 @@ router.post("/subscriptions", async (req: any, res: Response) => {
         productId: payload.productId as string,
         originalTransactionId: (payload.originalTransactionId ?? payload.transactionId) as string,
         transactionId: payload.transactionId as string,
-        expiresDate: payload.expiresDate ? new Date(payload.expiresDate as number) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        // Apple Sandbox subscriptions expire in minutes/hours — always use 1 year in dev
+        expiresDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         isIntroductoryOffer: (payload as any).offerType === 1,
       };
     } else {
