@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar, primaryKey, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -112,6 +112,25 @@ export const blacklist = pgTable("blacklist", {
   expiredAt: timestamp("expired_at").notNull()
 });
 
+// Debug logs — end-to-end trace log, keyed by the same id carried in the
+// X-Correlation-ID header (see server/auth/middleware/correlation.ts and
+// khmerlesson-app/src/shared/utils/logger.ts). One row per log line, from
+// either the server or a mobile client, so a single traceId can be queried
+// to reconstruct what happened across both sides of a request.
+export const debugLogs = pgTable("debug_logs", {
+  id: serial("id").primaryKey(),
+  traceId: varchar("trace_id", { length: 100 }).notNull(),
+  source: varchar("source", { length: 20 }).notNull(), // "server" | "mobile"
+  level: varchar("level", { length: 10 }).notNull().default("info"), // "debug" | "info" | "warn" | "error"
+  message: text("message").notNull(),
+  context: jsonb("context"), // arbitrary metadata: path, platform, appVersion, userId, stack, etc.
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("debug_logs_trace_id_idx").on(table.traceId),
+  index("debug_logs_created_at_idx").on(table.createdAt),
+]);
+
 // Main Lesson schema
 export const insertMainLessonSchema = createInsertSchema(mainLessons).omit({
   id: true,
@@ -143,6 +162,16 @@ export const updateSubscriptionPlanSchema = insertSubscriptionPlanSchema.partial
 // Blacklist schema
 export const insertBlacklistSchema = createInsertSchema(blacklist).omit({
   createdAt: true
+});
+
+// Debug log schema — validates batches posted by the mobile client
+export const insertDebugLogSchema = createInsertSchema(debugLogs).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+}).extend({
+  source: z.enum(["server", "mobile"]),
+  level: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
 // Lesson schema
@@ -294,6 +323,9 @@ export type SubscriptionPlanCourse = typeof subscriptionPlanCourses.$inferSelect
 
 export type Blacklist = typeof blacklist.$inferSelect
 export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
+
+export type DebugLog = typeof debugLogs.$inferSelect
+export type InsertDebugLog = z.infer<typeof insertDebugLogSchema>
 
 // Lesson
 // export type LessonData = {

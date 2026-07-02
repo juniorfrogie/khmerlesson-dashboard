@@ -1,6 +1,6 @@
 import { useUser } from "@/contexts/user-context";
 import { ActiveView } from "@/pages/dashboard";
-import { GraduationCap, BarChart3, BookOpen, HelpCircle, BookType, Library, Users, CreditCard, Package } from "lucide-react";
+import { GraduationCap, BarChart3, BookOpen, HelpCircle, BookType, Library, Users, CreditCard, Package, Bug } from "lucide-react";
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -16,6 +16,7 @@ const navigation = [
   { key: "users" as ActiveView, label: "Users", icon: Users },
   { key: "subscriptions" as ActiveView, label: "Subscriptions", icon: CreditCard },
   { key: "subscription_plans" as ActiveView, label: "Subscription Plans", icon: Package },
+  { key: "debug_logs" as ActiveView, label: "Debug Logs", icon: Bug },
   // { key: "analytics" as ActiveView, label: "Analytics", icon: BarChart },
   // { key: "import-export" as ActiveView, label: "Import/Export", icon: Download },
   // { key: "api-settings" as ActiveView, label: "API Settings", icon: Code },

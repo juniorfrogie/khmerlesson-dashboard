@@ -22,6 +22,7 @@ import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "server/storage";
 import { setToken } from "server/auth/token/token-service";
+import { traceLogger } from "server/utils/trace-logger";
 
 // Extend Express Request so TypeScript knows about req.user and req.correlationId
 declare global {
@@ -42,6 +43,11 @@ const SEMI_PUBLIC_PREFIXES = [
   "/api/v1/stats",
   "/api/v1/search",
   "/api/v1/subscription-plans",
+  // Debug log flushes must work for guests/logged-out users too — a hard
+  // auth requirement here would silently drop every bug report from anyone
+  // who isn't currently signed in. req.user is still attached when a valid
+  // token IS present, so authenticated flushes still get tagged with userId.
+  "/api/v1/debug-logs",
 ];
 
 function isSemiPublic(url: string): boolean {
@@ -87,6 +93,7 @@ export const authenticateToken = async (
       next();
       return;
     }
+    traceLogger.warn(correlationId, "No token or refresh token presented", { path: req.path });
     res
       .status(401)
       .json({ message: "You are not logged in. Please log in to get access." });
@@ -99,9 +106,7 @@ export const authenticateToken = async (
     // Mobile clients should use POST /api/auth/refresh-token explicitly.
     const isCookieBased = !!(req as any).cookies?.refreshToken;
     if (!isCookieBased) {
-      console.warn(
-        `[AUTH][${correlationId}] Mobile client missing access token — tell client to refresh`
-      );
+      traceLogger.warn(correlationId, "Mobile client missing access token — tell client to refresh", { path: req.path });
       res.status(401).json({
         message: "Access token expired. Please refresh your token.",
         code: "TOKEN_EXPIRED",
@@ -116,15 +121,10 @@ export const authenticateToken = async (
       ) as { id: number; email: string; [key: string]: any };
       await setToken(res, { id: decoded.id, email: decoded.email, role: decoded.role });
       req.user = decoded;
-      console.log(
-        `[AUTH][${correlationId}] Auto-refreshed token for user.id=${decoded.id}`
-      );
+      traceLogger.info(correlationId, "Auto-refreshed token", { path: req.path }, decoded.id);
       next();
     } catch (err) {
-      console.error(
-        `[AUTH][${correlationId}] Refresh token invalid:`,
-        (err as Error).message
-      );
+      traceLogger.error(correlationId, "Refresh token invalid", { path: req.path, error: (err as Error).message });
       res.status(403).json({ message: "Session expired. Please log in again." });
     }
     return;
@@ -135,9 +135,7 @@ export const authenticateToken = async (
     try {
       const isBlacklisted = await storage.getBlacklist(token);
       if (isBlacklisted) {
-        console.warn(
-          `[AUTH][${correlationId}] Blacklisted token presented — rejecting`
-        );
+        traceLogger.warn(correlationId, "Blacklisted token presented — rejecting", { path: req.path });
         res.status(401).json({
           message: "Token is no longer valid. Please log in again.",
           code: "TOKEN_REVOKED",
@@ -146,10 +144,7 @@ export const authenticateToken = async (
       }
     } catch (err) {
       // Storage error should not block the request in semi-public routes
-      console.error(
-        `[AUTH][${correlationId}] Blacklist check error:`,
-        (err as Error).message
-      );
+      traceLogger.error(correlationId, "Blacklist check error", { path: req.path, error: (err as Error).message });
     }
   }
 
@@ -175,15 +170,10 @@ export const authenticateToken = async (
         ) as { id: number; email: string; [key: string]: any };
         await setToken(res, { id: decoded.id, email: decoded.email, role: decoded.role });
         req.user = decoded;
-        console.log(
-          `[AUTH][${correlationId}] Access token expired — auto-refreshed for user.id=${decoded.id}`
-        );
+        traceLogger.info(correlationId, "Access token expired — auto-refreshed", { path: req.path }, decoded.id);
         next();
       } catch (refreshErr) {
-        console.error(
-          `[AUTH][${correlationId}] Both tokens invalid:`,
-          (refreshErr as Error).message
-        );
+        traceLogger.error(correlationId, "Both tokens invalid", { path: req.path, error: (refreshErr as Error).message });
         res
           .status(403)
           .json({ message: "Session expired. Please log in again." });
@@ -192,10 +182,7 @@ export const authenticateToken = async (
     }
 
     // Mobile client — report expired token so client can call refresh endpoint
-    console.warn(
-      `[AUTH][${correlationId}] Access token invalid:`,
-      (tokenErr as Error).message
-    );
+    traceLogger.warn(correlationId, "Access token invalid", { path: req.path, error: (tokenErr as Error).message });
     if (isSemiPublic(req.originalUrl)) {
       // Still allow public access — just without a user
       console.log(

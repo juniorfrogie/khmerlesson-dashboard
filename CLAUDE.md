@@ -70,6 +70,7 @@ Key tables and their status enums:
 - `subscription_plans` — admin-managed plan definitions; `planLevel: integer` (unique 1–5), `price` in cents, `productIdIos`, `productIdAndroid`, `isActive: boolean`
 - `analytics` — tracks per-lesson/quiz `completions` and `averageScore`; populated via `DatabaseStorage` in `server/storage.ts`
 - `blacklist` — JWT blacklist with `expiredAt`; purged every 10 minutes by node-cron
+- `debug_logs` — end-to-end trace log, `traceId` (matches the `X-Correlation-ID` header set by `correlationMiddleware`), `source: "server" | "mobile"`, `level: "debug" | "info" | "warn" | "error"`; written server-side via `server/utils/trace-logger.ts` and by the mobile app via `POST /api/v1/debug-logs` (`khmerlesson-app/src/shared/utils/logger.ts`) — query by `traceId` to reconstruct one request across both sides
 
 ### Auth
 
@@ -130,6 +131,7 @@ Access control logic: `subscription.planLevel >= course.requiredPlanLevel && sta
 - `GET /api/tts?q=<text>` — proxies Google Translate TTS (`translate.google.com`) for Khmer audio playback; unauthenticated
 - `GET /privacy-policy` — serves `attached_assets/khmer-privacy-policy.html`
 - `POST /api/auth/verify-apple-id-token` — Apple Sign-In entry point for the mobile app
+- `POST /api/v1/debug-logs` — mobile client flushes buffered `logger.ts` entries here; each entry is validated (`insertDebugLogSchema`) and persisted via `traceLogger`; capped at 50 entries per batch, best-effort (never surfaces an error to the app)
 
 ### File uploads
 

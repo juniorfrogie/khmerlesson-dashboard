@@ -50,6 +50,10 @@ const pageConfig = {
     title: "Subscription Plans",
     subtitle: "Configure plan offers and pricing",
   },
+  debug_logs: {
+    title: "Debug Logs",
+    subtitle: "Trace requests across the server and mobile app by trace ID",
+  },
   analytics: {
     title: "Analytics",
     subtitle: "View performance metrics",

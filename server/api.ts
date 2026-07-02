@@ -4,9 +4,11 @@ import { verifySubscription, decodeJWSPayload, markVerified, isTransactionVerifi
 import { UserController } from "./features/users/controller/controller";
 import { MainLessonController } from "./features/main-lessons/controller/controller";
 import { LessonController } from "./features/lessons/controller/controller";
-import { SubscriptionController } from "./features/subscriptions/controller/controller";
+import { SubscriptionController, SubscriptionOwnedByOtherAccountError } from "./features/subscriptions/controller/controller";
 import { SubscriptionPlanController } from "./features/subscription-plans/controller/controller";
 import { QuizController } from "./features/quizzes/controller/controller";
+import { insertDebugLogSchema } from "@shared/schema";
+import { traceLogger } from "./utils/trace-logger";
 
 const router = Router();
 const userController = new UserController();
@@ -29,6 +31,18 @@ const ok = (data: unknown, total?: number) => ({
 });
 
 const fail = (message: string) => ({ success: false, error: message });
+
+// Persists a route-handler error to debug_logs, tagged with the request's
+// correlationId (see correlationMiddleware) so it can be looked up alongside
+// any mobile-side logs for the same request.
+function logRouteError(req: Request, error: unknown, message: string) {
+  traceLogger.error(
+    req.correlationId ?? "no-corr-id",
+    message,
+    { path: req.path, error: error instanceof Error ? error.message : String(error) },
+    (req as any).user?.id
+  );
+}
 
 // When API_KEY env var is set, unauthenticated requests to /api/v1 require X-API-Key.
 // Requests with a valid JWT (req.user set by authenticateToken) are exempt —
@@ -71,7 +85,7 @@ router.get("/main-lessons", async (req: any, res: Response) => {
 
     res.json(ok(data, data.length));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch main lessons');
     res.status(500).json(fail('Failed to fetch main lessons'));
   }
 });
@@ -94,7 +108,7 @@ router.get("/lessons/level/:level", async (req: Request, res: Response) => {
     }));
     res.json(ok(mapped, mapped.length));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch lessons by level');
     res.status(500).json(fail('Failed to fetch lessons by level'));
   }
 });
@@ -125,7 +139,7 @@ router.get("/main-lessons/:id/lessons", async (req: any, res: Response) => {
     const lessons = await mainLessonController.getAllLessonsByMainLesson(id);
     res.json(ok(lessons, lessons.length));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch lessons');
     res.status(500).json(fail('Failed to fetch lessons'));
   }
 });
@@ -188,14 +202,14 @@ router.get("/lessons/:id", async (req: any, res: Response) => {
       updatedAt: lesson.updatedAt
     }));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch lesson');
     res.status(500).json(fail('Failed to fetch lesson'));
   }
 });
 
 // ===== QUIZZES API =====
 
-router.get("/quizzes", async (_req: Request, res: Response) => {
+router.get("/quizzes", async (req: Request, res: Response) => {
   try {
     const quizzes = await quizController.getQuizzes();
     const activeQuizzes = quizzes
@@ -210,13 +224,13 @@ router.get("/quizzes", async (_req: Request, res: Response) => {
       }));
     res.json(ok(activeQuizzes, activeQuizzes.length));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch quizzes');
     res.status(500).json(fail('Failed to fetch quizzes'));
   }
 });
 
 // /quizzes/all and /quizzes/lesson/:lessonId must be declared before /quizzes/:id to avoid route shadowing
-router.get("/quizzes/all", async (_req: Request, res: Response) => {
+router.get("/quizzes/all", async (req: Request, res: Response) => {
   try {
     const quizzes = await quizController.getQuizzes();
     const mapped = quizzes
@@ -232,7 +246,7 @@ router.get("/quizzes/all", async (_req: Request, res: Response) => {
       }));
     res.json(ok(mapped, mapped.length));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch quizzes');
     res.status(500).json(fail('Failed to fetch quizzes'));
   }
 });
@@ -255,7 +269,7 @@ router.get("/quizzes/lesson/:lessonId", async (req: Request, res: Response) => {
     }));
     res.json(ok(mapped, mapped.length));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch quizzes for lesson');
     res.status(500).json(fail('Failed to fetch quizzes for lesson'));
   }
 });
@@ -282,7 +296,7 @@ router.get("/quizzes/:id", async (req: Request, res: Response) => {
       updatedAt: quiz.updatedAt
     }));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch quiz');
     res.status(500).json(fail('Failed to fetch quiz'));
   }
 });
@@ -330,19 +344,19 @@ router.post("/quizzes/:id/submit", async (req: Request, res: Response) => {
       results
     }));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to submit quiz');
     res.status(500).json(fail('Failed to submit quiz'));
   }
 });
 
 // ===== SUBSCRIPTION PLANS API (public — mobile needs these to display offers) =====
 
-router.get("/subscription-plans", async (_req: Request, res: Response) => {
+router.get("/subscription-plans", async (req: Request, res: Response) => {
   try {
     const plans = await subscriptionPlanController.getActivePlans();
     res.json(ok(plans, plans.length));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch subscription plans');
     res.status(500).json(fail('Failed to fetch subscription plans'));
   }
 });
@@ -350,13 +364,20 @@ router.get("/subscription-plans", async (_req: Request, res: Response) => {
 // ===== SUBSCRIPTIONS API =====
 
 router.post("/subscriptions", async (req: any, res: Response) => {
+  const correlationId = req.correlationId ?? "no-corr-id";
   try {
     if (!req.user) {
+      traceLogger.warn(correlationId, "Subscription registration: no authenticated user");
       return res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
     }
 
-    const { jws } = req.body;
+    // claim=true only for an explicit purchase/restore by the user — allows
+    // moving a transaction chain from another app account to this one.
+    // Passive syncs (reconcile on screen open) must send claim=false so a
+    // fresh login can never silently inherit the device Apple ID's subscription.
+    const { jws, claim } = req.body;
     if (!jws) {
+      traceLogger.warn(correlationId, "Subscription registration: jws missing from request body", undefined, req.user.id);
       return res.status(400).json(fail("jws is required"));
     }
 
@@ -367,6 +388,7 @@ router.post("/subscriptions", async (req: any, res: Response) => {
       // In dev, decode without Apple verification — allows testing without StoreKit
       const payload = decodeJWSPayload(jws);
       if (!payload) {
+        traceLogger.warn(correlationId, "Subscription registration: JWS could not be decoded (dev mode)", undefined, req.user.id);
         return res.status(400).json(fail("Invalid JWS — could not decode"));
       }
       verifyResult = {
@@ -379,6 +401,7 @@ router.post("/subscriptions", async (req: any, res: Response) => {
         expiresDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         isIntroductoryOffer: (payload as any).offerType === 1,
       };
+      traceLogger.info(correlationId, "Subscription registration: dev-mode JWS decoded", { productId: verifyResult.productId }, req.user.id);
     } else {
       const payload = decodeJWSPayload(jws);
       const transactionId = payload?.transactionId as string | undefined;
@@ -392,11 +415,15 @@ router.post("/subscriptions", async (req: any, res: Response) => {
           expiresDate: payload!.expiresDate ? new Date(payload!.expiresDate as number) : undefined,
           isIntroductoryOffer: (payload as any)?.offerType === 1,
         };
+        traceLogger.info(correlationId, "Subscription registration: using cached verification", { productId: verifyResult.productId, transactionId }, req.user.id);
       } else {
+        traceLogger.info(correlationId, "Subscription registration: calling Apple verifySubscription", { transactionId }, req.user.id);
         verifyResult = await verifySubscription(jws);
         if (!verifyResult.ok) {
+          traceLogger.warn(correlationId, "Subscription registration: Apple verification failed", { reason: verifyResult.reason, transactionId }, req.user.id);
           return res.status(400).json({ success: false, message: "Subscription verification failed.", reason: verifyResult.reason });
         }
+        traceLogger.info(correlationId, "Subscription registration: Apple verification passed", { productId: verifyResult.productId, transactionId: verifyResult.transactionId }, req.user.id);
         if (verifyResult.transactionId) markVerified(verifyResult.transactionId);
       }
     }
@@ -407,6 +434,7 @@ router.post("/subscriptions", async (req: any, res: Response) => {
       : undefined;
 
     if (!plan) {
+      traceLogger.warn(correlationId, "Subscription registration: unknown productId — no matching plan row", { productId: verifyResult.productId }, req.user.id);
       return res.status(400).json(fail(`Unknown productId: ${verifyResult.productId}`));
     }
 
@@ -421,11 +449,17 @@ router.post("/subscriptions", async (req: any, res: Response) => {
       originalTransactionId: verifyResult.originalTransactionId!,
       status,
       currentPeriodEndsAt,
-    });
+    }, { allowTransfer: claim === true });
+
+    traceLogger.info(correlationId, "Subscription registration: upsert succeeded", { subscriptionId: subscription.id, planId: plan.id, status, claim: claim === true }, req.user.id);
 
     res.status(201).json(ok(subscription));
   } catch (error: any) {
-    console.error("[SUBSCRIPTION:ERROR]", error?.message ?? error);
+    if (error instanceof SubscriptionOwnedByOtherAccountError) {
+      traceLogger.warn(correlationId, "Subscription registration: transaction chain belongs to another account — not transferring", undefined, req.user?.id);
+      return res.status(409).json({ success: false, error: error.message, code: "SUBSCRIPTION_OWNED_BY_OTHER_ACCOUNT" });
+    }
+    logRouteError(req, error, 'Failed to process subscription');
     res.status(500).json(fail("Failed to process subscription"));
   }
 });
@@ -438,14 +472,35 @@ router.get("/subscriptions/me", async (req: any, res: Response) => {
     const sub = await subscriptionController.getActiveSubscription(req.user.id);
     res.json(ok(sub));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch subscription');
     res.status(500).json(fail('Failed to fetch subscription'));
   }
 });
 
 // ===== GENERAL API =====
 
-router.get("/stats", async (_req: Request, res: Response) => {
+const MAX_DEBUG_LOG_BATCH = 50;
+
+// Mobile client flushes its buffered logger.ts entries here so a bug report's
+// traceId can be looked up in `debug_logs` alongside server-side rows for the
+// same requests. Best-effort: never let a broken log payload surface an error
+// to the app, since logging must not itself become a source of crashes.
+router.post("/debug-logs", async (req: any, res: Response) => {
+  const entries = Array.isArray(req.body?.logs) ? req.body.logs.slice(0, MAX_DEBUG_LOG_BATCH) : [];
+
+  await Promise.all(
+    entries.map((entry: unknown) => {
+      const parsed = insertDebugLogSchema.safeParse({ ...(entry as object), source: "mobile" });
+      if (!parsed.success) return Promise.resolve();
+      const { traceId, level, message, context } = parsed.data;
+      return traceLogger[level](traceId, message, context as Record<string, unknown> | undefined, req.user?.id, "mobile");
+    })
+  );
+
+  res.json(ok({ received: entries.length }));
+});
+
+router.get("/stats", async (req: Request, res: Response) => {
   try {
     const stats = await storage.getDashboardStats();
     res.json(ok({
@@ -455,7 +510,7 @@ router.get("/stats", async (_req: Request, res: Response) => {
       totalTrialSubscriptions: stats.totalTrialSubscriptions,
     }));
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to fetch statistics');
     res.status(500).json(fail('Failed to fetch statistics'));
   }
 });
@@ -509,7 +564,7 @@ router.get("/search", async (req: Request, res: Response) => {
 
     res.json({ ...ok(results, results.length), query: q });
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Search failed');
     res.status(500).json(fail('Search failed'));
   }
 });
@@ -524,7 +579,7 @@ router.get("/me", async (req: any, res: Response) => {
     const { password, resetToken, registrationType, ...safeUser } = user;
     return res.status(200).json(safeUser);
   } catch (error) {
-    console.error(error);
+    logRouteError(req, error, 'Failed to get me');
     res.status(500).json({ message: "Failed to get me." });
   }
 });

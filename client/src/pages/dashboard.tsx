@@ -13,6 +13,7 @@ import LessonTypeView from "@/components/lesson_type/LessonTypeView";
 import MainLessonsView from "@/components/main_lessons/MainLessonsView";
 import SubscriptionsView from "@/components/subscriptions/SubscriptionsView";
 import SubscriptionPlansView from "@/components/subscription_plans/SubscriptionPlansView";
+import DebugLogsView from "@/components/debug_logs/DebugLogsView";
 
 export type ActiveView =
   | "dashboard"
@@ -23,6 +24,7 @@ export type ActiveView =
   | "users"
   | "subscriptions"
   | "subscription_plans"
+  | "debug_logs"
   | "analytics"
   | "import-export"
   | "api-settings";
@@ -89,6 +91,8 @@ export default function Dashboard() {
         return <SubscriptionsView />;
       case "subscription_plans":
         return <SubscriptionPlansView />;
+      case "debug_logs":
+        return <DebugLogsView />;
       case "analytics":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

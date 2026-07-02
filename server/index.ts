@@ -10,6 +10,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { correlationMiddleware } from "./auth/middleware/correlation";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { db } from "./db";
+import { traceLogger } from "./utils/trace-logger";
 
 const app = express();
 
@@ -57,9 +58,16 @@ app.use((req, res, next) => {
   // Register API routes BEFORE setting up Vite to ensure they take precedence
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+
+    traceLogger.error(
+      (req as any).correlationId ?? "no-corr-id",
+      message,
+      { path: req.path, method: req.method, status, stack: err.stack },
+      (req as any).user?.id
+    );
 
     res.status(status).json({ message });
     throw err;

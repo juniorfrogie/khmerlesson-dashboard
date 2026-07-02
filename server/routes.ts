@@ -13,6 +13,7 @@ import subscriptionRoutes from "./features/subscriptions/route/route"
 import subscriptionPlanRoutes from "./features/subscription-plans/route/route"
 import exportRoutes from "./features/export/route/route"
 import importRoutes from "./features/import/route/route"
+import debugLogRoutes from "./features/debug-logs/route/route"
 import fileUploadRoute from "./file-upload/file_upload"
 import { JwtPayload } from "jsonwebtoken";
 import cors from "cors";
@@ -122,6 +123,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   //** Import CRUD Router */
   app.use("/api/import", authenticateToken, importRoutes)
+
+  //** Debug Logs Router (admin-only, read-only) */
+  app.use("/api/debug-logs", authenticateToken, debugLogRoutes)
 
   // Dashboard stats
   app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
