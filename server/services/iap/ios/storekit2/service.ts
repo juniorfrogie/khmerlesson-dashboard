@@ -130,8 +130,25 @@ export const verifySubscription = async (jws: string): Promise<VerifyResult> => 
             isIntroductoryOffer: transaction.offerType === OfferType.INTRODUCTORY_OFFER,
         }
     } catch (err: any) {
-        const detail = err?.errorMessage ?? err?.message ?? JSON.stringify(err, Object.getOwnPropertyNames(err))
-        console.error("[IAP] verifySubscription error:", { httpStatusCode: err?.httpStatusCode, apiError: err?.apiError, detail })
+        // Use || not ?? — the SDK's APIException sets `message` to "" (not
+        // undefined) when Apple's response carries no errorCode, so ?? would
+        // never reach the JSON.stringify fallback and we'd log nothing useful.
+        const detail = err?.errorMessage || err?.message || JSON.stringify(err, Object.getOwnPropertyNames(err))
+        // A bare httpStatusCode with no apiError/errorMessage means Apple rejected
+        // the request at the JWT-auth layer before its business logic ever ran —
+        // i.e. the signing key/issuer/kid combination itself, not a bad transaction.
+        // Log which credentials were used (safe identifiers only, never the key) so
+        // a mismatch is visible immediately instead of requiring env var cross-checks.
+        console.error("[IAP] verifySubscription error:", {
+            httpStatusCode: err?.httpStatusCode,
+            apiError: err?.apiError,
+            errorName: err?.name ?? err?.constructor?.name,
+            detail,
+            usedKeyId: APPLE_KEY_ID,
+            usedIssuerId: APPLE_ISSUER_ID,
+            usedBundleId: BUNDLE_ID,
+            environment: activeEnvironment,
+        })
         return { ok: false, reason: `Apple API error: ${detail} (http=${err?.httpStatusCode ?? "?"} apiError=${err?.apiError ?? "?"})` }
     }
 }

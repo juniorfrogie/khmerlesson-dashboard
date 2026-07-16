@@ -45,9 +45,9 @@ router.post("/register-auth-service", async (req, res) => {
 
       const existingUser = await controller.getUserByEmail(userData.email);
       if (existingUser) {
-        if(existingUser.registrationType === "authenication"){
-          return res.status(409).json({ message: "User already exists with this email" });
-        }
+        // Google/Apple already verify the email before handing us the token, so it's
+        // safe to log into any existing account on email match — same behavior as
+        // the Apple verify-apple-id-token route (server/routes.ts) already uses.
         const { password, resetToken, registrationType, ...userResponse } = existingUser;
         const { token, refreshToken } = generateTokenPair({ id: userResponse.id, email: userResponse.email, role: userResponse.role })
         return res.status(200).json({

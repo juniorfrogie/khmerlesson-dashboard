@@ -52,6 +52,7 @@ In development, the Express server hosts Vite as middleware (`server/vite.ts:set
 |---|---|
 | `@/*` | `client/src/*` |
 | `@shared/*` | `shared/*` |
+| `@assets/*` | `attached_assets/*` |
 
 ### Database
 
@@ -61,16 +62,17 @@ In development, the Express server hosts Vite as middleware (`server/vite.ts:set
 - `server/storage.ts` contains a thin `DatabaseStorage` class used only for dashboard analytics and the JWT blacklist — all other DB access goes directly through the feature controllers
 
 Key tables and their status enums:
-- `main_lessons` — `status: "draft" | "published" | "coming_soon"`, `requiredPlanLevel: integer` (1–5, minimum subscription plan to access), `order: integer` (drag-and-drop display order)
+- `main_lessons` — `status: "draft" | "published" | "coming_soon"`, `isFree: boolean` (free courses bypass subscription checks entirely), `order: integer` (drag-and-drop display order)
 - `lessons` — `status: "draft" | "published"`, `level: "Beginner" | "Intermediate" | "Advanced"`, `sections: jsonb` (array of `{title, content, html, ops}` where `ops` is a Quill Delta)
 - `lesson_type` — `icon: text`, `iconMode: "raw" | "file"` (raw = inline SVG/emoji, file = uploaded asset)
 - `quizzes` — `status: "draft" | "active"`, `questions: jsonb`, optionally linked to a lesson
 - `users` — `role: "admin" | "teacher" | "student"`, `registrationType: "authenication" | "google_service" | "apple_service"` (**note**: `"authenication"` is a typo baked into the DB default — do not correct it without a migration)
-- `subscriptions` — user subscription records; `status: "trial" | "active" | "expired" | "cancelled"`, `planLevel: integer`, `platform: "ios" | "android"`, `originalTransactionId` (unique), `currentPeriodEndsAt`
-- `subscription_plans` — admin-managed plan definitions; `planLevel: integer` (unique 1–5), `price` in cents, `productIdIos`, `productIdAndroid`, `isActive: boolean`
+- `subscriptions` — user subscription records; `status: "trial" | "active" | "expired" | "cancelled"`, `planId` (FK to `subscription_plans.id`), `platform: "ios" | "android"`, `originalTransactionId` (unique), `currentPeriodEndsAt`
+- `subscription_plans` — admin-managed plan definitions; `price` in cents, `productIdIos`, `productIdAndroid`, `isActive: boolean`. No numeric tier level — which courses a plan unlocks is defined explicitly via `subscription_plan_courses`
+- `subscription_plan_courses` — join table (`planId`, `mainLessonId` composite PK) mapping each plan to the specific courses it grants access to; this is a per-course entitlement model, not a tiered comparison
 - `analytics` — tracks per-lesson/quiz `completions` and `averageScore`; populated via `DatabaseStorage` in `server/storage.ts`
 - `blacklist` — JWT blacklist with `expiredAt`; purged every 10 minutes by node-cron
-- `debug_logs` — end-to-end trace log, `traceId` (matches the `X-Correlation-ID` header set by `correlationMiddleware`), `source: "server" | "mobile"`, `level: "debug" | "info" | "warn" | "error"`; written server-side via `server/utils/trace-logger.ts` and by the mobile app via `POST /api/v1/debug-logs` (`khmerlesson-app/src/shared/utils/logger.ts`) — query by `traceId` to reconstruct one request across both sides
+- `debug_logs` — end-to-end trace log, `traceId` (matches the `X-Correlation-ID` header set by `correlationMiddleware`), `source: "server" | "mobile"`, `level: "debug" | "info" | "warn" | "error"`; written server-side via `server/utils/trace-logger.ts` and by the mobile app via `POST /api/v1/debug-logs` (`khmerlesson-app/src/shared/utils/logger.ts`) — query by `traceId` to reconstruct one request across both sides. Queried from the dashboard side via the admin-only `debug-logs` feature module (see below)
 
 ### Auth
 
@@ -93,9 +95,9 @@ server/features/<domain>/
 
 Feature routes are mounted in `server/routes.ts` and all require `authenticateToken`.
 
-Current features: `main-lessons`, `lessons`, `lesson-types`, `quizzes`, `users`, `subscriptions`, `subscription-plans`, `export`, `import`.
+Current features: `main-lessons`, `lessons`, `lesson-types`, `quizzes`, `users`, `subscriptions`, `subscription-plans`, `export`, `import`, `debug-logs`.
 
-The `export` feature streams lessons/quizzes as downloadable JSON (`GET /api/export/lessons`, `GET /api/export/quizzes`). The `import` feature validates against Zod insert schemas before bulk-inserting (`POST /api/import/lessons`, `POST /api/import/quizzes`).
+The `export` feature streams lessons/quizzes as downloadable JSON (`GET /api/export/lessons`, `GET /api/export/quizzes`). The `import` feature validates against Zod insert schemas before bulk-inserting (`POST /api/import/lessons`, `POST /api/import/quizzes`). The `debug-logs` feature exposes an admin-only `GET /api/debug-logs` for querying the `debug_logs` table (filterable by `traceId`/`level`/`source`, paginated via `limit`/`offset`) — distinct from the mobile-facing `POST /api/v1/debug-logs` ingestion endpoint below.
 
 ### Mobile API (`/api/v1`)
 
@@ -105,18 +107,26 @@ Response envelope: `{ success: true, data, total? }` (success) or `{ success: fa
 
 Optional `authenticateAPI` middleware within this router validates `X-API-Key` header or `?api_key=` when `API_KEY` env var is set.
 
-Key endpoints:
-- `GET /api/v1/main-lessons` — lists published + coming_soon courses; each entry includes `hasAccess` (based on user's active subscription vs `requiredPlanLevel`) and `comingSoon`
-- `GET /api/v1/main-lessons/:id/lessons` — 401 if unauthenticated; 403 if subscription level insufficient or course is coming_soon
-- `GET /api/v1/lessons/:id` — same subscription gate
+Key endpoints (routes with a path-param sibling, e.g. `/quizzes/all` vs `/quizzes/:id`, are declared in the order below specifically to avoid Express shadowing — preserve that order if adding new routes):
+- `GET /api/v1/main-lessons` — lists published + coming_soon courses; each entry includes `hasAccess` and `comingSoon`
+- `GET /api/v1/lessons/level/:level` — declared before `/lessons/:id`
+- `GET /api/v1/main-lessons/:id/lessons` — 401 if unauthenticated and course not free; 403 if course is coming_soon or user lacks access
+- `GET /api/v1/lessons/:id` — same subscription gate as the parent main lesson
+- `GET /api/v1/quizzes` — active quizzes, metadata only (no `questions`)
+- `GET /api/v1/quizzes/all` — declared before `/quizzes/:id`; same as above but includes `questions`
+- `GET /api/v1/quizzes/lesson/:lessonId` — declared before `/quizzes/:id`
+- `GET /api/v1/quizzes/:id`
+- `POST /api/v1/quizzes/:id/submit` — grades submitted answers, returns per-question results + `passed`
 - `GET /api/v1/subscription-plans` — public; lists active plans for the paywall UI
-- `POST /api/v1/subscriptions` — verifies Apple StoreKit 2 JWS, upserts subscription record; in dev mode JWS verification is skipped
+- `POST /api/v1/subscriptions` — verifies Apple StoreKit 2 JWS, upserts subscription record; in dev mode JWS verification is skipped; `claim` flag controls cross-account transfer, throws `SubscriptionOwnedByOtherAccountError` (→ 409) otherwise
 - `GET /api/v1/subscriptions/me` — returns user's active/trial subscription or null
-- `GET /api/v1/quizzes`, `GET /api/v1/quizzes/:id`, `GET /api/v1/quizzes/lesson/:lessonId`
+- `GET /api/v1/stats` — public dashboard-lite counts (lessons/quizzes/active+trial subscriptions)
+- `GET /api/v1/search?q=&type=` — case-insensitive substring search over lesson/quiz title+description
+- `GET /api/v1/me` — mobile equivalent of `/api/me`, strips `password`/`resetToken`/`registrationType`
 
 Quiz passing grade is 70% (`PASSING_GRADE_PERCENT` in `server/api.ts`).
 
-Access control logic: `subscription.planLevel >= course.requiredPlanLevel && status IN ('trial','active') && currentPeriodEndsAt > now`.
+**Access control is per-course entitlement, not a numeric tier comparison.** `hasAccessToCourse(userId, mainLessonId)` (`server/features/subscriptions/controller/controller.ts`) looks up the user's active subscription (`status IN ('trial','active') && currentPeriodEndsAt > now`, most recent by `id`), then checks for a matching `(planId, mainLessonId)` row in `subscription_plan_courses`. If no active subscription, or no matching row, access is denied. The `isFree` short-circuit on `main_lessons` happens one layer above, in `server/api.ts` — `hasAccessToCourse` is only ever invoked for non-free courses.
 
 ### Server services
 
