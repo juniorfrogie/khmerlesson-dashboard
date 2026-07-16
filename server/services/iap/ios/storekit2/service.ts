@@ -1,4 +1,5 @@
 import jwt, { JwtPayload } from "jsonwebtoken"
+import fetch from "node-fetch"
 import { AppStoreServerAPIClient, Environment, OfferType, SignedDataVerifier } from "@apple/app-store-server-library"
 
 const { NODE_ENV,
@@ -154,6 +155,40 @@ export const verifySubscription = async (jws: string): Promise<VerifyResult> => 
             usedBundleId: BUNDLE_ID,
             environment: activeEnvironment,
         })
+
+        // Diagnostic-only A/B check: same in-memory key/config this process
+        // already has loaded, but built and sent by hand instead of through
+        // AppStoreServerAPIClient — isolates an SDK-internal bug from anything
+        // about this process/environment (a manual test via a fresh `node`
+        // invocation already succeeded, so this checks the *same live process*).
+        try {
+            const diagnosticToken = jwt.sign({ bid: BUNDLE_ID }, PRIVATE_KEY, {
+                algorithm: "ES256",
+                keyid: APPLE_KEY_ID,
+                issuer: APPLE_ISSUER_ID,
+                audience: "appstoreconnect-v1",
+                expiresIn: "5m",
+            })
+            const baseUrl = isSandboxTransaction
+                ? "https://api.storekit-sandbox.itunes.apple.com"
+                : "https://api.storekit.itunes.apple.com"
+            const rawRes = await fetch(`${baseUrl}/inApps/v1/transactions/${transactionId}?`, {
+                method: "GET",
+                headers: {
+                    "User-Agent": "app-store-server-library/node/2.0.0",
+                    "Authorization": `Bearer ${diagnosticToken}`,
+                    "Accept": "application/json",
+                },
+            })
+            const rawBody = await rawRes.text()
+            console.error("[IAP] diagnostic raw fetch comparison (same live process):", {
+                status: rawRes.status,
+                bodySnippet: rawBody.slice(0, 200),
+            })
+        } catch (diagErr: any) {
+            console.error("[IAP] diagnostic raw fetch itself threw:", diagErr?.message)
+        }
+
         return { ok: false, reason: `Apple API error: ${detail} (http=${err?.httpStatusCode ?? "?"} apiError=${err?.apiError ?? "?"})` }
     }
 }
