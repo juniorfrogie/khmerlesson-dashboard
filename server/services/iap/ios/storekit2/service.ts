@@ -100,6 +100,11 @@ export const verifySubscription = async (jws: string): Promise<VerifyResult> => 
     const activeEnvironment = isSandboxTransaction ? Environment.SANDBOX : Environment.PRODUCTION
 
     try {
+        // A bare 401 with no Apple errorCode happens when the JWT itself is
+        // rejected before business logic runs — clock skew on this container
+        // is one cause a code/config review can't catch, so log server time
+        // alongside every attempt to make it checkable against real UTC.
+        console.log("[IAP] calling getTransactionInfo", { serverTimeUTC: new Date().toISOString(), transactionId })
         const transactionResponse = await activeClient.getTransactionInfo(transactionId)
         const signedTransactionInfo = transactionResponse.signedTransactionInfo
         if (!signedTransactionInfo) {
