@@ -7,7 +7,7 @@ import { LessonController } from "./features/lessons/controller/controller";
 import { SubscriptionController, SubscriptionOwnedByOtherAccountError } from "./features/subscriptions/controller/controller";
 import { SubscriptionPlanController } from "./features/subscription-plans/controller/controller";
 import { QuizController } from "./features/quizzes/controller/controller";
-import { insertDebugLogSchema } from "@shared/schema";
+import { insertDebugLogSchema, Quiz } from "@shared/schema";
 import { traceLogger } from "./utils/trace-logger";
 
 const router = Router();
@@ -209,19 +209,57 @@ router.get("/lessons/:id", async (req: any, res: Response) => {
 
 // ===== QUIZZES API =====
 
-router.get("/quizzes", async (req: Request, res: Response) => {
+// A quiz's access follows its parent course: quiz -> lessons.mainLessonId -> main_lessons.isFree.
+// A quiz with no lessonId (standalone) has no course to check against, so it's treated as free.
+async function getQuizAccess(quiz: Quiz, user?: { id: number }): Promise<{ hasAccess: boolean; comingSoon: boolean }> {
+  if (quiz.lessonId === null) return { hasAccess: true, comingSoon: false };
+
+  const lesson = await lessonController.getLesson(quiz.lessonId);
+  const mainLesson = lesson && await mainLessonController.getMainLesson(lesson.mainLessonId);
+  if (!mainLesson) return { hasAccess: true, comingSoon: false };
+
+  if (mainLesson.status === "coming_soon") return { hasAccess: false, comingSoon: true };
+  if (mainLesson.isFree) return { hasAccess: true, comingSoon: false };
+
+  const hasAccess = user ? await subscriptionController.hasAccessToCourse(user.id, mainLesson.id) : false;
+  return { hasAccess, comingSoon: false };
+}
+
+// Hard-gates a quiz the same way /lessons/:id gates a lesson. Returns false when access is allowed.
+function quizAccessDenied(req: any, res: Response, access: { hasAccess: boolean; comingSoon: boolean }): boolean {
+  if (access.hasAccess) return false;
+  if (access.comingSoon) {
+    res.status(403).json({ success: false, message: "Content not yet available." });
+    return true;
+  }
+  if (!req.user) {
+    res.status(401).json({ success: false, message: "Authentication required.", code: "TOKEN_EXPIRED" });
+    return true;
+  }
+  res.status(403).json({ success: false, message: "Active subscription required." });
+  return true;
+}
+
+router.get("/quizzes", async (req: any, res: Response) => {
   try {
     const quizzes = await quizController.getQuizzes();
-    const activeQuizzes = quizzes
-      .filter(quiz => quiz.status === 'active')
-      .map(quiz => ({
-        id: quiz.id,
-        title: quiz.title,
-        description: quiz.description,
-        lessonId: quiz.lessonId,
-        createdAt: quiz.createdAt,
-        updatedAt: quiz.updatedAt
-      }));
+    const activeQuizzes = await Promise.all(
+      quizzes
+        .filter(quiz => quiz.status === 'active')
+        .map(async quiz => {
+          const access = await getQuizAccess(quiz, req.user);
+          return {
+            id: quiz.id,
+            title: quiz.title,
+            description: quiz.description,
+            lessonId: quiz.lessonId,
+            hasAccess: access.hasAccess,
+            comingSoon: access.comingSoon,
+            createdAt: quiz.createdAt,
+            updatedAt: quiz.updatedAt
+          };
+        })
+    );
     res.json(ok(activeQuizzes, activeQuizzes.length));
   } catch (error) {
     logRouteError(req, error, 'Failed to fetch quizzes');
@@ -230,20 +268,27 @@ router.get("/quizzes", async (req: Request, res: Response) => {
 });
 
 // /quizzes/all and /quizzes/lesson/:lessonId must be declared before /quizzes/:id to avoid route shadowing
-router.get("/quizzes/all", async (req: Request, res: Response) => {
+router.get("/quizzes/all", async (req: any, res: Response) => {
   try {
     const quizzes = await quizController.getQuizzes();
-    const mapped = quizzes
-      .filter(quiz => quiz.status === 'active')
-      .map(quiz => ({
-        id: quiz.id,
-        title: quiz.title,
-        description: quiz.description,
-        lessonId: quiz.lessonId,
-        questions: quiz.questions,
-        createdAt: quiz.createdAt,
-        updatedAt: quiz.updatedAt
-      }));
+    const mapped = await Promise.all(
+      quizzes
+        .filter(quiz => quiz.status === 'active')
+        .map(async quiz => {
+          const access = await getQuizAccess(quiz, req.user);
+          return {
+            id: quiz.id,
+            title: quiz.title,
+            description: quiz.description,
+            lessonId: quiz.lessonId,
+            questions: access.hasAccess ? quiz.questions : [],
+            hasAccess: access.hasAccess,
+            comingSoon: access.comingSoon,
+            createdAt: quiz.createdAt,
+            updatedAt: quiz.updatedAt
+          };
+        })
+    );
     res.json(ok(mapped, mapped.length));
   } catch (error) {
     logRouteError(req, error, 'Failed to fetch quizzes');
@@ -251,13 +296,19 @@ router.get("/quizzes/all", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/quizzes/lesson/:lessonId", async (req: Request, res: Response) => {
+router.get("/quizzes/lesson/:lessonId", async (req: any, res: Response) => {
   try {
     const lessonId = parseInt(req.params.lessonId);
     if (isNaN(lessonId) || lessonId <= 0) {
       return res.status(400).json(fail('Invalid ID parameter'));
     }
     const lessonQuizzes = await quizController.getQuizzesByLesson(lessonId);
+
+    if (lessonQuizzes.length > 0) {
+      const access = await getQuizAccess(lessonQuizzes[0], req.user);
+      if (quizAccessDenied(req, res, access)) return;
+    }
+
     const mapped = lessonQuizzes.map((quiz: (typeof lessonQuizzes)[number]) => ({
       id: quiz.id,
       title: quiz.title,
@@ -274,7 +325,7 @@ router.get("/quizzes/lesson/:lessonId", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/quizzes/:id", async (req: Request, res: Response) => {
+router.get("/quizzes/:id", async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
@@ -285,6 +336,9 @@ router.get("/quizzes/:id", async (req: Request, res: Response) => {
     if (!quiz || quiz.status !== 'active') {
       return res.status(404).json(fail('Quiz not found'));
     }
+
+    const access = await getQuizAccess(quiz, req.user);
+    if (quizAccessDenied(req, res, access)) return;
 
     res.json(ok({
       id: quiz.id,
@@ -301,7 +355,7 @@ router.get("/quizzes/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/quizzes/:id/submit", async (req: Request, res: Response) => {
+router.post("/quizzes/:id/submit", async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
@@ -317,6 +371,9 @@ router.post("/quizzes/:id/submit", async (req: Request, res: Response) => {
     if (!quiz || quiz.status !== 'active') {
       return res.status(404).json(fail('Quiz not found'));
     }
+
+    const access = await getQuizAccess(quiz, req.user);
+    if (quizAccessDenied(req, res, access)) return;
 
     const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
     let correct = 0;
