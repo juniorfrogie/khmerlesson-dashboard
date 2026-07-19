@@ -75,7 +75,7 @@ export default function QuizModal({ isOpen, onClose, quiz }: QuizModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
         <DialogHeader className="pb-4">
           <DialogTitle>
             {quiz ? "Edit Quiz" : "Create New Quiz"}

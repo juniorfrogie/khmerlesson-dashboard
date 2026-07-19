@@ -78,8 +78,9 @@ Key tables and their status enums:
 
 Dual-client auth supporting both the admin dashboard (cookies) and a mobile app (Bearer tokens):
 
-- **`server/auth/token/token-service.ts`** — single source of truth for JWT generation, token TTLs (15m access / 1d prod, 7d refresh), and cookie configuration
-- **`server/auth/middleware/authenticate.ts`** — centralised `authenticateToken` middleware; reads access token from `cookie.token` OR `Authorization: Bearer`; reads refresh token from `cookie.refreshToken` OR `req.body.refreshToken`; auto-refreshes for cookie-based clients only
+- **`server/auth/token/token-service.ts`** — single source of truth for JWT generation, token TTLs (access: 15m dev / 1d prod; refresh: 1h dev / 7d prod), and cookie configuration
+- **`server/auth/middleware/authenticate.ts`** — centralised `authenticateToken` middleware; reads access token from `cookie.token` OR `Authorization: Bearer`; reads refresh token from `cookie.refreshToken` OR `req.body.refreshToken`; auto-refreshes for cookie-based clients only. Which `/api/v1` prefixes are semi-public (unauthenticated requests pass through with `req.user` undefined instead of a 401) is a hardcoded list, `SEMI_PUBLIC_PREFIXES`, inside this file — update it when adding a new route that should be publicly readable but personalized when logged in
+- **`server/auth/middleware/correlation.ts`** — `correlationMiddleware`, mounted before everything else in `routes.ts`; stamps each request with an `X-Correlation-ID` (reused from the incoming header if the client already set one) that `debug_logs.traceId` and `server/utils/trace-logger.ts` key off of
 - Logout adds the access token to the `blacklist` table; a node-cron job purges expired entries every 10 minutes
 - Auth routes live under `server/auth/<flow>/route.ts` (no controller layer — logic is inline in the route file)
 

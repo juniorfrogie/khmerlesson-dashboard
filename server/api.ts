@@ -209,6 +209,12 @@ router.get("/lessons/:id", async (req: any, res: Response) => {
 
 // ===== QUIZZES API =====
 
+// Promo: quizzes belonging to this course are accessible without a subscription,
+// even though the course's lessons still require one. Quiz-only bypass — main_lessons.isFree
+// is left false so /main-lessons/:id/lessons and /lessons/:id stay gated normally.
+// id 1 = "Everyday Dialogues for Foreigners (Part 1)".
+const FREE_QUIZ_ACCESS_MAIN_LESSON_ID = 1;
+
 // A quiz's access follows its parent course: quiz -> lessons.mainLessonId -> main_lessons.isFree.
 // A quiz with no lessonId (standalone) has no course to check against, so it's treated as free.
 async function getQuizAccess(quiz: Quiz, user?: { id: number }): Promise<{ hasAccess: boolean; comingSoon: boolean }> {
@@ -220,9 +226,18 @@ async function getQuizAccess(quiz: Quiz, user?: { id: number }): Promise<{ hasAc
 
   if (mainLesson.status === "coming_soon") return { hasAccess: false, comingSoon: true };
   if (mainLesson.isFree) return { hasAccess: true, comingSoon: false };
+  if (mainLesson.id === FREE_QUIZ_ACCESS_MAIN_LESSON_ID) return { hasAccess: true, comingSoon: false };
 
   const hasAccess = user ? await subscriptionController.hasAccessToCourse(user.id, mainLesson.id) : false;
   return { hasAccess, comingSoon: false };
+}
+
+// quizController.getQuizzes() orders by createdAt, so a newly-added quiz always sorts
+// last regardless of which lesson it belongs to. Lessons have no explicit order column,
+// but lesson id ascends in the same sequence lessons were authored in (course by course,
+// lesson by lesson), so it's the best available stand-in for curriculum order.
+function sortByLessonId(quizzes: Quiz[]): Quiz[] {
+  return [...quizzes].sort((a, b) => (a.lessonId ?? Infinity) - (b.lessonId ?? Infinity));
 }
 
 // Hard-gates a quiz the same way /lessons/:id gates a lesson. Returns false when access is allowed.
@@ -242,7 +257,7 @@ function quizAccessDenied(req: any, res: Response, access: { hasAccess: boolean;
 
 router.get("/quizzes", async (req: any, res: Response) => {
   try {
-    const quizzes = await quizController.getQuizzes();
+    const quizzes = sortByLessonId(await quizController.getQuizzes());
     const activeQuizzes = await Promise.all(
       quizzes
         .filter(quiz => quiz.status === 'active')
@@ -270,7 +285,7 @@ router.get("/quizzes", async (req: any, res: Response) => {
 // /quizzes/all and /quizzes/lesson/:lessonId must be declared before /quizzes/:id to avoid route shadowing
 router.get("/quizzes/all", async (req: any, res: Response) => {
   try {
-    const quizzes = await quizController.getQuizzes();
+    const quizzes = sortByLessonId(await quizController.getQuizzes());
     const mapped = await Promise.all(
       quizzes
         .filter(quiz => quiz.status === 'active')
