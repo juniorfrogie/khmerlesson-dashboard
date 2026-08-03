@@ -4,9 +4,12 @@ import { Router } from "express";
 import fs from "fs";
 import { z } from "zod";
 import { MainLessonController } from "../controller/controller";
+import { requireAdmin } from "server/auth/middleware/require-admin";
 
 const router = Router()
 const controller = new MainLessonController()
+
+router.use(requireAdmin)
 
 const { NODE_ENV,  
     BUCKET_ORIGIN_END_POINT,

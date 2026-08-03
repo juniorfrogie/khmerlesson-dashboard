@@ -2,9 +2,12 @@ import { insertLessonSchema, updateLessonSchema } from "@shared/schema";
 import { Router } from "express";
 import { z } from "zod";
 import { LessonController } from "../controller/controller";
+import { requireAdmin } from "server/auth/middleware/require-admin";
 
 const router = Router()
 const controller = new LessonController()
+
+router.use(requireAdmin)
 
 const { NODE_ENV, BUCKET_ORIGIN_END_POINT } = process.env
 

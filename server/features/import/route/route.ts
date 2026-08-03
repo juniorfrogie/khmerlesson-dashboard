@@ -2,9 +2,12 @@ import { insertLessonSchema, insertQuizSchema } from "@shared/schema";
 import { Router } from "express";
 import { z } from "zod"
 import { ImportController } from "../controller/controller";
+import { requireAdmin } from "server/auth/middleware/require-admin";
 
 const router = Router()
 const controller = new ImportController()
+
+router.use(requireAdmin)
 
 router.post("/lessons", async (req, res) => {
     try {

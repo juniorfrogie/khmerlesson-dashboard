@@ -1,9 +1,13 @@
 import { Router } from "express";
 import { z } from "zod"
+import { updateUserSchema } from "@shared/schema";
 import { UserController } from "../controller/controller";
+import { requireAdmin } from "server/auth/middleware/require-admin";
 
 const router = Router()
 const controller = new UserController()
+
+router.use(requireAdmin)
 
 router.get("/", async (req, res) => {
     try {
@@ -85,11 +89,12 @@ router.get("/", async (req, res) => {
         }
       }
   
-      const updatedUser = await controller.updateUser(userId, req.body);
+      const updateData = updateUserSchema.parse(req.body);
+      const updatedUser = await controller.updateUser(userId, updateData);
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
       }
-  
+
       const { password, ...userResponse } = updatedUser;
       res.json({
         message: "User updated successfully",

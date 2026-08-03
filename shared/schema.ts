@@ -202,8 +202,12 @@ export const insertQuizSchema = createInsertSchema(quizzes).omit({
 export const updateQuizSchema = insertQuizSchema.partial();
 
 // User schema
+// Public self-registration must never let the client set role/isActive — both
+// are server-controlled (DB column defaults apply: role="student", isActive=true).
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
+  role: true,
+  isActive: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
@@ -216,6 +220,8 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertUserWithAuthServiceSchema = createInsertSchema(users).omit({
   id: true,
   password: true,
+  role: true,
+  isActive: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
@@ -246,9 +252,14 @@ export const changePasswordSchema = z.object({
   confirmPassword: z.string().min(8, "Confirm password must be at least 8 characters")
 });
 
-export const updateUserSchema = insertUserSchema.partial().omit({
+// Admin-only user management (dashboard) — unlike insertUserSchema, role/isActive
+// ARE settable here since only an admin-guarded route accepts this schema.
+export const updateUserSchema = createInsertSchema(users).omit({
+  id: true,
   password: true,
-});
+  createdAt: true,
+  updatedAt: true,
+}).partial();
 
 // Types
 export type User = typeof users.$inferSelect;

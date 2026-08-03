@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { ExportController } from "../controller/controller";
+import { requireAdmin } from "server/auth/middleware/require-admin";
 
 const router = Router()
 const controller = new ExportController()
+
+router.use(requireAdmin)
 
 router.get("/lessons", async (req, res) => {
     try {

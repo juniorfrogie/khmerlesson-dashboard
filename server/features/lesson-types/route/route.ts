@@ -4,10 +4,13 @@ import { Router } from "express";
 import { z } from "zod"
 import { LessonTypeController } from "../controller/controller";
 import { LessonController } from "server/features/lessons/controller/controller";
+import { requireAdmin } from "server/auth/middleware/require-admin";
 
 const router = Router()
 const lessonTypeController = new LessonTypeController()
 const lessonController = new LessonController()
+
+router.use(requireAdmin)
 
 const { NODE_ENV, BUCKET_ORIGIN_END_POINT } = process.env
 
