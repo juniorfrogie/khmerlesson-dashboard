@@ -7,9 +7,11 @@ import { LessonController } from "./features/lessons/controller/controller";
 import { SubscriptionController, SubscriptionOwnedByOtherAccountError } from "./features/subscriptions/controller/controller";
 import { SubscriptionPlanController } from "./features/subscription-plans/controller/controller";
 import { QuizController } from "./features/quizzes/controller/controller";
-import { insertDebugLogSchema, Quiz } from "@shared/schema";
+import { ProgressController } from "./features/progress/controller/controller";
+import { insertDebugLogSchema, insertQuizAttemptSchema, insertLessonCompletionSchema, Quiz } from "@shared/schema";
 import { traceLogger } from "./utils/trace-logger";
 import { blacklistToken } from "./utils/blacklist-token";
+import { z } from "zod";
 
 const router = Router();
 const userController = new UserController();
@@ -18,6 +20,7 @@ const lessonController = new LessonController();
 const subscriptionController = new SubscriptionController();
 const subscriptionPlanController = new SubscriptionPlanController();
 const quizController = new QuizController();
+const progressController = new ProgressController();
 
 const PASSING_GRADE_PERCENT = 70;
 
@@ -639,6 +642,70 @@ router.get("/search", async (req: Request, res: Response) => {
   } catch (error) {
     logRouteError(req, error, 'Search failed');
     res.status(500).json(fail('Search failed'));
+  }
+});
+
+// Cloud progress — account-scoped, replacing what the mobile app previously
+// kept device-local only (AsyncStorage). Not semi-public (unlike
+// main-lessons/quizzes/etc. — see SEMI_PUBLIC_PREFIXES in
+// server/auth/middleware/authenticate.ts): progress is always user-owned,
+// so an unauthenticated request must be rejected, not silently degraded.
+router.get("/progress", async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id as number | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: "You are not logged in. Please log in to get access." });
+    }
+    const [attempts, completions] = await Promise.all([
+      progressController.getQuizAttempts(userId),
+      progressController.getLessonCompletions(userId),
+    ]);
+    res.json(ok({ quizAttempts: attempts, lessonCompletions: completions }));
+  } catch (error) {
+    logRouteError(req, error, 'Failed to get progress');
+    res.status(500).json(fail('Failed to get progress'));
+  }
+});
+
+router.post("/quiz-progress", async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id as number | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: "You are not logged in. Please log in to get access." });
+    }
+    const parsed = insertQuizAttemptSchema.parse({
+      ...req.body,
+      completedAt: req.body?.completedAt ? new Date(req.body.completedAt) : new Date(),
+    });
+    const result = await progressController.upsertQuizAttempt({ ...parsed, userId });
+    res.json(ok(result));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json(fail('Invalid quiz progress payload'));
+    }
+    logRouteError(req, error, 'Failed to save quiz progress');
+    res.status(500).json(fail('Failed to save quiz progress'));
+  }
+});
+
+router.post("/lesson-progress", async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id as number | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: "You are not logged in. Please log in to get access." });
+    }
+    const parsed = insertLessonCompletionSchema.parse({
+      ...req.body,
+      completedAt: req.body?.completedAt ? new Date(req.body.completedAt) : new Date(),
+    });
+    const result = await progressController.upsertLessonCompletion({ ...parsed, userId });
+    res.json(ok(result));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json(fail('Invalid lesson progress payload'));
+    }
+    logRouteError(req, error, 'Failed to save lesson progress');
+    res.status(500).json(fail('Failed to save lesson progress'));
   }
 });
 
