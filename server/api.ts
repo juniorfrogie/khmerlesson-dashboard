@@ -9,6 +9,7 @@ import { SubscriptionPlanController } from "./features/subscription-plans/contro
 import { QuizController } from "./features/quizzes/controller/controller";
 import { insertDebugLogSchema, Quiz } from "@shared/schema";
 import { traceLogger } from "./utils/trace-logger";
+import { blacklistToken } from "./utils/blacklist-token";
 
 const router = Router();
 const userController = new UserController();
@@ -653,6 +654,41 @@ router.get("/me", async (req: any, res: Response) => {
   } catch (error) {
     logRouteError(req, error, 'Failed to get me');
     res.status(500).json({ message: "Failed to get me." });
+  }
+});
+
+// Self-service account deletion for the mobile app. Distinct from the
+// admin-only DELETE /api/users/:id (server/features/users/route/route.ts,
+// gated by requireAdmin) — this one is scoped to the authenticated caller's
+// own id (req.user.id, never a client-supplied id), so a regular
+// student/teacher can delete their own account without admin rights.
+// Required by Google Play's account-deletion policy for apps that support
+// account creation; the mobile client previously called the admin-only
+// route, which rejected every non-admin user.
+router.delete("/me", async (req: any, res: Response) => {
+  try {
+    const id = req.user?.id as number | undefined;
+    if (!id) {
+      return res.status(401).json({ message: "You are not logged in. Please log in to get access." });
+    }
+
+    const deleted = await userController.deleteUser(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Invalidate the token that was just used, same as logout — the
+    // account it authenticates no longer exists.
+    const authHeader = req.headers["authorization"];
+    const token: string | undefined = req.cookies?.token ?? (authHeader && authHeader.split(" ")[1]);
+    if (token) {
+      await blacklistToken(token).catch(() => {});
+    }
+
+    return res.status(200).json(ok({ deleted: true }));
+  } catch (error) {
+    logRouteError(req, error, 'Failed to delete account');
+    res.status(500).json(fail('Failed to delete account'));
   }
 });
 
