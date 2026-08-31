@@ -87,6 +87,16 @@ router.get("/main-lessons", async (req: any, res: Response) => {
       order: lesson.order,
     }));
 
+    // A Bearer token was presented but failed verification (as opposed to no
+    // token at all) — this response was silently downgraded to anonymous, so
+    // `hasAccess` may be wrong for a caller whose session is actually still
+    // good after a token refresh. Flag it via a header (not the status code,
+    // to stay backward-compatible with the currently-released app, which has
+    // no refresh/retry logic and depends on the 200 anonymous fallback) so a
+    // client that knows to look can retry after refreshing.
+    if (req.tokenInvalid) {
+      res.set('X-Token-Status', 'invalid');
+    }
     res.json(ok(data, data.length));
   } catch (error) {
     logRouteError(req, error, 'Failed to fetch main lessons');
