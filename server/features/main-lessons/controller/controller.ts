@@ -9,6 +9,18 @@ import {
 import { eq, sql, asc } from "drizzle-orm"
 import { db } from "server/db"
 
+// Staging intentionally sets BUCKET_* to placeholder values (BUCKET_ACCESS_KEY/
+// BUCKET_SECRET_ACCESS_KEY = "dummy") to satisfy startup without real Spaces
+// storage. In that state we must not hand mobile clients a URL built from those
+// placeholders (e.g. BUCKET_ORIGIN_END_POINT pointing at a dummy host) — they'd
+// get a dead link instead of the graceful "no image" fallback the app already
+// has for a null thumbnailUrl.
+function isBucketStorageConfigured(): boolean {
+  const { BUCKET_ORIGIN_END_POINT, BUCKET_ACCESS_KEY, BUCKET_SECRET_ACCESS_KEY, BUCKET_NAME } = process.env
+  if (!BUCKET_ORIGIN_END_POINT || !BUCKET_ACCESS_KEY || !BUCKET_SECRET_ACCESS_KEY || !BUCKET_NAME) return false
+  return BUCKET_ACCESS_KEY.toLowerCase() !== "dummy" && BUCKET_SECRET_ACCESS_KEY.toLowerCase() !== "dummy"
+}
+
 export class MainLessonController {
 
   async getAllMainLessons(): Promise<MainLesson[]> {
@@ -26,6 +38,7 @@ export class MainLessonController {
   }
 
   async getPublishedMainLessons(): Promise<any[]> {
+    const bucketConfigured = isBucketStorageConfigured()
     const bucketEndpoint = `${process.env.BUCKET_ORIGIN_END_POINT}`
 
     const command = sql`
@@ -58,7 +71,7 @@ export class MainLessonController {
       id: e.id,
       title: e.title,
       description: e.description,
-      thumbnailUrl: e.image_cover ? `${bucketEndpoint}/${e.image_cover}` : null,
+      thumbnailUrl: e.image_cover && bucketConfigured ? `${bucketEndpoint}/${e.image_cover}` : null,
       isFree: e.is_free,
       status: e.status,
       lessonCount: e.lesson_count,
