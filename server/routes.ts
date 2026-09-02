@@ -36,6 +36,7 @@ import { authenticateToken } from "./auth/middleware/authenticate";
 export { setToken, setCookieTokens as setCookies } from "./auth/token/token-service";
 import { generateTokenPair } from "./auth/token/token-service";
 import googleAuthRoutes from "./auth/google/route";
+import { buildAllowedOrigins } from "./utils/cors-origins";
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -54,15 +55,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Fix: added `credentials: true` so cookies are sent cross-origin (dashboard).
   // Fix: removed wildcard origin in dev — wildcard + credentials is rejected by browsers.
   // Fix: explicit allowed origins for both dev and prod.
+  // Fix: ALLOWED_ORIGINS env var (comma-separated) is appended in BOTH modes —
+  // needed because DigitalOcean staging runs with NODE_ENV=production, so the
+  // old dev-only DEV_ORIGIN had no way to admit a staging origin at all. See
+  // server/utils/cors-origins.ts for the allow-list logic (unit tested there).
+  const allowedOrigins = buildAllowedOrigins({
+    NODE_ENV,
+    DEV_ORIGIN: process.env.DEV_ORIGIN,
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+  })
   app.use(cors({
     origin: (origin, callback) => {
-      const allowed =
-        NODE_ENV === "development"
-          ? ["http://localhost:3000", "http://localhost:5001", "http://localhost:5000", "http://localhost:8081",
-            ...(process.env.DEV_ORIGIN ? [process.env.DEV_ORIGIN] : [])]
-          : ["https://cambodianlesson.netlify.app", "https://khmerlessons.app"]
       // undefined origin = same-origin or non-browser (curl, Postman, mobile)
-      if (!origin || (allowed as (string | undefined)[]).includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true)
       } else {
         callback(new Error(`CORS: Origin '${origin}' not allowed`))

@@ -7,8 +7,11 @@ import { LessonController } from "./features/lessons/controller/controller";
 import { SubscriptionController, SubscriptionOwnedByOtherAccountError } from "./features/subscriptions/controller/controller";
 import { SubscriptionPlanController } from "./features/subscription-plans/controller/controller";
 import { QuizController } from "./features/quizzes/controller/controller";
-import { insertDebugLogSchema, Quiz } from "@shared/schema";
+import { ProgressController } from "./features/progress/controller/controller";
+import { insertDebugLogSchema, insertQuizAttemptSchema, insertLessonCompletionSchema, Quiz } from "@shared/schema";
 import { traceLogger } from "./utils/trace-logger";
+import { blacklistToken } from "./utils/blacklist-token";
+import { z } from "zod";
 
 const router = Router();
 const userController = new UserController();
@@ -17,6 +20,7 @@ const lessonController = new LessonController();
 const subscriptionController = new SubscriptionController();
 const subscriptionPlanController = new SubscriptionPlanController();
 const quizController = new QuizController();
+const progressController = new ProgressController();
 
 const PASSING_GRADE_PERCENT = 70;
 
@@ -83,6 +87,16 @@ router.get("/main-lessons", async (req: any, res: Response) => {
       order: lesson.order,
     }));
 
+    // A Bearer token was presented but failed verification (as opposed to no
+    // token at all) — this response was silently downgraded to anonymous, so
+    // `hasAccess` may be wrong for a caller whose session is actually still
+    // good after a token refresh. Flag it via a header (not the status code,
+    // to stay backward-compatible with the currently-released app, which has
+    // no refresh/retry logic and depends on the 200 anonymous fallback) so a
+    // client that knows to look can retry after refreshing.
+    if (req.tokenInvalid) {
+      res.set('X-Token-Status', 'invalid');
+    }
     res.json(ok(data, data.length));
   } catch (error) {
     logRouteError(req, error, 'Failed to fetch main lessons');
@@ -641,6 +655,70 @@ router.get("/search", async (req: Request, res: Response) => {
   }
 });
 
+// Cloud progress — account-scoped, replacing what the mobile app previously
+// kept device-local only (AsyncStorage). Not semi-public (unlike
+// main-lessons/quizzes/etc. — see SEMI_PUBLIC_PREFIXES in
+// server/auth/middleware/authenticate.ts): progress is always user-owned,
+// so an unauthenticated request must be rejected, not silently degraded.
+router.get("/progress", async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id as number | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: "You are not logged in. Please log in to get access." });
+    }
+    const [attempts, completions] = await Promise.all([
+      progressController.getQuizAttempts(userId),
+      progressController.getLessonCompletions(userId),
+    ]);
+    res.json(ok({ quizAttempts: attempts, lessonCompletions: completions }));
+  } catch (error) {
+    logRouteError(req, error, 'Failed to get progress');
+    res.status(500).json(fail('Failed to get progress'));
+  }
+});
+
+router.post("/quiz-progress", async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id as number | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: "You are not logged in. Please log in to get access." });
+    }
+    const parsed = insertQuizAttemptSchema.parse({
+      ...req.body,
+      completedAt: req.body?.completedAt ? new Date(req.body.completedAt) : new Date(),
+    });
+    const result = await progressController.upsertQuizAttempt({ ...parsed, userId });
+    res.json(ok(result));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json(fail('Invalid quiz progress payload'));
+    }
+    logRouteError(req, error, 'Failed to save quiz progress');
+    res.status(500).json(fail('Failed to save quiz progress'));
+  }
+});
+
+router.post("/lesson-progress", async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id as number | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: "You are not logged in. Please log in to get access." });
+    }
+    const parsed = insertLessonCompletionSchema.parse({
+      ...req.body,
+      completedAt: req.body?.completedAt ? new Date(req.body.completedAt) : new Date(),
+    });
+    const result = await progressController.upsertLessonCompletion({ ...parsed, userId });
+    res.json(ok(result));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json(fail('Invalid lesson progress payload'));
+    }
+    logRouteError(req, error, 'Failed to save lesson progress');
+    res.status(500).json(fail('Failed to save lesson progress'));
+  }
+});
+
 router.get("/me", async (req: any, res: Response) => {
   try {
     const id = req.user?.id as number;
@@ -653,6 +731,41 @@ router.get("/me", async (req: any, res: Response) => {
   } catch (error) {
     logRouteError(req, error, 'Failed to get me');
     res.status(500).json({ message: "Failed to get me." });
+  }
+});
+
+// Self-service account deletion for the mobile app. Distinct from the
+// admin-only DELETE /api/users/:id (server/features/users/route/route.ts,
+// gated by requireAdmin) — this one is scoped to the authenticated caller's
+// own id (req.user.id, never a client-supplied id), so a regular
+// student/teacher can delete their own account without admin rights.
+// Required by Google Play's account-deletion policy for apps that support
+// account creation; the mobile client previously called the admin-only
+// route, which rejected every non-admin user.
+router.delete("/me", async (req: any, res: Response) => {
+  try {
+    const id = req.user?.id as number | undefined;
+    if (!id) {
+      return res.status(401).json({ message: "You are not logged in. Please log in to get access." });
+    }
+
+    const deleted = await userController.deleteUser(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Invalidate the token that was just used, same as logout — the
+    // account it authenticates no longer exists.
+    const authHeader = req.headers["authorization"];
+    const token: string | undefined = req.cookies?.token ?? (authHeader && authHeader.split(" ")[1]);
+    if (token) {
+      await blacklistToken(token).catch(() => {});
+    }
+
+    return res.status(200).json(ok({ deleted: true }));
+  } catch (error) {
+    logRouteError(req, error, 'Failed to delete account');
+    res.status(500).json(fail('Failed to delete account'));
   }
 });
 

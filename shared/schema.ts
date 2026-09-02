@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar, primaryKey, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar, primaryKey, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -131,6 +131,41 @@ export const debugLogs = pgTable("debug_logs", {
   index("debug_logs_created_at_idx").on(table.createdAt),
 ]);
 
+// Cloud progress — account-scoped so it survives logout/login, reinstall,
+// and cross-device use (mobile app previously kept this local-only, in
+// AsyncStorage keyed by device, not account). Deliberately final-state-only
+// (one row per user+quiz / user+lesson, upserted on retake/re-completion) —
+// no resumable/in-progress attempt tracking, matching the mobile UI, which
+// has no resume concept: a quiz is graded entirely client-side in one pass
+// and only the final score is ever kept.
+export const quizAttempts = pgTable("quiz_attempts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  lessonId: integer("lesson_id").references(() => lessons.id, { onDelete: "cascade" }).notNull(),
+  quizId: integer("quiz_id").references(() => quizzes.id, { onDelete: "cascade" }).notNull(),
+  score: integer("score").notNull(),   // correct answers
+  total: integer("total").notNull(),   // total questions
+  completedAt: timestamp("completed_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  unique("quiz_attempts_user_quiz_unique").on(table.userId, table.quizId),
+  index("quiz_attempts_user_id_idx").on(table.userId),
+]);
+
+export const lessonCompletions = pgTable("lesson_completions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  mainLessonId: integer("main_lesson_id").references(() => mainLessons.id, { onDelete: "cascade" }).notNull(),
+  lessonId: integer("lesson_id").references(() => lessons.id, { onDelete: "cascade" }).notNull(),
+  completedAt: timestamp("completed_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  unique("lesson_completions_user_lesson_unique").on(table.userId, table.lessonId),
+  index("lesson_completions_user_id_idx").on(table.userId),
+]);
+
 // Main Lesson schema
 export const insertMainLessonSchema = createInsertSchema(mainLessons).omit({
   id: true,
@@ -172,6 +207,24 @@ export const insertDebugLogSchema = createInsertSchema(debugLogs).omit({
 }).extend({
   source: z.enum(["server", "mobile"]),
   level: z.enum(["debug", "info", "warn", "error"]).default("info"),
+});
+
+// Quiz attempt / lesson completion schemas — userId is always omitted here
+// and taken from the authenticated request (req.user.id) server-side, never
+// from the client payload, mirroring insertMainLessonSchema/etc.'s pattern
+// of omitting server-controlled fields.
+export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLessonCompletionSchema = createInsertSchema(lessonCompletions).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Lesson schema
@@ -337,6 +390,12 @@ export type InsertBlacklist = z.infer<typeof insertBlacklistSchema>
 
 export type DebugLog = typeof debugLogs.$inferSelect
 export type InsertDebugLog = z.infer<typeof insertDebugLogSchema>
+
+export type QuizAttempt = typeof quizAttempts.$inferSelect
+export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>
+
+export type LessonCompletion = typeof lessonCompletions.$inferSelect
+export type InsertLessonCompletion = z.infer<typeof insertLessonCompletionSchema>
 
 // Lesson
 // export type LessonData = {

@@ -30,6 +30,9 @@ declare global {
     interface Request {
       user?: Record<string, any>;
       correlationId?: string;
+      /** Set when a Bearer token was presented but failed verification on a
+       *  semi-public route — distinct from no token being sent at all. */
+      tokenInvalid?: boolean;
     }
   }
 }
@@ -135,6 +138,21 @@ export const authenticateToken = async (
     try {
       const isBlacklisted = await storage.getBlacklist(token);
       if (isBlacklisted) {
+        // Bug fixed: this used to hard-401 unconditionally, even on a
+        // semi-public route — inconsistent with the JWT-verify-failure path
+        // below, which correctly falls through as anonymous (+ tokenInvalid)
+        // there instead. A blacklisted token on e.g. GET /main-lessons was
+        // the one "invalid token" case that couldn't self-heal via the
+        // client's normal retry-after-refresh flow (withTokenRefresh in
+        // api.ts only recognizes TOKEN_EXPIRED, not TOKEN_REVOKED), so it
+        // surfaced as a hard, uncaught error on a route callers otherwise
+        // expect to always resolve to *something* (public data at worst).
+        if (isSemiPublic(req.originalUrl)) {
+          traceLogger.warn(correlationId, "Blacklisted token on semi-public route — proceeding unauthenticated", { path: req.path });
+          req.tokenInvalid = true;
+          next();
+          return;
+        }
         traceLogger.warn(correlationId, "Blacklisted token presented — rejecting", { path: req.path });
         res.status(401).json({
           message: "Token is no longer valid. Please log in again.",
@@ -184,7 +202,15 @@ export const authenticateToken = async (
     // Mobile client — report expired token so client can call refresh endpoint
     traceLogger.warn(correlationId, "Access token invalid", { path: req.path, error: (tokenErr as Error).message });
     if (isSemiPublic(req.originalUrl)) {
-      // Still allow public access — just without a user
+      // Still allow public access — just without a user. A token WAS
+      // presented and failed verification though (as opposed to no token at
+      // all, handled earlier) — flag that distinction on the request so a
+      // route that personalizes its response (e.g. GET /main-lessons'
+      // hasAccess) can tell an authenticated-but-stale caller apart from a
+      // genuinely anonymous one, without changing this route's status code
+      // (would break the currently-released app, which has no refresh/retry
+      // logic and relies on this exact anonymous-fallback behavior).
+      req.tokenInvalid = true;
       console.log(
         `[AUTH][${correlationId}] Semi-public, allowing unauthenticated access`
       );
