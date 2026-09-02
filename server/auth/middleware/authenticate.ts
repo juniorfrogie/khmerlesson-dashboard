@@ -138,6 +138,21 @@ export const authenticateToken = async (
     try {
       const isBlacklisted = await storage.getBlacklist(token);
       if (isBlacklisted) {
+        // Bug fixed: this used to hard-401 unconditionally, even on a
+        // semi-public route — inconsistent with the JWT-verify-failure path
+        // below, which correctly falls through as anonymous (+ tokenInvalid)
+        // there instead. A blacklisted token on e.g. GET /main-lessons was
+        // the one "invalid token" case that couldn't self-heal via the
+        // client's normal retry-after-refresh flow (withTokenRefresh in
+        // api.ts only recognizes TOKEN_EXPIRED, not TOKEN_REVOKED), so it
+        // surfaced as a hard, uncaught error on a route callers otherwise
+        // expect to always resolve to *something* (public data at worst).
+        if (isSemiPublic(req.originalUrl)) {
+          traceLogger.warn(correlationId, "Blacklisted token on semi-public route — proceeding unauthenticated", { path: req.path });
+          req.tokenInvalid = true;
+          next();
+          return;
+        }
         traceLogger.warn(correlationId, "Blacklisted token presented — rejecting", { path: req.path });
         res.status(401).json({
           message: "Token is no longer valid. Please log in again.",
