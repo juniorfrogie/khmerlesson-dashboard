@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
-import { verifySubscription, decodeJWSPayload, markVerified, isTransactionVerified } from "./services/iap/ios/storekit2/service";
+import { verifySubscription as verifyIosSubscription, decodeJWSPayload, markVerified, isTransactionVerified, VerifyResult } from "./services/iap/ios/storekit2/service";
+import { verifySubscription as verifyAndroidSubscription } from "./services/iap/android/playbilling/service";
 import { UserController } from "./features/users/controller/controller";
 import { MainLessonController } from "./features/main-lessons/controller/controller";
 import { LessonController } from "./features/lessons/controller/controller";
@@ -461,66 +462,114 @@ router.post("/subscriptions", async (req: any, res: Response) => {
     // moving a transaction chain from another app account to this one.
     // Passive syncs (reconcile on screen open) must send claim=false so a
     // fresh login can never silently inherit the device Apple ID's subscription.
-    const { jws, claim } = req.body;
-    if (!jws) {
-      traceLogger.warn(correlationId, "Subscription registration: jws missing from request body", undefined, req.user.id);
-      return res.status(400).json(fail("jws is required"));
-    }
+    const { claim } = req.body;
+    // Defaults to "ios" for backward compatibility with the currently-live
+    // app version, which never sends a platform field at all.
+    const platform: "ios" | "android" = req.body.platform === "android" ? "android" : "ios";
 
     const isDev = process.env.NODE_ENV === "development";
 
-    let verifyResult;
-    if (isDev) {
-      // In dev, decode without Apple verification — allows testing without StoreKit
-      const payload = decodeJWSPayload(jws);
-      if (!payload) {
-        traceLogger.warn(correlationId, "Subscription registration: JWS could not be decoded (dev mode)", undefined, req.user.id);
-        return res.status(400).json(fail("Invalid JWS — could not decode"));
+    let verifyResult: VerifyResult;
+    let plan;
+
+    if (platform === "android") {
+      const { purchaseToken, productId } = req.body;
+      if (!purchaseToken || !productId) {
+        traceLogger.warn(correlationId, "Subscription registration: purchaseToken/productId missing from request body", undefined, req.user.id);
+        return res.status(400).json(fail("purchaseToken and productId are required for platform=android"));
       }
-      verifyResult = {
-        ok: true,
-        reason: "dev mode — verification skipped",
-        productId: payload.productId as string,
-        originalTransactionId: (payload.originalTransactionId ?? payload.transactionId) as string,
-        transactionId: payload.transactionId as string,
-        // Apple Sandbox subscriptions expire in minutes/hours — always use 1 year in dev
-        expiresDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-        isIntroductoryOffer: (payload as any).offerType === 1,
-      };
-      traceLogger.info(correlationId, "Subscription registration: dev-mode JWS decoded", { productId: verifyResult.productId }, req.user.id);
-    } else {
-      const payload = decodeJWSPayload(jws);
-      const transactionId = payload?.transactionId as string | undefined;
-      if (transactionId && isTransactionVerified(transactionId)) {
+
+      if (isDev) {
+        // Unlike Apple's Xcode-environment JWS, a Play purchaseToken is
+        // opaque — there's no client-side-decodable stand-in for it. Dev
+        // mode here means "trust the client's asserted productId without
+        // calling the Play Developer API", so the Android purchase flow can
+        // be exercised before GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is configured.
         verifyResult = {
           ok: true,
-          reason: "cached",
-          productId: payload!.productId as string,
-          originalTransactionId: (payload!.originalTransactionId ?? transactionId) as string,
-          transactionId,
-          expiresDate: payload!.expiresDate ? new Date(payload!.expiresDate as number) : undefined,
-          isIntroductoryOffer: (payload as any)?.offerType === 1,
+          reason: "dev mode — verification skipped",
+          productId,
+          originalTransactionId: purchaseToken,
+          transactionId: purchaseToken,
+          expiresDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          isIntroductoryOffer: false,
         };
-        traceLogger.info(correlationId, "Subscription registration: using cached verification", { productId: verifyResult.productId, transactionId }, req.user.id);
+        traceLogger.info(correlationId, "Subscription registration: dev-mode Android purchase trusted", { productId }, req.user.id);
       } else {
-        traceLogger.info(correlationId, "Subscription registration: calling Apple verifySubscription", { transactionId }, req.user.id);
-        verifyResult = await verifySubscription(jws);
+        traceLogger.info(correlationId, "Subscription registration: calling Play verifySubscription", { productId }, req.user.id);
+        verifyResult = await verifyAndroidSubscription(purchaseToken, productId);
         if (!verifyResult.ok) {
-          traceLogger.warn(correlationId, "Subscription registration: Apple verification failed", { reason: verifyResult.reason, transactionId }, req.user.id);
+          traceLogger.warn(correlationId, "Subscription registration: Play verification failed", { reason: verifyResult.reason, productId }, req.user.id);
           return res.status(400).json({ success: false, message: "Subscription verification failed.", reason: verifyResult.reason });
         }
-        traceLogger.info(correlationId, "Subscription registration: Apple verification passed", { productId: verifyResult.productId, transactionId: verifyResult.transactionId }, req.user.id);
-        if (verifyResult.transactionId) markVerified(verifyResult.transactionId);
+        traceLogger.info(correlationId, "Subscription registration: Play verification passed", { productId: verifyResult.productId }, req.user.id);
+        // No Android equivalent of the iOS verified-transaction cache below —
+        // Play purchase tokens are not re-submitted by the client the way an
+        // Apple JWS can be (reconcileAvailablePurchases resubmits the same
+        // token only on failure/retry, which should re-verify, not skip).
       }
+
+      plan = verifyResult.productId
+        ? await subscriptionPlanController.getPlanByAndroidProductId(verifyResult.productId)
+        : undefined;
+    } else {
+      const { jws } = req.body;
+      if (!jws) {
+        traceLogger.warn(correlationId, "Subscription registration: jws missing from request body", undefined, req.user.id);
+        return res.status(400).json(fail("jws is required"));
+      }
+
+      if (isDev) {
+        // In dev, decode without Apple verification — allows testing without StoreKit
+        const payload = decodeJWSPayload(jws);
+        if (!payload) {
+          traceLogger.warn(correlationId, "Subscription registration: JWS could not be decoded (dev mode)", undefined, req.user.id);
+          return res.status(400).json(fail("Invalid JWS — could not decode"));
+        }
+        verifyResult = {
+          ok: true,
+          reason: "dev mode — verification skipped",
+          productId: payload.productId as string,
+          originalTransactionId: (payload.originalTransactionId ?? payload.transactionId) as string,
+          transactionId: payload.transactionId as string,
+          // Apple Sandbox subscriptions expire in minutes/hours — always use 1 year in dev
+          expiresDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          isIntroductoryOffer: (payload as any).offerType === 1,
+        };
+        traceLogger.info(correlationId, "Subscription registration: dev-mode JWS decoded", { productId: verifyResult.productId }, req.user.id);
+      } else {
+        const payload = decodeJWSPayload(jws);
+        const transactionId = payload?.transactionId as string | undefined;
+        if (transactionId && isTransactionVerified(transactionId)) {
+          verifyResult = {
+            ok: true,
+            reason: "cached",
+            productId: payload!.productId as string,
+            originalTransactionId: (payload!.originalTransactionId ?? transactionId) as string,
+            transactionId,
+            expiresDate: payload!.expiresDate ? new Date(payload!.expiresDate as number) : undefined,
+            isIntroductoryOffer: (payload as any)?.offerType === 1,
+          };
+          traceLogger.info(correlationId, "Subscription registration: using cached verification", { productId: verifyResult.productId, transactionId }, req.user.id);
+        } else {
+          traceLogger.info(correlationId, "Subscription registration: calling Apple verifySubscription", { transactionId }, req.user.id);
+          verifyResult = await verifyIosSubscription(jws);
+          if (!verifyResult.ok) {
+            traceLogger.warn(correlationId, "Subscription registration: Apple verification failed", { reason: verifyResult.reason, transactionId }, req.user.id);
+            return res.status(400).json({ success: false, message: "Subscription verification failed.", reason: verifyResult.reason });
+          }
+          traceLogger.info(correlationId, "Subscription registration: Apple verification passed", { productId: verifyResult.productId, transactionId: verifyResult.transactionId }, req.user.id);
+          if (verifyResult.transactionId) markVerified(verifyResult.transactionId);
+        }
+      }
+
+      plan = verifyResult.productId
+        ? await subscriptionPlanController.getPlanByIosProductId(verifyResult.productId)
+        : undefined;
     }
 
-    // Lookup plan level from subscription_plans table
-    const plan = verifyResult.productId
-      ? await subscriptionPlanController.getPlanByIosProductId(verifyResult.productId)
-      : undefined;
-
     if (!plan) {
-      traceLogger.warn(correlationId, "Subscription registration: unknown productId — no matching plan row", { productId: verifyResult.productId }, req.user.id);
+      traceLogger.warn(correlationId, "Subscription registration: unknown productId — no matching plan row", { productId: verifyResult.productId, platform }, req.user.id);
       return res.status(400).json(fail(`Unknown productId: ${verifyResult.productId}`));
     }
 
@@ -530,14 +579,14 @@ router.post("/subscriptions", async (req: any, res: Response) => {
     const subscription = await subscriptionController.createOrUpdateSubscription({
       userId: req.user.id,
       planId: plan.id,
-      platform: "ios",
+      platform,
       productId: verifyResult.productId!,
       originalTransactionId: verifyResult.originalTransactionId!,
       status,
       currentPeriodEndsAt,
     }, { allowTransfer: claim === true });
 
-    traceLogger.info(correlationId, "Subscription registration: upsert succeeded", { subscriptionId: subscription.id, planId: plan.id, status, claim: claim === true }, req.user.id);
+    traceLogger.info(correlationId, "Subscription registration: upsert succeeded", { subscriptionId: subscription.id, planId: plan.id, status, platform, claim: claim === true }, req.user.id);
 
     res.status(201).json(ok(subscription));
   } catch (error: any) {

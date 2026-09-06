@@ -20,6 +20,12 @@ export class SubscriptionPlanController {
     return result
   }
 
+  async getPlanByAndroidProductId(productId: string): Promise<SubscriptionPlan | undefined> {
+    const [result] = await db.select().from(subscriptionPlans)
+      .where(eq(subscriptionPlans.productIdAndroid, productId))
+    return result
+  }
+
   async createPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
     const [result] = await db.insert(subscriptionPlans).values(plan).returning()
     return result

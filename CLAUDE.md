@@ -11,9 +11,8 @@ npm start          # Run production build: node dist/index.js
 npm run check      # TypeScript type-check (no emit)
 npm run db:push    # Push Drizzle schema to the database (dev — destructive on conflict)
 npm run db:migrate # Generate and apply Drizzle migrations (safer for prod)
+npm test           # Runs server/utils/__tests__/cors-origins.test.ts via `tsx --test` — the only test file that exists
 ```
-
-No test suite is configured.
 
 ## Environment Variables
 
@@ -35,6 +34,7 @@ Optional (for full feature set):
 - `NODE_EXTRA_CA_CERTS` — Path to CA cert for SSL DB connections in prod
 - `API_KEY` — When set, gates mobile-facing `/api/v1` routes behind `X-API-Key` header or `?api_key=` query param
 - `DEV_ORIGIN` — Extra allowed CORS origin in development (e.g. an Expo dev client URL)
+- `ALLOWED_ORIGINS` — Comma-separated extra CORS origins, appended in **both** dev and prod (needed because DigitalOcean staging runs with `NODE_ENV=production`, so `DEV_ORIGIN` alone can't admit a staging origin)
 
 ## Architecture
 
@@ -72,6 +72,8 @@ Key tables and their status enums:
 - `subscription_plan_courses` — join table (`planId`, `mainLessonId` composite PK) mapping each plan to the specific courses it grants access to; this is a per-course entitlement model, not a tiered comparison
 - `analytics` — tracks per-lesson/quiz `completions` and `averageScore`; populated via `DatabaseStorage` in `server/storage.ts`
 - `blacklist` — JWT blacklist with `expiredAt`; purged every 10 minutes by node-cron
+- `quiz_attempts` — one row per `(userId, quizId)` (unique constraint), upserted on retake; `score`/`total`/`completedAt`. Final-state only — a quiz is graded client-side in one pass, so there's no partial attempt to persist
+- `lesson_completions` — one row per `(userId, lessonId)` (unique constraint), upserted; `mainLessonId`, `completedAt`
 - `debug_logs` — end-to-end trace log, `traceId` (matches the `X-Correlation-ID` header set by `correlationMiddleware`), `source: "server" | "mobile"`, `level: "debug" | "info" | "warn" | "error"`; written server-side via `server/utils/trace-logger.ts` and by the mobile app via `POST /api/v1/debug-logs` (`khmerlesson-app/src/shared/utils/logger.ts`) — query by `traceId` to reconstruct one request across both sides. Queried from the dashboard side via the admin-only `debug-logs` feature module (see below)
 
 ### Auth
@@ -80,6 +82,7 @@ Dual-client auth supporting both the admin dashboard (cookies) and a mobile app 
 
 - **`server/auth/token/token-service.ts`** — single source of truth for JWT generation, token TTLs (access: 15m dev / 1d prod; refresh: 1h dev / 7d prod), and cookie configuration
 - **`server/auth/middleware/authenticate.ts`** — centralised `authenticateToken` middleware; reads access token from `cookie.token` OR `Authorization: Bearer`; reads refresh token from `cookie.refreshToken` OR `req.body.refreshToken`; auto-refreshes for cookie-based clients only. Which `/api/v1` prefixes are semi-public (unauthenticated requests pass through with `req.user` undefined instead of a 401) is a hardcoded list, `SEMI_PUBLIC_PREFIXES`, inside this file — update it when adding a new route that should be publicly readable but personalized when logged in
+  - On a semi-public route, a token that fails verification or is blacklisted does **not** 401 — the request falls through anonymously (backward-compatible with the released app, which has no retry logic) and sets `req.tokenInvalid = true`. `GET /api/v1/main-lessons` (`server/api.ts`) turns that into an `X-Token-Status: invalid` response header so a client that knows to look (mobile `apiFetch`, `src/services/api.ts`) can retry after refreshing instead of trusting a stale anonymous `hasAccess`.
 - **`server/auth/middleware/correlation.ts`** — `correlationMiddleware`, mounted before everything else in `routes.ts`; stamps each request with an `X-Correlation-ID` (reused from the incoming header if the client already set one) that `debug_logs.traceId` and `server/utils/trace-logger.ts` key off of
 - Logout adds the access token to the `blacklist` table; a node-cron job purges expired entries every 10 minutes
 - Auth routes live under `server/auth/<flow>/route.ts` (no controller layer — logic is inline in the route file)
@@ -96,7 +99,7 @@ server/features/<domain>/
 
 Feature routes are mounted in `server/routes.ts` and all require `authenticateToken`.
 
-Current features: `main-lessons`, `lessons`, `lesson-types`, `quizzes`, `users`, `subscriptions`, `subscription-plans`, `export`, `import`, `debug-logs`.
+Current features: `main-lessons`, `lessons`, `lesson-types`, `quizzes`, `users`, `subscriptions`, `subscription-plans`, `export`, `import`, `debug-logs`, `progress`.
 
 The `export` feature streams lessons/quizzes as downloadable JSON (`GET /api/export/lessons`, `GET /api/export/quizzes`). The `import` feature validates against Zod insert schemas before bulk-inserting (`POST /api/import/lessons`, `POST /api/import/quizzes`). The `debug-logs` feature exposes an admin-only `GET /api/debug-logs` for querying the `debug_logs` table (filterable by `traceId`/`level`/`source`, paginated via `limit`/`offset`) — distinct from the mobile-facing `POST /api/v1/debug-logs` ingestion endpoint below.
 
@@ -124,6 +127,9 @@ Key endpoints (routes with a path-param sibling, e.g. `/quizzes/all` vs `/quizze
 - `GET /api/v1/stats` — public dashboard-lite counts (lessons/quizzes/active+trial subscriptions)
 - `GET /api/v1/search?q=&type=` — case-insensitive substring search over lesson/quiz title+description
 - `GET /api/v1/me` — mobile equivalent of `/api/me`, strips `password`/`resetToken`/`registrationType`
+- `DELETE /api/v1/me` — self-service account deletion, scoped to `req.user.id` (never a client-supplied id); required by Google Play's account-deletion policy. Distinct from the admin-only `DELETE /api/users/:id`. Blacklists the token used, same as logout
+- `GET /api/v1/progress` — returns `{ quizAttempts, lessonCompletions }` for the current user; the mobile app calls this on session restore/login to merge cloud progress into its local stores (see `khmerlesson-app/src/features/progress/service.ts`)
+- `POST /api/v1/quiz-progress` / `POST /api/v1/lesson-progress` — upsert one quiz attempt / lesson completion for the current user (`server/features/progress/controller/controller.ts`), keyed on the `quiz_attempts`/`lesson_completions` unique constraints above
 
 Quiz passing grade is 70% (`PASSING_GRADE_PERCENT` in `server/api.ts`).
 
@@ -152,9 +158,7 @@ Quiz passing grade is 70% (`PASSING_GRADE_PERCENT` in `server/api.ts`).
 
 ### CORS
 
-In production, allowed origins are `https://cambodianlesson.netlify.app` and `https://khmerlessons.app` (`server/routes.ts`). Update this list when the frontend domain changes.
-
-In development, allowed origins include `localhost:3000`, `localhost:5001`, `localhost:5000`, `localhost:8081`, and `DEV_ORIGIN` if set.
+`server/utils/cors-origins.ts` (`buildAllowedOrigins`, unit-tested by the one file `npm test` runs) builds the allow-list; `server/routes.ts` wires it into the `cors()` middleware. Base origins: `https://cambodianlesson.netlify.app` and `https://khmerlessons.app` in production, or `localhost:3000`/`5001`/`5000`/`8081` in development. The `ALLOWED_ORIGINS` env var (comma-separated) is appended in **both** modes — added because DigitalOcean staging runs with `NODE_ENV=production`, so the dev-only `DEV_ORIGIN` had no way to admit a staging origin.
 
 ### Client
 
