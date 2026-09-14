@@ -22,8 +22,12 @@ router.post("/refresh-token", (req, res) => {
           }
           return res.status(401).json({ message: "Invalid refresh token.", code: "INVALID_TOKEN" })
         }
-        // Only embed minimal payload into the new tokens
-        const payload = { id: decoded.id, email: decoded.email }
+        // Only embed minimal payload into the new tokens. `role` must be
+        // carried over: every other issuer (login/register/google, and the
+        // cookie auto-refresh in authenticate.ts) includes it, and
+        // requireAdmin reads it straight from the JWT — dropping it here
+        // silently demoted anyone whose session went through this route.
+        const payload = { id: decoded.id, email: decoded.email, role: decoded.role }
         const result = generateTokenPair(payload)
         // `accessToken` is the field the mobile client reads
         // (khmerlesson-app authStore.refreshTokens). `token` is kept for
