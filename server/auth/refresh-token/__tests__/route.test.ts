@@ -64,6 +64,25 @@ test("valid refresh token also rotates the refresh token", async () => {
   assert.equal(decoded.id, user.id);
 });
 
+test("role claim survives a refresh, in both the new access token and the rotated refresh token", async () => {
+  const admin = { ...user, role: "admin" };
+  const rt = jwt.sign(admin, process.env.REFRESH_TOKEN_SECRET!, { expiresIn: "1h" });
+  const { body } = await refresh(rt);
+
+  const access = jwt.verify(body.accessToken, process.env.TOKEN_SECRET!) as Record<string, unknown>;
+  const rotated = jwt.verify(body.refreshToken, process.env.REFRESH_TOKEN_SECRET!) as Record<string, unknown>;
+  assert.equal(access.role, "admin", "access token lost its role — requireAdmin would 403 after refresh");
+  assert.equal(rotated.role, "admin", "rotated refresh token must keep role or the NEXT refresh loses it");
+});
+
+test("a refresh token without a role (issued before the role fix) still refreshes, with no role claim", async () => {
+  const rt = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET!, { expiresIn: "1h" });
+  const { status, body } = await refresh(rt);
+  assert.equal(status, 200);
+  const access = jwt.verify(body.accessToken, process.env.TOKEN_SECRET!) as Record<string, unknown>;
+  assert.equal("role" in access, false);
+});
+
 test("expired refresh token → 401 REFRESH_EXPIRED (unchanged failure behavior)", async () => {
   const rt = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET!, { expiresIn: "-10s" });
   const { status, body } = await refresh(rt);

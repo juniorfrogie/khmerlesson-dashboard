@@ -11,7 +11,7 @@ npm start          # Run production build: node dist/index.js
 npm run check      # TypeScript type-check (no emit)
 npm run db:push    # Push Drizzle schema to the database (dev — destructive on conflict)
 npm run db:migrate # Generate and apply Drizzle migrations (safer for prod)
-npm test           # Runs server/utils/__tests__/cors-origins.test.ts via `tsx --test` — the only test file that exists
+npm test           # Runs server/**/__tests__/*.test.ts via `tsx --test` (node:test; no jest/vitest installed)
 ```
 
 ## Environment Variables
