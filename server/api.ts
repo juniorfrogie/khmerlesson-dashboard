@@ -290,6 +290,17 @@ router.get("/quizzes", async (req: any, res: Response) => {
           };
         })
     );
+    // A presented Bearer token that failed verification falls through as
+    // anonymous here (authenticate.ts), so every paid course's quiz comes
+    // back hasAccess:false — indistinguishable from a real guest. Signal the
+    // stale token the same way GET /main-lessons does, so the client
+    // (api.ts) refreshes and retries instead of caching a wrongly-locked
+    // list. Without this, a returning subscriber whose access token has
+    // expired sees Course 2/3 quizzes locked even though their lessons open
+    // (those hard-401 with TOKEN_EXPIRED and self-heal; this list did not).
+    if (req.tokenInvalid) {
+      res.set('X-Token-Status', 'invalid');
+    }
     res.json(ok(activeQuizzes, activeQuizzes.length));
   } catch (error) {
     logRouteError(req, error, 'Failed to fetch quizzes');
@@ -319,6 +330,9 @@ router.get("/quizzes/all", async (req: any, res: Response) => {
           };
         })
     );
+    if (req.tokenInvalid) {
+      res.set('X-Token-Status', 'invalid');
+    }
     res.json(ok(mapped, mapped.length));
   } catch (error) {
     logRouteError(req, error, 'Failed to fetch quizzes');
