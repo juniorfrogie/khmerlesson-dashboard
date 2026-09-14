@@ -25,8 +25,15 @@ router.post("/refresh-token", (req, res) => {
         // Only embed minimal payload into the new tokens
         const payload = { id: decoded.id, email: decoded.email }
         const result = generateTokenPair(payload)
+        // `accessToken` is the field the mobile client reads
+        // (khmerlesson-app authStore.refreshTokens). `token` is kept for
+        // any consumer built against the login/register routes' shape —
+        // both carry the same newly issued access token. Every shipped app
+        // build read `accessToken` and got undefined here, which bricked
+        // the session ~1 day after login once the access token expired.
         return res.status(200).json({
           token: result.token,
+          accessToken: result.token,
           refreshToken: result.refreshToken
         })
       })
